@@ -12,7 +12,7 @@ type ChatMessageType = {
 };
 
 type ActiveModelType = {
-  thread_id?: string;
+  thread_id: string;
   model: 'qwen2.5:3b' | 'gpt-4.1-nano';
   provider: 'ollama' | 'openai';
   api_key?: string;
@@ -67,7 +67,7 @@ export function ChatHistoryContextProvider({
   const controllerRef = useRef<AbortController | null>(null);
 
   const chatManager = useRef<
-    Record<string, { thread_id?: string; messages: ChatMessageType[] }>
+    Record<string, { thread_id: string; messages: ChatMessageType[] }>
   >({}); // Almacena el historial de mensajes
 
   useEffect(() => {

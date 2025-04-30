@@ -1,6 +1,5 @@
 import { type JSX, useState } from 'react';
 import { Menu } from 'lucide-react';
-import { useChatHistoryContext } from '../context/ChatHistoryContext';
 import { SidebarItem } from './SidebarItem';
 import OpenAILogo from '../assets/OpenAILogo.svg?react';
 import OllamaLogo from '../assets/OllamaLogo.svg?react';
@@ -34,7 +33,7 @@ const navItems: NavType = [
 ];
 
 export function Sidebar() {
-  const [isBarOpen, setIsBarOpen] = useState(true);
+  const [isBarOpen, setIsBarOpen] = useState(false);
   return (
     <div
       className={`${

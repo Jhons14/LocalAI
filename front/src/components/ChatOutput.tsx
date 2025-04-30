@@ -126,7 +126,10 @@ function UserMessageOutput({
         </div>
         <button
           className='cursor-pointer hover:scale-110 transition-transform duration-200 my-1'
-          onClick={() => setIsEditingId(msg.id)}
+          onClick={(e) => {
+            setIsEditingId(msg.id);
+          }}
+          type='button'
         >
           <MdEdit className='hover:fill-amber-50 text-gray-500' size={20} />
         </button>
