@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { MdSend } from 'react-icons/md';
-import { useChatHistoryContext } from '@/context/ChatHistoryContext';
+import { useChatHistoryContext } from '@/hooks/useChatHistoryContext'; // Asegúrate de que la ruta sea correcta
 
 export function ChatInput({ thread_id }: { thread_id: string }) {
   const { sendMessage } = useChatHistoryContext(); // Obtener la función sendMessage del contexto

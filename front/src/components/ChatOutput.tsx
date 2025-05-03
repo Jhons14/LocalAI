@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRef, useState, useEffect, use } from 'react';
 import { MdEdit, MdSend, MdClose } from 'react-icons/md';
 import { marked } from 'marked';
-import { useChatHistoryContext } from '../context/ChatHistoryContext'; // Asegúrate de que la ruta sea correcta
+import { useChatHistoryContext } from '@/hooks/useChatHistoryContext'; // Asegúrate de que la ruta sea correcta
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js';
 

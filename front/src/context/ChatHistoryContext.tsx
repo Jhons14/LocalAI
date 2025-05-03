@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useRef, useContext } from 'react';
+import { createContext, useState, useEffect, useRef } from 'react';
 import { v4 as uuid } from 'uuid';
 
 type ChatMessageType = {
@@ -35,32 +35,29 @@ export type ChatHistoryContextType = {
     api_key?: ActiveModelType['api_key'];
   }) => Promise<void>;
   isModelConnected: boolean;
+  isApiKeySaved: boolean;
+  setIsApiKeySaved: (isApiKeySaved: boolean) => void;
 };
 
-const ChatHistoryContext = createContext<ChatHistoryContextType | undefined>(
-  undefined
-);
-
-export function useChatHistoryContext() {
-  const context = useContext(ChatHistoryContext);
-
-  if (!context) {
-    throw new Error('useChatHistoryContext must be used within a MyProvider');
-  }
-  return context;
-}
+export const ChatHistoryContext = createContext<
+  ChatHistoryContextType | undefined
+>(undefined);
 
 export function ChatHistoryContextProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [isApiKeySaved, setIsApiKeySaved] = useState<boolean>(false);
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
-  const [activeModel, setActiveModel] = useState<ActiveModelType>({
-    model: 'qwen2.5:3b',
-    provider: 'ollama',
-    thread_id: uuid(),
-  });
+  const [activeModel, setActiveModel] = useState<ActiveModelType>({});
+
+  useEffect(() => {
+    configureModel({
+      model: activeModel.model,
+      provider: activeModel.provider,
+    });
+  }, []);
 
   const [isModelConnected, setIsModelConnected] = useState<boolean>(false);
 
@@ -69,13 +66,6 @@ export function ChatHistoryContextProvider({
   const chatManager = useRef<
     Record<string, { thread_id: string; messages: ChatMessageType[] }>
   >({}); // Almacena el historial de mensajes
-
-  useEffect(() => {
-    configureModel({
-      model: activeModel.model,
-      provider: activeModel.provider,
-    });
-  }, []);
 
   useEffect(() => {
     if (activeModel.model) {
@@ -100,21 +90,33 @@ export function ChatHistoryContextProvider({
     provider,
     api_key,
   }: {
-    model: string;
-    provider: string;
-    api_key?: string;
+    model: ActiveModelType['model'];
+    provider: ActiveModelType['provider'];
+    api_key?: ActiveModelType['api_key'];
   }) => {
-    if (!model || !provider) {
-      console.error('Please select a model');
-      return;
-    }
+    await fetch('http://127.0.0.1:8000/keys', {
+      method: 'get',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }).then(async (res) => {
+      if (!res.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const keys = await res.json();
+
+      setIsApiKeySaved(provider in keys ? true : false);
+    });
+
     if (model in chatManager.current) {
-      console.log('Model already configured');
-      setActiveModel((prev) => ({
-        ...prev,
-        thread_id: chatManager.current[model].thread_id,
-      })); // Generar un nuevo thread_id
-      setIsModelConnected(true); // Resetear el estado de conexión
+      setMessages(chatManager.current[model].messages); // Cargar el historial de mensajes del modelo activo
+
+      setActiveModel({
+        model: model,
+        provider: provider,
+        thread_id:
+          chatManager.current[model].thread_id || activeModel.thread_id,
+      }); // Actualizar el modelo activo y el thread_id
       return;
     }
 
@@ -132,6 +134,7 @@ export function ChatHistoryContextProvider({
       headers: { 'Content-Type': 'application/json' },
       // signal: controller.signal,
     });
+    setActiveModel({ model, provider, thread_id }); // Actualizar el modelo activo y el thread_id
 
     if (!res.ok) {
       switch (res.status) {
@@ -151,10 +154,8 @@ export function ChatHistoryContextProvider({
       }
       return;
     }
-    setActiveModel((prev) => ({ ...prev, thread_id })); // Actualizar el modelo activo y el thread_id
-    chatManager.current[activeModel.model] = {
-      ...chatManager.current[activeModel.model],
-      thread_id: thread_id,
+    chatManager.current[model] = {
+      thread_id,
       messages: [], // Reiniciar el historial de mensajes al cambiar de modelo
     }; // Actualizar el historial de mensajes en el chatManager
 
@@ -169,9 +170,8 @@ export function ChatHistoryContextProvider({
     thread_id: string;
     content: string;
   }) => {
-    if (!activeModel) {
-      alert('Please select a model');
-      return;
+    if (!thread_id) {
+      throw new Error('Please select a model');
     }
 
     const id = uuid();
@@ -385,6 +385,8 @@ export function ChatHistoryContextProvider({
         setActiveModel,
         configureModel,
         isModelConnected,
+        isApiKeySaved,
+        setIsApiKeySaved,
       }}
     >
       {children}
