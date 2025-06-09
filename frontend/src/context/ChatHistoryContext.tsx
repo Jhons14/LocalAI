@@ -48,6 +48,7 @@ export function ChatHistoryContextProvider({
 }: {
   children: React.ReactNode;
 }) {
+  const BACKEND_URL = 'http://127.0.0.1:8000';
   const [isApiKeySaved, setIsApiKeySaved] = useState<boolean>(false);
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [activeModel, setActiveModel] = useState<ActiveModelType>({
@@ -98,7 +99,7 @@ export function ChatHistoryContextProvider({
     provider: ActiveModelType['provider'];
     api_key?: ActiveModelType['api_key'];
   }) => {
-    await fetch('http://127.0.0.1:8000/keys', {
+    await fetch(BACKEND_URL + '/keys', {
       method: 'get',
       headers: {
         'Content-Type': 'application/json',
@@ -136,7 +137,7 @@ export function ChatHistoryContextProvider({
     setIsModelConnected(false); // Resetear el estado de conexión
     setActiveModel({ model, provider, thread_id }); // Actualizar el modelo activo y el thread_id
 
-    const res = await fetch(`http://127.0.0.1:8000/configure`, {
+    const res = await fetch(`${BACKEND_URL}/configure`, {
       method: 'POST',
       body: JSON.stringify({ thread_id, model, provider, api_key }),
       headers: { 'Content-Type': 'application/json' },
@@ -198,10 +199,12 @@ export function ChatHistoryContextProvider({
     controllerRef.current = controller;
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/chat', {
+      const res = await fetch(BACKEND_URL + '/chat', {
         method: 'POST',
         body: JSON.stringify({ prompt: content, thread_id: thread_id }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         // signal: controller.signal,
       });
 
@@ -312,7 +315,7 @@ export function ChatHistoryContextProvider({
     const controller = new AbortController();
     controllerRef.current = controller;
     try {
-      const res = await fetch('http://127.0.0.1:8000/chat', {
+      const res = await fetch(BACKEND_URL + '/chat', {
         method: 'POST',
         body: JSON.stringify({ prompt: newContent, thread_id: thread_id }),
         headers: { 'Content-Type': 'application/json' },
@@ -338,13 +341,11 @@ export function ChatHistoryContextProvider({
       const decoder = new TextDecoder();
 
       if (!reader) throw new Error('No reader available');
-      let chunksArray = [];
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         const chunk = decoder.decode(value, { stream: true });
-        chunksArray.push(chunk); // Almacenar el chunk en el array
 
         setMessages((prev) =>
           prev.map((msg) =>

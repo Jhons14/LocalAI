@@ -8,7 +8,7 @@ type SubItemType = {
   api_key?: string;
 };
 
-type ItemType = {
+type NavItemType = {
   name: string;
   icon: JSX.Element;
   subItems?: SubItemType[];
@@ -16,20 +16,21 @@ type ItemType = {
 
 export function SidebarItem({
   item,
+  index,
   isBarOpen,
   setIsBarOpen,
   isItemOpen,
   setIsItemOpen,
-  choosedNavItem,
-  setChoosedNavItem,
+  selectedIndex,
+  setSelectedIndex,
 }: {
-  item: ItemType;
+  item: NavItemType;
+  index;
   isBarOpen: boolean;
   setIsBarOpen: (isBarOpen: boolean) => void;
   isItemOpen: boolean;
   setIsItemOpen: (isBarOpen: boolean) => void;
-  choosedNavItem?: ItemType;
-  setChoosedNavItem: (choosedNavItem?: ItemType) => void;
+  setSelectedIndex: (index: string) => void;
 }) {
   useEffect(() => {
     if (!isBarOpen) {
@@ -40,16 +41,12 @@ export function SidebarItem({
   return (
     <button
       className={`${
-        choosedNavItem === item && 'bg-gray-800'
+        index === selectedIndex && 'bg-gray-800'
       } flex items-center gap-2 p-4 hover:bg-gray-800 w-full cursor-pointer`}
       type='button'
       onClick={() => {
         setIsBarOpen(true);
-        if (choosedNavItem === item) {
-          setIsItemOpen(!isItemOpen);
-          return;
-        }
-        setIsItemOpen(true), setChoosedNavItem(item);
+        setIsItemOpen(true), setSelectedIndex(index);
       }}
     >
       <div>{item.icon}</div>

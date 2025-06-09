@@ -1,0 +1,15 @@
+fastapi[standard]==0.115.12
+
+# LangChain y herramientas relacionadas
+langchain-core
+langchain-ollama
+langchain-openai
+langsmith             # si usas trazas o monitorización
+langgraph             # si usas workflows con LangGraph
+
+
+
+# Extras opcionales útiles
+python-dotenv         # si usas archivos .env
+openai                # si usas modelos de OpenAI
+pydantic              # por si defines modelos directamente

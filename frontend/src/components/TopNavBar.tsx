@@ -7,9 +7,9 @@ export function TopNavBar() {
   const { activeModel, isModelConnected, isApiKeySaved, configureModel } =
     useChatHistoryContext();
   const [showApikeyMenu, setShowApikeyMenu] = useState<boolean>(false);
-
+  const BACKEND_URL = 'http://127.0.0.1:8000';
   return (
-    <div className='flex justify-between items-center gap-4 py-1 px-8 border-b border-gray-500 h-max '>
+    <div className='flex justify-between items-center gap-4 px-8 border-b border-gray-500 h-20'>
       <h1 className='text-xl font-bold'>
         {activeModel.model || 'Select a model to start...'}
       </h1>
@@ -34,7 +34,7 @@ export function TopNavBar() {
               }`}
               onClick={async () => {
                 await fetch(
-                  `http://127.0.0.1:8000/keys/${activeModel.provider}/${activeModel.model}`,
+                  `${BACKEND_URL}/keys/${activeModel.provider}/${activeModel.model}`,
                   {
                     method: 'delete',
                     headers: {
@@ -58,13 +58,14 @@ export function TopNavBar() {
 }
 
 function ApiKeyInput({ model, provider }: { model: string; provider: string }) {
+  const BACKEND_URL = 'http://127.0.0.1:8000';
   const [show, setShow] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [inputError, setInputError] = useState('');
   const { setIsApiKeySaved } = useChatHistoryContext();
 
   const saveKeys = () => {
-    fetch('http://127.0.0.1:8000/keys/validate-keys', {
+    fetch(BACKEND_URL + '/keys/validate-keys', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -76,7 +77,7 @@ function ApiKeyInput({ model, provider }: { model: string; provider: string }) {
         setInputError('Invalid ' + provider + ' apikey');
         throw new Error(jsonRes.detail);
       }
-      fetch('http://127.0.0.1:8000/keys', {
+      fetch(BACKEND_URL + '/keys', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -87,7 +88,7 @@ function ApiKeyInput({ model, provider }: { model: string; provider: string }) {
           if (!response.ok) {
             throw new Error('Network response was not ok');
           }
-          await fetch('http://127.0.0.1:8000/keys', {
+          await fetch(BACKEND_URL + '/keys', {
             method: 'get',
             headers: {
               'Content-Type': 'application/json',
@@ -101,9 +102,6 @@ function ApiKeyInput({ model, provider }: { model: string; provider: string }) {
             setIsApiKeySaved(provider in keys ? true : false);
           });
           return response.json();
-        })
-        .then((data) => {
-          console.log('Success:', data);
         })
         .catch((error) => {
           console.error('Error:', error);

@@ -12,30 +12,37 @@ export function ChatOutput({ thread_id }: { thread_id: string }) {
   const { messages } = useChatHistoryContext(); // Obtener la función sendMessage del contexto
 
   return (
-    <div className='flex-1 overflow-y-auto bar px-4 py-4 space-y-4 pb-28 no-scrollbar'>
-      <AnimatePresence>
-        {messages.map((msg) => {
-          return (
-            <motion.div
-              key={msg.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 1 }}
-              transition={{ duration: 1 }}
-            >
-              {msg.role === 'assistant' ? (
-                <AssistantMessageOutput key={msg.id} content={msg.content} />
-              ) : (
-                <UserMessageOutput
+    <div className='flex-1  overflow-y-auto '>
+      <div className='flex justify-center'>
+        <div className='w-full max-w-[600px] px-4 py-2 space-y-2'>
+          <AnimatePresence>
+            {messages.map((msg) => {
+              return (
+                <motion.div
                   key={msg.id}
-                  msg={msg}
-                  thread_id={thread_id}
-                />
-              )}
-            </motion.div>
-          );
-        })}
-      </AnimatePresence>
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 1 }}
+                  transition={{ duration: 1 }}
+                >
+                  {msg.role === 'assistant' ? (
+                    <AssistantMessageOutput
+                      key={msg.id}
+                      content={msg.content}
+                    />
+                  ) : (
+                    <UserMessageOutput
+                      key={msg.id}
+                      msg={msg}
+                      thread_id={thread_id}
+                    />
+                  )}
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </div>
+      </div>
     </div>
   );
 }
@@ -61,10 +68,10 @@ function AssistantMessageOutput({ content }: { content?: string }) {
   }, [content]);
 
   return (
-    <div>
+    <div className='flex-1 overflow-y-auto'>
       <div
         ref={containerRef}
-        className={`flex flex-col text-sm leading-relaxed px-4 py-2 rounded-2xl`}
+        className={`flex-1 flex-col text-sm leading-relaxed px-4 py-2 rounded-2xl overflow-y-auto`}
       />
       <div ref={bottomRef} />
     </div>
@@ -87,7 +94,7 @@ function UserMessageOutput({
   const editMsgTextAreaRef = useRef<HTMLTextAreaElement>(null); // Crear una referencia al input
   if (msg.id === isEditingId) {
     return (
-      <div className='flex flex-col items-end'>
+      <div className='flex-1  flex flex-col items-end'>
         <textarea
           ref={editMsgTextAreaRef}
           className='focus:outline-0 resize-none text-sm leading-relaxed px-4 py-2 rounded-2xl text-white w-[200px] bg-gray-500/50'
@@ -126,7 +133,7 @@ function UserMessageOutput({
         </div>
         <button
           className='cursor-pointer hover:scale-110 transition-transform duration-200 my-1'
-          onClick={(e) => {
+          onClick={() => {
             setIsEditingId(msg.id);
           }}
           type='button'

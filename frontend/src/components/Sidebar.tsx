@@ -1,4 +1,4 @@
-import { type JSX, useState } from 'react';
+import { type JSX, useEffect, useMemo, useState } from 'react';
 import { Menu } from 'lucide-react';
 import { SidebarItem } from './SidebarItem';
 import OpenAILogo from '../assets/OpenAILogo.svg?react';
@@ -8,49 +8,59 @@ import { useChatHistoryContext } from '@/hooks/useChatHistoryContext'; // Asegú
 type NavType = {
   name: string;
   icon: JSX.Element;
-  subItems?: {
-    title: string;
-    model: 'qwen2.5:3b' | 'gpt-4.1-nano';
-    provider: 'ollama' | 'openai';
-    api_key?: string;
-  }[];
-}[];
-type ItemType = {
-  name: string;
-  icon: JSX.Element;
   subItems?: SubItemType[];
-};
+}[];
+
 type SubItemType = {
   title: string;
   model: 'qwen2.5:3b' | 'gpt-4.1-nano';
   provider: 'ollama' | 'openai';
   api_key?: string;
 };
-const navItems: NavType = [
-  {
-    name: 'Ollama',
-    icon: <OllamaLogo className='w-6 h-6  fill-white' />,
-    subItems: [
-      { title: 'qwen2.5:3b', model: 'qwen2.5:3b', provider: 'ollama' },
-    ],
-  },
-  {
-    name: 'OpenAI',
-    icon: <OpenAILogo className='w-6 h-6 fill-white' />,
-    subItems: [
-      { title: 'gpt-4.1-nano', model: 'gpt-4.1-nano', provider: 'openai' },
-    ],
-  },
-];
 
 export function Sidebar() {
   const [isBarOpen, setIsBarOpen] = useState(false);
   const [isItemOpen, setIsItemOpen] = useState(false);
+  const [ollamaSubItems, setOllamaSubItems] = useState([]); // Obtener la función sendMessage del contexto
+  const [selectedIndex, setSelectedIndex] = useState<string>();
   const { activeModel, configureModel } = useChatHistoryContext(); // Obtener la función sendMessage del contexto
 
-  const [choosedNavItem, setChoosedNavItem] = useState<ItemType | undefined>(
-    undefined
+  useEffect(() => {
+    const loadModels = async () => {
+      const tempOllamaSubItems = [];
+      const res = await fetch('http://localhost:8000/getModels');
+      const parsedRes = await res.json();
+
+      parsedRes.forEach((model: string) => {
+        tempOllamaSubItems.push({
+          title: model,
+          model: model,
+          provider: 'ollama',
+        });
+      });
+      setOllamaSubItems(tempOllamaSubItems);
+    };
+    loadModels();
+  }, []);
+
+  const navItems = useMemo<NavType>(
+    () => [
+      {
+        name: 'Ollama',
+        icon: <OllamaLogo className='w-6 h-6  fill-white' />,
+        subItems: ollamaSubItems,
+      },
+      {
+        name: 'OpenAI',
+        icon: <OpenAILogo className='w-6 h-6 fill-white' />,
+        subItems: [
+          { title: 'gpt-4.1-nano', model: 'gpt-4.1-nano', provider: 'openai' },
+        ],
+      },
+    ],
+    [ollamaSubItems]
   );
+  const choosedNavItem = navItems[selectedIndex];
 
   const handleClick = ({
     model,
@@ -89,16 +99,17 @@ export function Sidebar() {
             !isBarOpen ? 'w-14' : 'w-32'
           } h-full bg-gray-900 text-white transition-all duration-400 flex-1`}
         >
-          {navItems.map((item) => (
+          {navItems.map((item, index) => (
             <SidebarItem
               key={item.name}
+              index={index}
               item={item}
               isBarOpen={isBarOpen}
               setIsBarOpen={setIsBarOpen}
               isItemOpen={isItemOpen}
               setIsItemOpen={setIsItemOpen}
-              setChoosedNavItem={setChoosedNavItem}
-              choosedNavItem={choosedNavItem}
+              selectedIndex={selectedIndex}
+              setSelectedIndex={setSelectedIndex}
             />
           ))}
         </nav>

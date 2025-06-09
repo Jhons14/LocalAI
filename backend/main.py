@@ -1,7 +1,9 @@
 
+import json
+import requests
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from starlette.responses import StreamingResponse
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage
@@ -11,9 +13,10 @@ from pydantic import BaseModel
 from fastapi import HTTPException
 from dotenv import load_dotenv
 from typing import Any
+import openai
 from openai import AuthenticationError
 from pathlib import Path
-import json
+
 
 load_dotenv()
 
@@ -25,6 +28,7 @@ origins = [
 ]
 
 app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -82,32 +86,22 @@ def delete_key(provider: str, model: str):
         return {"status": "deleted"}
     raise HTTPException(status_code=404, detail="Key not found")
 
+class ValidateKeyPayload(BaseModel):
+    apiKey: str
 
-async def generate_response(thread_id,input_messages, config):
-    # Call the workflow with the input messages and config    
-    workflow_app = workflow_store[thread_id]
-    buffer = "" 
+@app.post('/keys/validate-keys')
+def validateKeys (payload:ValidateKeyPayload):
+    openai.api_key = payload.apiKey
+    print(payload.apiKey)
     try:
-        for chunk, metadata in workflow_app.stream(
-            {"messages": input_messages},
-            config,
-            # highlight-next-line
-            stream_mode="messages",
-        ):
-            if isinstance(chunk, AIMessage):  # Filter to just model responses
-                buffer += chunk.content
-                yield buffer
-                buffer = ""  # Reset buffer after sending a complete message
-                
-        if buffer:
-            yield buffer
-            buffer = ""  # Reset buffer after sending a complete message
+        openai.models.list()
+        return {'Valid': True}
     except AuthenticationError as e:
-        print(e)
-        yield f"[ERROR] Error de OpenAI: {e}"
+        raise HTTPException(status_code=404, detail=f'[APIKEY_ERROR]: {str(e)}')
     except Exception as e:
-        yield f"[ERROR] Error interno del servidor: {e}"            
-            
+        raise HTTPException(status_code=500, detail=f'Unexpected error:{str(e)}')
+
+
 class ConfigRequest(BaseModel):
     thread_id: str
     model: str  # 'gpt-4o' o 'qwen2.5:3b'
@@ -117,7 +111,7 @@ class ConfigRequest(BaseModel):
 def configure_model(config: ConfigRequest):
     # Obtener o crear memoria por thread
     memory = memory_store.setdefault(config.thread_id, MemorySaver())
-
+    
     # # Crear modelo dinámicamente
     if config.provider == "openai":
         keys = load_keys()
@@ -139,37 +133,42 @@ def configure_model(config: ConfigRequest):
             # other params...
         )
         
-    elif config.provider == "ollama":
+    if config.provider == "ollama":
+        
         model = ChatOllama(
             model = config.model,
-            temperature = 0.8,
-            num_predict = 1024,
+            streaming=True
             # other params ...
-        )
+        )   
         
     else:
         raise HTTPException(400, detail="Proveedor no soportado")
-
     # Crear el workflow con ese modelo
     def call_model(state: dict):
         return {"messages": model.invoke(state["messages"])}
-
+    
     workflow = StateGraph(state_schema=MessagesState)
     workflow.add_node("model", call_model)
     workflow.add_edge(START, "model")
     workflow_app = workflow.compile(checkpointer=memory)
-
     # # Guardarlo en memoria
     workflow_store[config.thread_id] = workflow_app
-
     return {"message": f"Workflow configurado para {config.thread_id}"}
 
+@app.get("/getModels")
+def get_ollama_models():
+    response = requests.get("http://localhost:11434/api/tags")
+    models = response.json()["models"]
+
+    modelNames = []
+    for model in models:
+        modelNames.append(model["name"])
+    return modelNames
 
 
 class ChatRequest(BaseModel):
     thread_id: str
-    prompt: str    
-                  
+    prompt: str                      
 @app.post("/chat")
 async def chat_model(request: ChatRequest):
     config = {"configurable": {"thread_id": request.thread_id}}
@@ -183,5 +182,27 @@ async def chat_model(request: ChatRequest):
 
     return StreamingResponse(
         generate_response(request.thread_id,input_messages, config), 
-        media_type="text/plain"
+        media_type="text/event-stream",
     )
+    
+def generate_response(thread_id,input_messages, config):
+    # Call the workflow with the input messages and config    
+    workflow_app = workflow_store[thread_id]
+    buffer = "" 
+    try:
+        for chunk, metadata in workflow_app.stream(
+            {"messages": input_messages},
+            config,
+            # highlight-next-line
+            stream_mode="messages",
+        ):
+            if isinstance(chunk, AIMessage):  # Filter to just model responses
+                yield chunk.content
+                
+        if buffer:
+            yield buffer
+            buffer = ""  # Reset buffer after sending a complete message
+    except AuthenticationError as e:
+        yield f"[ERROR] Error de OpenAI: {e}"
+    except Exception as e:
+        yield f"[ERROR] Error interno del servidor: {e}"    
