@@ -133,7 +133,7 @@ def configure_model(config: ConfigRequest):
             # other params...
         )
         
-    if config.provider == "ollama":
+    elif config.provider == "ollama":
         
         model = ChatOllama(
             model = config.model,
