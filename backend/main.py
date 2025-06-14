@@ -137,7 +137,8 @@ def configure_model(config: ConfigRequest):
         
         model = ChatOllama(
             model = config.model,
-            streaming=True
+            streaming=True,
+            base_url='https://2f74-186-28-134-125.ngrok-free.app'
             # other params ...
         )   
         
