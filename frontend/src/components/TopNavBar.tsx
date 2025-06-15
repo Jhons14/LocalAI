@@ -7,7 +7,7 @@ export function TopNavBar() {
   const { activeModel, isModelConnected, isApiKeySaved, configureModel } =
     useChatHistoryContext();
   const [showApikeyMenu, setShowApikeyMenu] = useState<boolean>(false);
-  const BACKEND_URL = 'http://127.0.0.1:8000';
+  const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
 
   return (
     <div className='flex justify-between items-center gap-4 px-8 border-b border-gray-500 h-20'>
@@ -59,7 +59,7 @@ export function TopNavBar() {
 }
 
 function ApiKeyInput({ model, provider }: { model: string; provider: string }) {
-  const BACKEND_URL = 'http://127.0.0.1:8000';
+  const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
   const [show, setShow] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [inputError, setInputError] = useState('');

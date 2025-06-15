@@ -19,6 +19,8 @@ type SubItemType = {
 };
 
 export function Sidebar() {
+  const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL; // Asegúrate de que la ruta sea correcta
+
   const [isBarOpen, setIsBarOpen] = useState(false);
   const [isItemOpen, setIsItemOpen] = useState(false);
   const [ollamaSubItems, setOllamaSubItems] = useState<Array<SubItemType>>([]); // Obtener la función sendMessage del contexto
@@ -58,7 +60,7 @@ export function Sidebar() {
       setError(null);
 
       try {
-        const res = await fetch('http://localhost:8000/getModels', { signal });
+        const res = await fetch(BACKEND_URL + '/getModels', { signal });
 
         if (!res.ok) {
           setError('Error obteniendo modelos ollama');

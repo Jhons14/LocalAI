@@ -48,7 +48,8 @@ export function ChatHistoryContextProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const BACKEND_URL = 'http://127.0.0.1:8000';
+  const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
+
   const [isApiKeySaved, setIsApiKeySaved] = useState<boolean>(false);
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [activeModel, setActiveModel] = useState<ActiveModelType>({
