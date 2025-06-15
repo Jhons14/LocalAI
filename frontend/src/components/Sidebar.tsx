@@ -61,7 +61,7 @@ export function Sidebar() {
         const res = await fetch('http://localhost:8000/getModels', { signal });
 
         if (!res.ok) {
-          setError('Error getting models, check your ollama connection');
+          setError('Error obteniendo modelos ollama');
           return;
         }
 
@@ -76,7 +76,7 @@ export function Sidebar() {
         );
 
         setOllamaSubItems(tempOllamaSubItems);
-      } catch (err) {
+      } catch (err: any) {
         if (err.name !== 'AbortError') {
           console.error('Error fetching models from Ollama:', err);
           setError('Error getting models, check your ollama connection');

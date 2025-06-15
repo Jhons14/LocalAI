@@ -11,14 +11,13 @@ from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
 from pydantic import BaseModel
 from fastapi import HTTPException
-from dotenv import load_dotenv
 from typing import Any
 import openai
 from openai import AuthenticationError
 from pathlib import Path
+import os
 
-
-load_dotenv()
+ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")  # con valor por defecto opcional
 
 workflow_store: dict[str, Any] = {}
 memory_store: dict[str, MemorySaver] = {}
@@ -138,7 +137,7 @@ def configure_model(config: ConfigRequest):
         model = ChatOllama(
             model = config.model,
             streaming=True,
-            base_url='https://2f74-186-28-134-125.ngrok-free.app'
+            base_url=ollama_url,  # URL del servidor Ollama
             # other params ...
         )   
         
@@ -158,18 +157,20 @@ def configure_model(config: ConfigRequest):
 
 @app.get("/getModels")
 def get_ollama_models():
-    response = requests.get("http://localhost:11434/api/tags")
-    models = response.json()["models"]
-
-    modelNames = []
-    for model in models:
-        modelNames.append(model["name"])
-    return modelNames
-
+    try:
+        response = requests.get(f"{ollama_url}/api/tags")
+        models = response.json()["models"]
+        modelNames = []
+        for model in models:
+            modelNames.append(model["name"])
+        return modelNames
+    except requests.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener modelos de Ollama: {str(e)}")
 
 class ChatRequest(BaseModel):
     thread_id: str
-    prompt: str                      
+    prompt: str         
+                 
 @app.post("/chat")
 async def chat_model(request: ChatRequest):
     config = {"configurable": {"thread_id": request.thread_id}}
