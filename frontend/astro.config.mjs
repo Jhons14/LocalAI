@@ -9,7 +9,7 @@ import react from '@astrojs/react';
 // https://astro.build/config
 export default defineConfig({
   vite: {
-    plugins: [tailwindcss(), svgr(), react()],
+    plugins: [tailwindcss(), svgr()],
     preview: {
       allowedHosts: ['.ngrok-free.app'], // o el dominio exacto que te dio ngrok
     },
