@@ -14,7 +14,7 @@ export function ChatOutput({ thread_id }: { thread_id: string }) {
   return (
     <div className='flex-1  overflow-y-auto '>
       <div className='flex justify-center'>
-        <div className='w-full max-w-[600px] px-4 py-2 space-y-2'>
+        <div className='w-full max-w-[1000px] px-4 py-2 space-y-2'>
           <AnimatePresence>
             {messages.map((msg) => {
               return (
@@ -49,7 +49,7 @@ export function ChatOutput({ thread_id }: { thread_id: string }) {
 
 function AssistantMessageOutput({ content }: { content?: string }) {
   const bottomRef = useRef<HTMLDivElement>(null); // 🔽 Este es el marcador de scroll
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<Element>(null);
 
   useEffect(() => {
     if (content) {
@@ -60,6 +60,8 @@ function AssistantMessageOutput({ content }: { content?: string }) {
         // Highlight dinámico de todos los bloques <code>
         containerRef.current.querySelectorAll('pre code').forEach((block) => {
           hljs.highlightElement(block);
+          block.parentElement?.classList.add('my-4');
+          block.classList.add('rounded-xl', 'border-1', 'border-white/50');
         });
       }
     }

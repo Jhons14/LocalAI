@@ -19,18 +19,18 @@ export function SidebarItem({
   index,
   isBarOpen,
   setIsBarOpen,
-  isItemOpen,
   setIsItemOpen,
   selectedIndex,
   setSelectedIndex,
 }: {
   item: NavItemType;
-  index;
+  index: number;
   isBarOpen: boolean;
   setIsBarOpen: (isBarOpen: boolean) => void;
   isItemOpen: boolean;
   setIsItemOpen: (isBarOpen: boolean) => void;
-  setSelectedIndex: (index: string) => void;
+  selectedIndex?: number;
+  setSelectedIndex: (index: number) => void;
 }) {
   useEffect(() => {
     if (!isBarOpen) {

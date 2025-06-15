@@ -111,9 +111,6 @@ export function ChatHistoryContextProvider({
       const keys = await res.json();
 
       setIsApiKeySaved(provider in keys ? true : false);
-      if (model === 'gpt-4.1-nano' && provider in keys === false) {
-        throw new Error('There is not key saved for the model ' + model);
-      }
     });
 
     if (model in chatManager.current) {

@@ -1,4 +1,4 @@
-import { type JSX, useEffect, useMemo, useState } from 'react';
+import { type JSX, use, useEffect, useMemo, useState } from 'react';
 import { Menu } from 'lucide-react';
 import { SidebarItem } from './SidebarItem';
 import OpenAILogo from '../assets/OpenAILogo.svg?react';
@@ -21,27 +21,11 @@ type SubItemType = {
 export function Sidebar() {
   const [isBarOpen, setIsBarOpen] = useState(false);
   const [isItemOpen, setIsItemOpen] = useState(false);
-  const [ollamaSubItems, setOllamaSubItems] = useState([]); // Obtener la función sendMessage del contexto
-  const [selectedIndex, setSelectedIndex] = useState<string>();
+  const [ollamaSubItems, setOllamaSubItems] = useState<Array<SubItemType>>([]); // Obtener la función sendMessage del contexto
+  const [ollamaSubItemsLoading, setOllamaSubItemsLoading] = useState(false); // Obtener la función sendMessage del contexto
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const [error, setError] = useState<string | null>(null);
   const { activeModel, configureModel } = useChatHistoryContext(); // Obtener la función sendMessage del contexto
-
-  useEffect(() => {
-    const loadModels = async () => {
-      const tempOllamaSubItems = [];
-      const res = await fetch('http://localhost:8000/getModels');
-      const parsedRes = await res.json();
-
-      parsedRes.forEach((model: string) => {
-        tempOllamaSubItems.push({
-          title: model,
-          model: model,
-          provider: 'ollama',
-        });
-      });
-      setOllamaSubItems(tempOllamaSubItems);
-    };
-    loadModels();
-  }, []);
 
   const navItems = useMemo<NavType>(
     () => [
@@ -60,8 +44,58 @@ export function Sidebar() {
     ],
     [ollamaSubItems]
   );
+
   const choosedNavItem = navItems[selectedIndex];
 
+  useEffect(() => {
+    if (choosedNavItem.name !== 'Ollama') return;
+
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    const loadOllamaModels = async () => {
+      setOllamaSubItemsLoading(true);
+      setError(null);
+
+      try {
+        const res = await fetch('http://localhost:8000/getModels', { signal });
+
+        if (!res.ok) {
+          setError('Error getting models, check your ollama connection');
+          return;
+        }
+
+        const parsedRes = await res.json();
+
+        const tempOllamaSubItems: SubItemType[] = parsedRes.map(
+          (model: string) => ({
+            title: model,
+            model: model,
+            provider: 'ollama',
+          })
+        );
+
+        setOllamaSubItems(tempOllamaSubItems);
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('Error fetching models from Ollama:', err);
+          setError('Error getting models, check your ollama connection');
+        }
+      } finally {
+        setOllamaSubItemsLoading(false);
+      }
+    };
+
+    loadOllamaModels();
+
+    // Cleanup: cancela la petición si cambia `selectedIndex` o se desmonta el componente
+    return () => {
+      controller.abort();
+      setOllamaSubItems([]); // limpio para evitar mostrar datos viejos
+      setOllamaSubItemsLoading(false);
+      setError(null);
+    };
+  }, [selectedIndex]);
   const handleClick = ({
     model,
     provider,
@@ -81,6 +115,39 @@ export function Sidebar() {
       model: newActiveModel.model,
       provider: newActiveModel.provider,
     });
+  };
+  const renderOllamaSubItems = () => {
+    if (error) {
+      return (
+        <div className='text-sm text-red-500 text-center px-2'>{error}</div>
+      );
+    }
+
+    if (ollamaSubItemsLoading || !choosedNavItem.subItems) {
+      return (
+        <div className='flex items-center h-full justify-center'>
+          <span className='loader'></span>
+        </div>
+      );
+    }
+
+    return choosedNavItem.subItems.map((subItem) => (
+      <button
+        key={subItem.title}
+        className={`flex items-center justify-center cursor-pointer w-full py-1 px-2 hover:bg-gray-800 transition-all duration-500 ${
+          activeModel.model === subItem.model && 'bg-gray-800'
+        }`}
+        type='button'
+        onClick={() =>
+          handleClick({
+            model: subItem.model,
+            provider: subItem.provider,
+          })
+        }
+      >
+        {subItem.title}
+      </button>
+    ));
   };
 
   return (
@@ -121,25 +188,11 @@ export function Sidebar() {
               : 'flex flex-col border-l-stone-50/10 border-l-2 w-32 content-center'
           } `}
         >
-          <div className={`${!isItemOpen && 'hidden'} animate-fade-in`}>
-            <h1 className='pl-2 mb-2 font-bold'>{choosedNavItem?.name}</h1>
-            {choosedNavItem?.subItems?.map((subItem) => (
-              <button
-                key={subItem.title}
-                className={`flex items-center justify-center cursor-pointer w-full py-1 px-2 hover:bg-gray-800 transition-all duration-500 ${
-                  activeModel.model === subItem.model && 'bg-gray-800'
-                }`}
-                type='button'
-                onClick={() =>
-                  handleClick({
-                    model: subItem.model,
-                    provider: subItem.provider,
-                  })
-                }
-              >
-                {subItem.title}
-              </button>
-            ))}
+          <div className={`${!isItemOpen && 'hidden'} h-full animate-fade-in`}>
+            <h1 className='pl-2 mb-2 font-bold text-xl'>
+              {choosedNavItem?.name}
+            </h1>
+            {renderOllamaSubItems()}
           </div>
         </nav>
       </div>
