@@ -92,7 +92,6 @@ class ValidateKeyPayload(BaseModel):
 @app.post('/keys/validate-keys')
 def validateKeys (payload:ValidateKeyPayload):
     openai.api_key = payload.apiKey
-    print(payload.apiKey)
     try:
         openai.models.list()
         return {'Valid': True}
