@@ -8,7 +8,7 @@ import hljs from 'highlight.js';
 
 import 'highlight.js/styles/tomorrow-night-blue.min.css'; // O el tema que prefieras
 
-export function ChatOutput({ thread_id }: { thread_id: string }) {
+export function ChatOutput({ thread_id }: { thread_id?: string }) {
   const { messages } = useChatHistoryContext(); // Obtener la función sendMessage del contexto
 
   return (
@@ -89,7 +89,7 @@ function UserMessageOutput({
     content?: string;
     status?: 'complete' | 'streaming' | 'error';
   };
-  thread_id: string;
+  thread_id?: string;
 }) {
   const { edit } = useChatHistoryContext(); // Obtener la función sendMessage del contexto
   const [isEditingId, setIsEditingId] = useState<String | null>(null);

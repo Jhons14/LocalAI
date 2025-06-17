@@ -4,6 +4,7 @@ import { SidebarItem } from './SidebarItem';
 import OpenAILogo from '../assets/OpenAILogo.svg?react';
 import OllamaLogo from '../assets/OllamaLogo.svg?react';
 import { useChatHistoryContext } from '@/hooks/useChatHistoryContext'; // Asegúrate de que la ruta sea correcta
+import { v4 as uuid } from 'uuid';
 
 type NavType = {
   name: string;
@@ -27,7 +28,8 @@ export function Sidebar() {
   const [ollamaSubItemsLoading, setOllamaSubItemsLoading] = useState(false); // Obtener la función sendMessage del contexto
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
-  const { activeModel, configureModel } = useChatHistoryContext(); // Obtener la función sendMessage del contexto
+  const { activeModel, configureModel, setIsModelConnected, setActiveModel } =
+    useChatHistoryContext(); // Obtener la función sendMessage del contexto
 
   const navItems = useMemo<NavType>(
     () => [
@@ -96,8 +98,10 @@ export function Sidebar() {
       setOllamaSubItems([]); // limpio para evitar mostrar datos viejos
       setOllamaSubItemsLoading(false);
       setError(null);
+      setIsModelConnected(false);
     };
   }, [selectedIndex]);
+
   const handleClick = ({
     model,
     provider,
@@ -105,19 +109,21 @@ export function Sidebar() {
     model: 'qwen2.5:3b' | 'gpt-4.1-nano';
     provider: 'ollama' | 'openai';
   }) => {
-    if (model === activeModel.model) {
+    if (model === activeModel?.model) {
       return;
     }
-    const newActiveModel = {
-      model: model,
-      provider: provider,
-    };
 
-    configureModel({
-      model: newActiveModel.model,
-      provider: newActiveModel.provider,
-    });
+    if (provider === 'ollama') {
+      configureModel({
+        model: model,
+        provider: provider,
+      }); // Configurar el modelo activo
+      return;
+    }
+
+    setActiveModel({ model, provider, thread_id: uuid() }); // Actualizar el modelo activo y el thread_id
   };
+
   const renderOllamaSubItems = () => {
     if (error) {
       return (
@@ -137,7 +143,7 @@ export function Sidebar() {
       <button
         key={subItem.title}
         className={`flex items-center justify-center cursor-pointer w-full py-1 px-2 hover:bg-gray-800 transition-all duration-500 ${
-          activeModel.model === subItem.model && 'bg-gray-800'
+          activeModel?.model === subItem.model && 'bg-gray-800'
         }`}
         type='button'
         onClick={() =>

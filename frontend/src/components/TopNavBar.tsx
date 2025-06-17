@@ -4,19 +4,37 @@ import { useState } from 'react';
 
 export function TopNavBar() {
   // Obtener el contexto de ChatHistoryContext
-  const { activeModel, isModelConnected, isApiKeySaved, configureModel } =
-    useChatHistoryContext();
+  const {
+    activeModel,
+    isModelConnected,
+    tempApiKey,
+    setTempApiKey,
+    configureModel,
+  } = useChatHistoryContext();
   const [showApikeyMenu, setShowApikeyMenu] = useState<boolean>(false);
   const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
+
+  const deleteKey = () => {
+    setTempApiKey('');
+    // await fetch(
+    //   `${BACKEND_URL}/keys/${activeModel.provider}/${activeModel.model}`,
+    //   {
+    //     method: 'delete',
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //     },
+    //   }
+    // );
+  };
 
   return (
     <div className='flex justify-between items-center gap-4 px-8 border-b border-gray-500 h-20'>
       <h1 className='text-xl font-bold w-fit min-w-max'>
-        {activeModel.model || 'Select a model to start...'}
+        {activeModel?.model || 'Select a model to start...'}
       </h1>
 
-      {activeModel.provider === 'openai' &&
-        (!isApiKeySaved ? (
+      {activeModel?.provider === 'openai' &&
+        (!tempApiKey ? (
           <ApiKeyInput
             model={activeModel.model}
             provider={activeModel.provider}
@@ -33,27 +51,32 @@ export function TopNavBar() {
               className={`text-sm font-light px-2 py-2 hover:scale-105 transition-all duration-200 rounded-md bg-gray-700 top-6 right-[-40px] ${
                 showApikeyMenu ? 'absolute' : 'hidden'
               }`}
-              onClick={async () => {
-                await fetch(
-                  `${BACKEND_URL}/keys/${activeModel.provider}/${activeModel.model}`,
-                  {
-                    method: 'delete',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                  }
-                );
-                configureModel({
-                  model: activeModel.model,
-                  provider: activeModel.provider,
-                });
-              }}
+              onClick={() => deleteKey()}
             >
               Delete ApiKey
             </div>
           </div>
         ))}
-      <span className='text-2xl'>{!!isModelConnected && 'Conectado'}</span>
+      <div className='text-2xl'>
+        {!!isModelConnected ? (
+          <span>Conectado</span>
+        ) : (
+          <button
+            onClick={() => {
+              if (!activeModel) {
+                alert('Please select a model first.');
+                return;
+              }
+              configureModel({
+                model: activeModel.model,
+                provider: activeModel.provider,
+              });
+            }}
+          >
+            Conectar
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -64,53 +87,60 @@ function ApiKeyInput({ model, provider }: { model: string; provider: string }) {
   const [apiKey, setApiKey] = useState('');
   const [inputError, setInputError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { setIsApiKeySaved } = useChatHistoryContext();
+  const { setTempApiKey } = useChatHistoryContext();
 
   const saveKeys = async () => {
     setInputError('');
     setLoading(true);
-    try {
-      const res = await fetch(BACKEND_URL + '/keys/validate-keys', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ apiKey }),
-      });
-
-      if (!res.ok) {
-        const jsonRes = await res.json();
-        setInputError('Invalid ' + provider + ' apikey');
-        throw new Error(jsonRes.detail);
-      }
-
-      const POSTKeysRes = await fetch(BACKEND_URL + '/keys', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ model, provider, api_key: apiKey }),
-      });
-      if (!POSTKeysRes.ok) {
-        throw new Error('Network response was not ok');
-      }
-
-      const GETkeysRes = await fetch(BACKEND_URL + '/keys', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!GETkeysRes.ok) {
-        throw new Error('Network response was not ok');
-      }
-      const keys = await GETkeysRes.json();
-
-      setIsApiKeySaved(provider in keys ? true : false);
-    } catch (error) {
-      console.error('Error:', error);
+    if (!apiKey) {
+      setInputError('API Key is required');
+      setLoading(false);
+      return;
     }
+    setTempApiKey(apiKey);
+
+    // try {
+    //   const res = await fetch(BACKEND_URL + '/keys/validate-keys', {
+    //     method: 'POST',
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //     },
+    //     body: JSON.stringify({ apiKey }),
+    //   });
+
+    //   if (!res.ok) {
+    //     const jsonRes = await res.json();
+    //     setInputError('Invalid ' + provider + ' apikey');
+    //     throw new Error(jsonRes.detail);
+    //   }
+
+    //   const POSTKeysRes = await fetch(BACKEND_URL + '/keys', {
+    //     method: 'POST',
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //     },
+    //     body: JSON.stringify({ model, provider, api_key: apiKey }),
+    //   });
+    //   if (!POSTKeysRes.ok) {
+    //     throw new Error('Network response was not ok');
+    //   }
+
+    //   const GETkeysRes = await fetch(BACKEND_URL + '/keys', {
+    //     method: 'GET',
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //     },
+    //   });
+
+    //   if (!GETkeysRes.ok) {
+    //     throw new Error('Network response was not ok');
+    //   }
+    //   const keys = await GETkeysRes.json();
+
+    //   setIsApiKeySaved(provider in keys ? true : false);
+    // } catch (error) {
+    //   console.error('Error:', error);
+    // }
     setLoading(false);
   };
 
