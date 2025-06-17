@@ -13,7 +13,7 @@ export function TopNavBar() {
   } = useChatHistoryContext();
   const [showApikeyMenu, setShowApikeyMenu] = useState<boolean>(false);
   const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
-
+  const [isModelLoading, setIsModelLoading] = useState<boolean>(false);
   const deleteKey = () => {
     setTempApiKey('');
     // await fetch(
@@ -25,6 +25,44 @@ export function TopNavBar() {
     //     },
     //   }
     // );
+  };
+
+  const renderConnectButton = () => {
+    if (!!isModelConnected && !isModelLoading) {
+      return <span className='text-2xl'>Conectado</span>;
+    }
+    if (isModelLoading) {
+      return <div className='loader'></div>;
+    }
+    if (!isModelConnected && !isModelLoading) {
+      return (
+        <div className='text-2xl'>
+          <button
+            className='cursor-pointer rounded-lg bg-gray-500 px-4 py-2 text-white hover:bg-blue-600'
+            onClick={async () => {
+              if (!activeModel) {
+                alert('Please select a model first.');
+                return;
+              }
+              setIsModelLoading(true);
+
+              try {
+                await configureModel({
+                  model: activeModel.model,
+                  provider: activeModel.provider,
+                });
+              } catch (error) {
+                console.error('Error connecting to model:', error);
+              }
+
+              setIsModelLoading(false);
+            }}
+          >
+            Conectar
+          </button>
+        </div>
+      );
+    }
   };
 
   return (
@@ -40,43 +78,9 @@ export function TopNavBar() {
             provider={activeModel.provider}
           />
         ) : (
-          <div
-            className={`flex relative cursor-pointer`}
-            onPointerOver={() => setShowApikeyMenu(true)}
-            onPointerOut={() => setShowApikeyMenu(false)}
-            onClick={() => setShowApikeyMenu(false)}
-          >
-            Api key saved
-            <div
-              className={`text-sm font-light px-2 py-2 hover:scale-105 transition-all duration-200 rounded-md bg-gray-700 top-6 right-[-40px] ${
-                showApikeyMenu ? 'absolute' : 'hidden'
-              }`}
-              onClick={() => deleteKey()}
-            >
-              Delete ApiKey
-            </div>
-          </div>
+          <div onClick={() => setShowApikeyMenu(false)}>Api key saved</div>
         ))}
-      <div className='text-2xl'>
-        {!!isModelConnected ? (
-          <span>Conectado</span>
-        ) : (
-          <button
-            onClick={() => {
-              if (!activeModel) {
-                alert('Please select a model first.');
-                return;
-              }
-              configureModel({
-                model: activeModel.model,
-                provider: activeModel.provider,
-              });
-            }}
-          >
-            Conectar
-          </button>
-        )}
-      </div>
+      {renderConnectButton()}
     </div>
   );
 }

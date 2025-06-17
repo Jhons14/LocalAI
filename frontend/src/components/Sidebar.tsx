@@ -113,15 +113,15 @@ export function Sidebar() {
       return;
     }
 
-    if (provider === 'ollama') {
-      configureModel({
-        model: model,
-        provider: provider,
-      }); // Configurar el modelo activo
-      return;
-    }
+    // if (provider === 'ollama') {
+    //   configureModel({
+    //     model: model,
+    //     provider: provider,
+    //   }); // Configurar el modelo activo
+    //   return;
+    // }
 
-    setActiveModel({ model, provider, thread_id: uuid() }); // Actualizar el modelo activo y el thread_id
+    setActiveModel({ model, provider, thread_id: uuid() }); // Actualizar el modelo activo y el thread_i
   };
 
   const renderOllamaSubItems = () => {

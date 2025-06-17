@@ -89,6 +89,7 @@ export function ChatHistoryContextProvider({
 
   useEffect(() => {
     if (!activeModel || !activeModel.model) return;
+    if (tempApiKey === '') return;
     chatManager.current[activeModel.model] = {
       ...chatManager.current[activeModel.model],
       messages: [...messages],
@@ -122,6 +123,8 @@ export function ChatHistoryContextProvider({
     // }
 
     if (model in chatManager.current) {
+      console.log(chatManager.current);
+
       setMessages(chatManager.current[model].messages); // Cargar el historial de mensajes del modelo activo
 
       setActiveModel({
@@ -161,7 +164,6 @@ export function ChatHistoryContextProvider({
           alert('Service is not available, please try again later');
         case 400:
           const responseText = await res.json().then((data) => data.detail);
-          setIsModelConnected(false); // Resetear el estado de conexión
           throw new Error(responseText);
       }
       return;
