@@ -12,31 +12,46 @@ type ChatMessageType = {
 };
 
 type ActiveModelType = {
-  thread_id: string;
+  thread_id?: string;
   model: 'qwen2.5:3b' | 'gpt-4.1-nano' | '';
   provider: 'ollama' | 'openai' | '';
-  api_key?: string;
+  apiKey?: string;
 };
 
 export type ChatHistoryContextType = {
   messages: ChatMessageType[];
-  sendMessage: ({ content }: { content: string; thread_id: string }) => void;
+  sendMessage: ({
+    content,
+    thread_id,
+  }: {
+    content: string;
+    thread_id?: string;
+  }) => void;
   edit: (userMessageId: string, newContent: string, thread_id: string) => void;
   clear: () => void;
-  activeModel: ActiveModelType;
-  setActiveModel: React.Dispatch<React.SetStateAction<ActiveModelType>>;
+  activeModel: ActiveModelType | undefined;
+  setActiveModel: React.Dispatch<
+    React.SetStateAction<ActiveModelType | undefined>
+  >;
   configureModel: ({
     model,
     provider,
-    api_key,
+    connectModel,
   }: {
     model: ActiveModelType['model'];
     provider: ActiveModelType['provider'];
-    api_key?: ActiveModelType['api_key'];
+    connectModel?: boolean;
   }) => Promise<void>;
+
+  tempApiKey: string;
+  setTempApiKey: (tempApiKey: string) => void;
   isModelConnected: boolean;
-  isApiKeySaved: boolean;
-  setIsApiKeySaved: (isApiKeySaved: boolean) => void;
+  setIsModelConnected: (isModelConnected: boolean) => void;
+  thread_id?: string; // Añadido para manejar el thread_id
+  rechargeModel: (
+    model: ActiveModelType['model'],
+    provider: ActiveModelType['provider']
+  ) => void;
 };
 
 export const ChatHistoryContext = createContext<
@@ -50,22 +65,20 @@ export function ChatHistoryContextProvider({
 }) {
   const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
 
-  const [isApiKeySaved, setIsApiKeySaved] = useState<boolean>(false);
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
-  const [activeModel, setActiveModel] = useState<ActiveModelType>({
-    thread_id: uuid(),
-    model: '',
-    provider: '',
-  });
+  const [isModelConnected, setIsModelConnected] = useState<boolean>(false);
+  const [tempApiKey, setTempApiKey] = useState<string>('');
+
+  const [activeModel, setActiveModel] = useState<ActiveModelType | undefined>(
+    undefined
+  );
 
   useEffect(() => {
-    configureModel({
-      model: activeModel.model,
-      provider: activeModel.provider,
-    });
+    // configureModel({
+    //   model: activeModel.model,
+    //   provider: activeModel.provider,
+    // });
   }, []);
-
-  const [isModelConnected, setIsModelConnected] = useState<boolean>(false);
 
   const controllerRef = useRef<AbortController | null>(null);
 
@@ -74,7 +87,7 @@ export function ChatHistoryContextProvider({
   >({}); // Almacena el historial de mensajes
 
   useEffect(() => {
-    if (activeModel.model) {
+    if (activeModel) {
       const storedMessages = chatManager.current[activeModel.model]?.messages;
       if (storedMessages) {
         setMessages(storedMessages); // Cargar el historial de mensajes del modelo activo
@@ -82,62 +95,103 @@ export function ChatHistoryContextProvider({
         setMessages([]); // Limpiar los mensajes si no hay historial
       }
     }
-  }, [activeModel.model]);
+  }, [activeModel]);
 
   useEffect(() => {
+    if (!activeModel || !activeModel.model) return;
+
     chatManager.current[activeModel.model] = {
       ...chatManager.current[activeModel.model],
       messages: [...messages],
     }; // Actualizar el historial de mensajes en el chatManager
   }, [messages]); // Dependencia añadida para cargar mensajes al cambiar de modelo
 
-  const configureModel = async ({
-    model,
-    provider,
-    api_key,
-  }: {
-    model: ActiveModelType['model'];
-    provider: ActiveModelType['provider'];
-    api_key?: ActiveModelType['api_key'];
-  }) => {
-    await fetch(BACKEND_URL + '/keys', {
-      method: 'get',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    }).then(async (res) => {
-      if (!res.ok) {
-        throw new Error('Network response was not ok');
-      }
-      const keys = await res.json();
-
-      setIsApiKeySaved(provider in keys ? true : false);
-    });
-
+  const rechargeModel = (
+    model: ActiveModelType['model'],
+    provider: ActiveModelType['provider']
+  ) => {
     if (model in chatManager.current) {
-      setMessages(chatManager.current[model].messages); // Cargar el historial de mensajes del modelo activo
-
       setActiveModel({
         model: model,
         provider: provider,
         thread_id:
-          chatManager.current[model].thread_id || activeModel.thread_id,
+          chatManager?.current[model]?.thread_id ||
+          activeModel?.thread_id ||
+          '',
       }); // Actualizar el modelo activo y el thread_id
+      setMessages(chatManager.current[model].messages); // Cargar el historial de mensajes del modelo activo
+
+      setIsModelConnected(true); // Marcar el modelo como conectado
       return;
     }
+
+    setActiveModel({ model, provider, thread_id: uuid() }); // Actualizar el modelo activo y el x
+    setIsModelConnected(false); // Marcar el modelo como conectado
+  };
+
+  const configureModel = async ({
+    model,
+    provider,
+    connectModel,
+  }: {
+    model: ActiveModelType['model'];
+    provider: ActiveModelType['provider'];
+    connectModel?: boolean;
+  }) => {
+    if (!model || !provider) {
+      throw new Error('Please select a model and provider');
+    }
+    // if (provider !== 'ollama') {
+    //   await fetch(BACKEND_URL + '/keys', {
+    //     method: 'get',
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //     },
+    //   }).then(async (res) => {
+    //     if (!res.ok) {
+    //       throw new Error('Network response was not ok');
+    //     }
+    //     const keys = await res.json();
+
+    //     setIsApiKeySaved(provider in keys ? true : false);
+    //   });
+    // }
+
+    // if (model in chatManager.current) {
+    //   console.log('Model already configured:', model);
+    //   console.log(chatManager.current);
+
+    //   setMessages(chatManager.current[model].messages); // Cargar el historial de mensajes del modelo activo
+
+    //   setActiveModel({
+    //     model: model,
+    //     provider: provider,
+    //     thread_id:
+    //       chatManager?.current[model]?.thread_id ||
+    //       activeModel?.thread_id ||
+    //       '',
+    //   }); // Actualizar el modelo activo y el thread_id
+    //   return;
+    // }
+
+    if (connectModel === false) return; // Si la ordene s no conectar el modelo, no hacer nada
 
     controllerRef.current?.abort(); // Cancelar cualquier stream anterior
     const controller = new AbortController();
     controllerRef.current = controller;
 
-    const thread_id = uuid(); // Generar un nuevo thread_id
+    const thread_id = activeModel?.thread_id || uuid(); // Generar un nuevo thread_id
 
     setIsModelConnected(false); // Resetear el estado de conexión
-    setActiveModel({ model, provider, thread_id }); // Actualizar el modelo activo y el thread_id
+
+    if (provider === 'openai' && tempApiKey === '') {
+      alert('Please save your API key first');
+      return;
+    }
 
     const res = await fetch(`${BACKEND_URL}/configure`, {
       method: 'POST',
-      body: JSON.stringify({ thread_id, model, provider, api_key }),
+      body: JSON.stringify({ thread_id, model, provider, apiKey: tempApiKey }),
       headers: { 'Content-Type': 'application/json' },
       // signal: controller.signal,
     });
@@ -148,7 +202,6 @@ export function ChatHistoryContextProvider({
           alert('Service is not available, please try again later');
         case 400:
           const responseText = await res.json().then((data) => data.detail);
-          setIsModelConnected(false); // Resetear el estado de conexión
           throw new Error(responseText);
       }
       return;
@@ -166,7 +219,7 @@ export function ChatHistoryContextProvider({
     content,
     thread_id,
   }: {
-    thread_id: string;
+    thread_id?: string;
     content: string;
   }) => {
     if (!thread_id) {
@@ -383,9 +436,11 @@ export function ChatHistoryContextProvider({
         activeModel,
         setActiveModel,
         configureModel,
+        tempApiKey,
+        setTempApiKey,
         isModelConnected,
-        isApiKeySaved,
-        setIsApiKeySaved,
+        setIsModelConnected,
+        rechargeModel,
       }}
     >
       {children}

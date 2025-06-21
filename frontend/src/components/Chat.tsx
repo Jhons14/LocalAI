@@ -9,8 +9,8 @@ export function Chat() {
   return (
     <div className='flex flex-col h-screen w-full relative '>
       <TopNavBar />
-      <ChatOutput thread_id={activeModel.thread_id} />
-      {activeModel.model && <ChatInput thread_id={activeModel.thread_id} />}
+      <ChatOutput thread_id={activeModel?.thread_id} />
+      {activeModel?.model && <ChatInput thread_id={activeModel?.thread_id} />}
     </div>
   );
 }

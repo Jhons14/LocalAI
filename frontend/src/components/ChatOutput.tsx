@@ -8,7 +8,7 @@ import hljs from 'highlight.js';
 
 import 'highlight.js/styles/tomorrow-night-blue.min.css'; // O el tema que prefieras
 
-export function ChatOutput({ thread_id }: { thread_id: string }) {
+export function ChatOutput({ thread_id }: { thread_id?: string }) {
   const { messages } = useChatHistoryContext(); // Obtener la función sendMessage del contexto
 
   return (
@@ -89,7 +89,7 @@ function UserMessageOutput({
     content?: string;
     status?: 'complete' | 'streaming' | 'error';
   };
-  thread_id: string;
+  thread_id?: string;
 }) {
   const { edit } = useChatHistoryContext(); // Obtener la función sendMessage del contexto
   const [isEditingId, setIsEditingId] = useState<String | null>(null);
@@ -99,7 +99,7 @@ function UserMessageOutput({
       <div className='flex-1  flex flex-col items-end'>
         <textarea
           ref={editMsgTextAreaRef}
-          className='focus:outline-0 resize-none text-sm leading-relaxed px-4 py-2 rounded-2xl text-white w-[200px] bg-gray-500/50'
+          className='focus:outline-0 resize-none text-sm leading-relaxed px-4 py-2 rounded-xl text-white w-[200px] bg-gray-500/50'
           defaultValue={msg.content}
         />
         <div className='flex justify-between my-2'>
@@ -115,7 +115,7 @@ function UserMessageOutput({
               edit(
                 msg.id, //AssistantMsgId
                 editMsgTextAreaRef.current?.value || '', //UserMsgId
-                thread_id
+                thread_id || ''
               );
             }}
           >
@@ -127,7 +127,7 @@ function UserMessageOutput({
   } else {
     return (
       <div className='flex flex-col items-end'>
-        <div className='text-sm leading-relaxed px-4 py-2 rounded-2xl w-auto bg-gray-600 text-white'>
+        <div className='text-sm leading-relaxed px-4 py-2 rounded-md w-auto bg-gray-600 text-white'>
           <p>{msg.content?.trim()}</p>
           {msg.status === 'streaming' && (
             <span className='animate-blink'>|</span>

@@ -46,7 +46,8 @@ export function SidebarItem({
       type='button'
       onClick={() => {
         setIsBarOpen(true);
-        setIsItemOpen(true), setSelectedIndex(index);
+        setIsItemOpen(true);
+        setSelectedIndex(index);
       }}
     >
       <div>{item.icon}</div>
