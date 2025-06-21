@@ -29,8 +29,7 @@ export function Sidebar() {
   const [selectedIndex, setSelectedIndex] = useState<number>();
   const [selectedSubitemIndex, setSelectedSubitemIndex] = useState<number>();
   const [error, setError] = useState<string | null>(null);
-  const { activeModel, rechargeModel, setIsModelConnected } =
-    useChatHistoryContext(); // Obtener la función sendMessage del contexto
+  const { rechargeModel, setIsModelConnected } = useChatHistoryContext(); // Obtener la función sendMessage del contexto
 
   const navItems = useMemo<NavType>(
     () => [
