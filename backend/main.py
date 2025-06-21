@@ -105,6 +105,7 @@ class ConfigRequest(BaseModel):
     thread_id: str
     model: str  # 'gpt-4o' o 'qwen2.5:3b'
     provider: str  # 'openai' o 'ollama'
+    apiKey: str = None  # Solo para OpenAI, no se usa para Ollama
     
 @app.post("/configure")
 def configure_model(config: ConfigRequest):
@@ -114,11 +115,12 @@ def configure_model(config: ConfigRequest):
     # # Crear modelo dinámicamente
     if config.provider == "openai":
         keys = load_keys()
-        if config.provider not in keys:
-            raise HTTPException(400, detail=f"No se cuenta con llaves para el proveedor {config.provider}")
-        if config.model not in keys[config.provider]:
-            raise HTTPException(400, detail=f"No se cuenta con llaves para el modelo {config.model}")
-        openAIApi_key = keys[config.provider][config.model]
+        # if config.provider not in keys:
+        #     raise HTTPException(400, detail=f"No se cuenta con llaves para el proveedor {config.provider}")
+        # if config.model not in keys[config.provider]:
+        #     raise HTTPException(400, detail=f"No se cuenta con llaves para el modelo {config.model}")
+        openAIApi_key =  config.apiKey  # Prioriza la apiKey del payload si se proporciona
+        print(config.apiKey)
 
         model = ChatOpenAI(
             model=config.model,
@@ -126,7 +128,7 @@ def configure_model(config: ConfigRequest):
             max_tokens=None,
             timeout=None,
             max_retries=2,
-            api_key=openAIApi_key,  # if you prefer to pass api key in directly instaed of using env vars
+            api_key=config.apiKey,  # if you prefer to pass api key in directly instaed of using env vars
             # base_url="...",
             # organization="...",
             # other params...
