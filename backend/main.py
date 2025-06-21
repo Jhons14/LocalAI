@@ -24,7 +24,8 @@ memory_store: dict[str, MemorySaver] = {}
 
 origins = [
     "http://localhost:4321",
-    "https://local-aifront.vercel.app"
+    "https://local-aifront.vercel.app",
+    "local-aifront-git-develop-jhon-stevens-projects-74f55900.vercel.app"
 ]
 
 app = FastAPI()
