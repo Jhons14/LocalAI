@@ -26,9 +26,10 @@ export function Sidebar() {
   const [isItemOpen, setIsItemOpen] = useState(false);
   const [ollamaSubItems, setOllamaSubItems] = useState<Array<SubItemType>>([]); // Obtener la función sendMessage del contexto
   const [ollamaSubItemsLoading, setOllamaSubItemsLoading] = useState(false); // Obtener la función sendMessage del contexto
-  const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const [selectedIndex, setSelectedIndex] = useState<number>();
+  const [selectedSubitemIndex, setSelectedSubitemIndex] = useState<number>();
   const [error, setError] = useState<string | null>(null);
-  const { activeModel, configureModel, setIsModelConnected, setActiveModel } =
+  const { activeModel, rechargeModel, setIsModelConnected } =
     useChatHistoryContext(); // Obtener la función sendMessage del contexto
 
   const navItems = useMemo<NavType>(
@@ -52,7 +53,14 @@ export function Sidebar() {
   const choosedNavItem = navItems[selectedIndex];
 
   useEffect(() => {
-    if (choosedNavItem.name !== 'Ollama') return;
+    if (choosedNavItem?.name !== 'Ollama')
+      return () => {
+        setSelectedSubitemIndex(undefined); // Resetea el índice del subitem seleccionado
+        setOllamaSubItems([]); // limpio para evitar mostrar datos viejos
+        setOllamaSubItemsLoading(false);
+        setError(null);
+        setIsModelConnected(false);
+      };
 
     const controller = new AbortController();
     const signal = controller.signal;
@@ -95,6 +103,7 @@ export function Sidebar() {
     // Cleanup: cancela la petición si cambia `selectedIndex` o se desmonta el componente
     return () => {
       controller.abort();
+      setSelectedSubitemIndex(undefined); // Resetea el índice del subitem seleccionado
       setOllamaSubItems([]); // limpio para evitar mostrar datos viejos
       setOllamaSubItemsLoading(false);
       setError(null);
@@ -103,13 +112,15 @@ export function Sidebar() {
   }, [selectedIndex]);
 
   const handleClick = ({
+    index,
     model,
     provider,
   }: {
+    index: number;
     model: 'qwen2.5:3b' | 'gpt-4.1-nano';
     provider: 'ollama' | 'openai';
   }) => {
-    if (model === activeModel?.model) {
+    if (index === selectedSubitemIndex) {
       return;
     }
 
@@ -117,11 +128,11 @@ export function Sidebar() {
     //   configureModel({
     //     model: model,
     //     provider: provider,
+    //     connectModel: true,
     //   }); // Configurar el modelo activo
-    //   return;
     // }
-
-    setActiveModel({ model, provider, thread_id: uuid() }); // Actualizar el modelo activo y el thread_i
+    rechargeModel(model, provider);
+    setSelectedSubitemIndex(index);
   };
 
   const renderOllamaSubItems = () => {
@@ -131,7 +142,7 @@ export function Sidebar() {
       );
     }
 
-    if (ollamaSubItemsLoading || !choosedNavItem.subItems) {
+    if (ollamaSubItemsLoading) {
       return (
         <div className='flex items-center h-full justify-center'>
           <span className='loader'></span>
@@ -139,15 +150,16 @@ export function Sidebar() {
       );
     }
 
-    return choosedNavItem.subItems.map((subItem) => (
+    return choosedNavItem?.subItems.map((subItem, index) => (
       <button
         key={subItem.title}
         className={`flex items-center justify-center cursor-pointer w-full py-1 px-2 hover:bg-gray-800 transition-all duration-500 ${
-          activeModel?.model === subItem.model && 'bg-gray-800'
+          selectedSubitemIndex === index && 'bg-gray-800'
         }`}
         type='button'
         onClick={() =>
           handleClick({
+            index: index,
             model: subItem.model,
             provider: subItem.provider,
           })

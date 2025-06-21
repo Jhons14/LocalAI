@@ -34,7 +34,7 @@ export function TopNavBar() {
     if (isModelLoading) {
       return <div className='loader'></div>;
     }
-    if (!isModelConnected && !isModelLoading) {
+    if (!isModelConnected && !isModelLoading && activeModel) {
       return (
         <div className='text-2xl'>
           <button
@@ -78,7 +78,7 @@ export function TopNavBar() {
             provider={activeModel.provider}
           />
         ) : (
-          <div onClick={() => setShowApikeyMenu(false)}>Api key saved</div>
+          <span>Api key saved</span>
         ))}
       {renderConnectButton()}
     </div>

@@ -1,6 +1,5 @@
 .env
 venv
-astro.config.mjs
 pnpm-lock.yaml
 back/__pycache__
 */config/keys.json

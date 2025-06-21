@@ -20,7 +20,13 @@ type ActiveModelType = {
 
 export type ChatHistoryContextType = {
   messages: ChatMessageType[];
-  sendMessage: ({ content }: { content: string; thread_id: string }) => void;
+  sendMessage: ({
+    content,
+    thread_id,
+  }: {
+    content: string;
+    thread_id?: string;
+  }) => void;
   edit: (userMessageId: string, newContent: string, thread_id: string) => void;
   clear: () => void;
   activeModel: ActiveModelType | undefined;
@@ -30,11 +36,11 @@ export type ChatHistoryContextType = {
   configureModel: ({
     model,
     provider,
-    apiKey,
+    connectModel,
   }: {
     model: ActiveModelType['model'];
     provider: ActiveModelType['provider'];
-    apiKey?: ActiveModelType['apiKey'];
+    connectModel?: boolean;
   }) => Promise<void>;
 
   tempApiKey: string;
@@ -42,6 +48,10 @@ export type ChatHistoryContextType = {
   isModelConnected: boolean;
   setIsModelConnected: (isModelConnected: boolean) => void;
   thread_id?: string; // Añadido para manejar el thread_id
+  rechargeModel: (
+    model: ActiveModelType['model'],
+    provider: ActiveModelType['provider']
+  ) => void;
 };
 
 export const ChatHistoryContext = createContext<
@@ -89,19 +99,44 @@ export function ChatHistoryContextProvider({
 
   useEffect(() => {
     if (!activeModel || !activeModel.model) return;
-    if (tempApiKey === '') return;
+
     chatManager.current[activeModel.model] = {
       ...chatManager.current[activeModel.model],
       messages: [...messages],
     }; // Actualizar el historial de mensajes en el chatManager
   }, [messages]); // Dependencia añadida para cargar mensajes al cambiar de modelo
 
+  const rechargeModel = (
+    model: ActiveModelType['model'],
+    provider: ActiveModelType['provider']
+  ) => {
+    if (model in chatManager.current) {
+      setActiveModel({
+        model: model,
+        provider: provider,
+        thread_id:
+          chatManager?.current[model]?.thread_id ||
+          activeModel?.thread_id ||
+          '',
+      }); // Actualizar el modelo activo y el thread_id
+      setMessages(chatManager.current[model].messages); // Cargar el historial de mensajes del modelo activo
+
+      setIsModelConnected(true); // Marcar el modelo como conectado
+      return;
+    }
+
+    setActiveModel({ model, provider, thread_id: uuid() }); // Actualizar el modelo activo y el x
+    setIsModelConnected(false); // Marcar el modelo como conectado
+  };
+
   const configureModel = async ({
     model,
     provider,
+    connectModel,
   }: {
     model: ActiveModelType['model'];
     provider: ActiveModelType['provider'];
+    connectModel?: boolean;
   }) => {
     if (!model || !provider) {
       throw new Error('Please select a model and provider');
@@ -122,27 +157,30 @@ export function ChatHistoryContextProvider({
     //   });
     // }
 
-    if (model in chatManager.current) {
-      console.log(chatManager.current);
+    // if (model in chatManager.current) {
+    //   console.log('Model already configured:', model);
+    //   console.log(chatManager.current);
 
-      setMessages(chatManager.current[model].messages); // Cargar el historial de mensajes del modelo activo
+    //   setMessages(chatManager.current[model].messages); // Cargar el historial de mensajes del modelo activo
 
-      setActiveModel({
-        model: model,
-        provider: provider,
-        thread_id:
-          chatManager?.current[model]?.thread_id ||
-          activeModel?.thread_id ||
-          '',
-      }); // Actualizar el modelo activo y el thread_id
-      return;
-    }
+    //   setActiveModel({
+    //     model: model,
+    //     provider: provider,
+    //     thread_id:
+    //       chatManager?.current[model]?.thread_id ||
+    //       activeModel?.thread_id ||
+    //       '',
+    //   }); // Actualizar el modelo activo y el thread_id
+    //   return;
+    // }
+
+    if (connectModel === false) return; // Si la ordene s no conectar el modelo, no hacer nada
 
     controllerRef.current?.abort(); // Cancelar cualquier stream anterior
     const controller = new AbortController();
     controllerRef.current = controller;
 
-    const thread_id = uuid(); // Generar un nuevo thread_id
+    const thread_id = activeModel?.thread_id || uuid(); // Generar un nuevo thread_id
 
     setIsModelConnected(false); // Resetear el estado de conexión
 
@@ -173,8 +211,6 @@ export function ChatHistoryContextProvider({
       messages: [], // Reiniciar el historial de mensajes al cambiar de modelo
     }; // Actualizar el historial de mensajes en el chatManager
 
-    setActiveModel({ model, provider, thread_id }); // Actualizar el modelo activo y el thread_id
-
     setIsModelConnected(true);
   };
 
@@ -183,7 +219,7 @@ export function ChatHistoryContextProvider({
     content,
     thread_id,
   }: {
-    thread_id: string;
+    thread_id?: string;
     content: string;
   }) => {
     if (!thread_id) {
@@ -404,6 +440,7 @@ export function ChatHistoryContextProvider({
         setTempApiKey,
         isModelConnected,
         setIsModelConnected,
+        rechargeModel,
       }}
     >
       {children}
