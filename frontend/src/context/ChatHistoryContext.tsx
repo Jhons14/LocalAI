@@ -96,9 +96,11 @@ export function ChatHistoryContextProvider({
       }
     }
   }, [activeModel]);
+  console.log(chatManager.current);
 
   useEffect(() => {
     if (!activeModel || !activeModel.model) return;
+    if (!chatManager.current[activeModel.model]) return;
 
     chatManager.current[activeModel.model] = {
       ...chatManager.current[activeModel.model],
@@ -120,6 +122,7 @@ export function ChatHistoryContextProvider({
           '',
       }); // Actualizar el modelo activo y el thread_id
       setMessages(chatManager.current[model].messages); // Cargar el historial de mensajes del modelo activo
+      console.log(chatManager.current[model]);
 
       setIsModelConnected(true); // Marcar el modelo como conectado
       return;
