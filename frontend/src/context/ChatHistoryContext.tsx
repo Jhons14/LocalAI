@@ -96,7 +96,6 @@ export function ChatHistoryContextProvider({
       }
     }
   }, [activeModel]);
-  console.log(chatManager.current);
 
   useEffect(() => {
     if (!activeModel || !activeModel.model) return;
@@ -122,7 +121,6 @@ export function ChatHistoryContextProvider({
           '',
       }); // Actualizar el modelo activo y el thread_id
       setMessages(chatManager.current[model].messages); // Cargar el historial de mensajes del modelo activo
-      console.log(chatManager.current[model]);
 
       setIsModelConnected(true); // Marcar el modelo como conectado
       return;
@@ -144,38 +142,6 @@ export function ChatHistoryContextProvider({
     if (!model || !provider) {
       throw new Error('Please select a model and provider');
     }
-    // if (provider !== 'ollama') {
-    //   await fetch(BACKEND_URL + '/keys', {
-    //     method: 'get',
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //     },
-    //   }).then(async (res) => {
-    //     if (!res.ok) {
-    //       throw new Error('Network response was not ok');
-    //     }
-    //     const keys = await res.json();
-
-    //     setIsApiKeySaved(provider in keys ? true : false);
-    //   });
-    // }
-
-    // if (model in chatManager.current) {
-    //   console.log('Model already configured:', model);
-    //   console.log(chatManager.current);
-
-    //   setMessages(chatManager.current[model].messages); // Cargar el historial de mensajes del modelo activo
-
-    //   setActiveModel({
-    //     model: model,
-    //     provider: provider,
-    //     thread_id:
-    //       chatManager?.current[model]?.thread_id ||
-    //       activeModel?.thread_id ||
-    //       '',
-    //   }); // Actualizar el modelo activo y el thread_id
-    //   return;
-    // }
 
     if (connectModel === false) return; // Si la ordene s no conectar el modelo, no hacer nada
 
