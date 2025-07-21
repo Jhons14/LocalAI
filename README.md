@@ -1,93 +1,193 @@
 # 🧠 LLM Chat Interface
 
-Una aplicación de código abierto para interactuar fácilmente con modelos de lenguaje (LLM), ya sea en local usando [Ollama](https://ollama.com/) o en la nube a través de OpenAI (ChatGPT) con una API key.
+A professional open-source application for seamlessly interacting with Large Language Models (LLMs), supporting both local models via [Ollama](https://ollama.com/) and cloud-based models through OpenAI's ChatGPT API.
 
-## 🚀 Características
+## ✨ Features
 
-- ✅ Compatible con modelos LLM locales (Ollama)  
-- ☁️ Soporte para ChatGPT vía API Key (OpenAI)  
-- 🧩 Frontend moderno con React + Vite  
-- 🐍 Backend robusto en Python (FastAPI)  
-- 🔐 Gestión segura de claves API  
-- 💬 Interfaz tipo chat con historial  
-- 🎨 UI responsiva y amigable  
+- 🏠 **Local LLM Support** - Compatible with Ollama for privacy-focused AI interactions
+- ☁️ **Cloud Integration** - OpenAI ChatGPT API support with secure key management
+- ⚡ **Modern Frontend** - Built with Astro, React, and Tailwind CSS
+- 🚀 **Robust Backend** - FastAPI-powered Python backend with LangChain integration
+- 🔐 **Security First** - Secure API key management and CORS protection
+- 💬 **Interactive Chat** - Real-time chat interface with conversation history
+- 📱 **Responsive Design** - Mobile-friendly UI with modern components
+- 🐳 **Docker Ready** - Complete containerization support for easy deployment
 
-## 🧱 Tecnologías
+## 🏗️ Tech Stack
 
-| Parte      | Tecnología                |
-|------------|---------------------------|
-| Frontend   | React, Vite, Tailwind CSS |
-| Backend    | Python, FastAPI           |
-| LLM Local  | Ollama                    |
-| LLM Nube   | OpenAI (ChatGPT)          |
+| Component  | Technologies                          |
+| ---------- | ------------------------------------- |
+| Frontend   | Astro, React 19, Tailwind CSS 4.0     |
+| Backend    | Python, FastAPI, LangChain            |
+| UI Library | Radix UI, Lucide Icons, Framer Motion |
+| Local LLM  | Ollama                                |
+| Cloud LLM  | OpenAI API (ChatGPT)                  |
+| Deployment | Docker, Docker Compose                |
 
-## 🛠️ Instalación
+## 🚀 Quick Start
 
-### 1. Clona el repositorio
+### Prerequisites
+
+- Node.js (v18+)
+- Python (v3.8+)
+- Git
+- Docker & Docker Compose (optional)
+
+### Option 1: Local Development Setup
+
+#### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/Jhons14/LocalAI.git
 cd LocalAI
 ```
 
-### 2. Configura el backend (Python)
+#### 2. Backend Setup
 
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # En Windows: venv\Scripts\activate
+
+# Activate virtual environment
+# On macOS/Linux:
+source venv/bin/activate
+# On Windows:
+# venv\Scripts\activate
+
 pip install -r requirements.txt
 ```
 
-Crea un archivo `.env` con tus variables necesarias:
+Create a `.env` file in the `backend` directory with your configuration:
 
+```env
+# OpenAI Configuration (optional)
+OPENAI_API_KEY=your_openai_api_key_here
 
-Inicia el backend:
+# Ollama Configuration
+OLLAMA_BASE_URL=http://localhost:11434
 
-```bash
-fastapi run --reload
+# CORS Settings
+ALLOWED_ORIGINS=http://localhost:4321,http://localhost:3000
 ```
 
-### 3. Configura el frontend (React + Vite)
+Start the backend server:
 
 ```bash
-cd ../frontend
+# From backend directory
+python -m uvicorn main:app --reload --port 8000
+```
+
+#### 3. Frontend Setup
+
+Open a new terminal and navigate to the frontend:
+
+```bash
+cd frontend
 npm install
 npm run dev
 ```
 
-## ⚙️ Configuración
+The application will be available at:
 
-- Puedes alternar entre LLM local y remoto mediante una configuración en el backend.
-- El frontend se comunica con el backend mediante endpoints REST para enviar preguntas y recibir respuestas por chunks.
+- Frontend: `http://localhost:4321`
+- Backend API: `http://localhost:8000`
+- API Documentation: `http://localhost:8000/docs`
 
-## 📦 Despliegue con Docker
+### Option 2: Docker Deployment
 
-Puedes usar [Docker](https://www.docker.com/) o [Docker Compose](https://docs.docker.com/compose/) para ejecutar toda la app fácilmente:
+For a complete containerized setup:
 
 ```bash
+# Clone the repository
+git clone https://github.com/Jhons14/LocalAI.git
+cd LocalAI
+
+# Build and start all services
 docker-compose up --build
 ```
 
-Asegúrate de tener tus variables de entorno configuradas en los archivos `.env` correspondientes antes de levantar los contenedores.
+## 🛠️ Configuration
 
-## 🔒 Seguridad
+### Local LLM Setup (Ollama)
 
-- La API key de OpenAI **no se expone** en el frontend.
-- Agrega restricciones CORS apropiadas para producción.
-- Considera usar HTTPS en despliegues reales.
+1. Install [Ollama](https://ollama.com/) on your system
+2. Pull your desired model:
+   ```bash
+   ollama pull llama2
+   # or
+   ollama pull codellama
+   ```
+3. Ensure Ollama is running on `http://localhost:11434`
 
-## 🧪 TODO
+### OpenAI API Setup
 
-- [ ] Autenticación de usuario  
-- [ ] Guardar historial en base de datos  
-- [ ] Soporte para múltiples modelos en tiempo real  
-- [ ] Soporte para carga de archivos y análisis de documentos  
+1. Get your API key from [OpenAI](https://platform.openai.com/)
+2. Add it to your `.env` file in the backend directory
+3. The application will automatically detect and use the API key
 
-## 📄 Licencia
+## 🔧 Environment Variables
 
-Este proyecto está bajo la licencia MIT.
+The application supports the following environment variables:
 
-## ✨ Autor
+### Backend (.env in backend directory)
 
-Desarrollado por [Jhon Steven Orjuela](https://www.jstevenon.com/) — ¡Contribuciones y estrellas son bienvenidas!
+```env
+# OpenAI Configuration
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Ollama Configuration
+OLLAMA_BASE_URL=http://localhost:11434
+
+# CORS Settings
+ALLOWED_ORIGINS=http://localhost:4321,http://localhost:3000
+
+# Optional: Custom port
+PORT=8000
+```
+
+## 🔒 Security
+
+- **API Key Protection** - OpenAI API keys are never exposed to the frontend
+- **CORS Configuration** - Properly configured Cross-Origin Resource Sharing
+- **Environment Isolation** - Sensitive data managed through environment variables
+- **Production Ready** - HTTPS support and security headers for production deployments
+
+## 📚 API Documentation
+
+Once the backend is running, visit `http://localhost:8000/docs` for interactive API documentation powered by FastAPI's automatic OpenAPI generation.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 🛣️ Roadmap
+
+- [ ] User authentication and authorization
+- [ ] Persistent chat history with database storage
+- [ ] Multi-model support with real-time switching
+- [ ] File upload and document analysis capabilities
+- [ ] Voice input and text-to-speech output
+- [ ] Conversation templates and presets
+- [ ] Export chat conversations
+- [ ] Admin dashboard for usage analytics
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 👨‍💻 Author
+
+**Jhon Steven Orjuela**
+
+- Website: [jstevenon.com](https://www.jstevenon.com/)
+- GitHub: [@Jhons14](https://github.com/Jhons14)
+
+---
+
+⭐ If you found this project helpful, please consider giving it a star on GitHub!
