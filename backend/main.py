@@ -22,11 +22,7 @@ ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")  # con valor
 workflow_store: dict[str, Any] = {}
 memory_store: dict[str, MemorySaver] = {}
 
-origins = [
-    "http://localhost:4321",
-    "https://local-aifront.vercel.app",
-    "local-aifront-git-develop-jhon-stevens-projects-74f55900.vercel.app"
-]
+origins = os.getenv("CORS_ORIGINS", "http://localhost:4321")
 
 app = FastAPI()
 
