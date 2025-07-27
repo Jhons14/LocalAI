@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Security
+.env
+.env.local
+.env.production
+*.key
+*.pem
+*.crt
+
+# Development
+.git/
+.gitignore
+README.md
+.pytest_cache/
+.coverage
+.mypy_cache/
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+tests/
+test_*.py
+*_test.py

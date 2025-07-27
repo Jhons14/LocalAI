@@ -60,8 +60,6 @@ pip install -r requirements.txt
 Create a `.env` file in the `backend` directory with your configuration:
 
 ```env
-# OpenAI Configuration (optional)
-OPENAI_API_KEY=your_openai_api_key_here
 
 # Ollama Configuration
 OLLAMA_BASE_URL=http://localhost:11434
@@ -133,7 +131,6 @@ The application supports the following environment variables:
 
 ```env
 # OpenAI Configuration
-OPENAI_API_KEY=your_openai_api_key_here
 
 # Ollama Configuration
 OLLAMA_BASE_URL=http://localhost:11434

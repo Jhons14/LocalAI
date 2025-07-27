@@ -7,7 +7,10 @@ langchain-openai
 langsmith             # si usas trazas o monitorización
 langgraph             # si usas workflows con LangGraph
 
-
+# Security and validation
+slowapi               # Rate limiting
+python-multipart      # Form handling
+bleach                # HTML sanitization
 
 # Extras opcionales útiles
 python-dotenv         # si usas archivos .env
