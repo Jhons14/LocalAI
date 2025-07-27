@@ -1,18 +1,46 @@
+# Core FastAPI and web framework
 fastapi[standard]==0.115.12
+uvicorn[standard]>=0.30.0
 
-# LangChain y herramientas relacionadas
-langchain-core
-langchain-ollama
-langchain-openai
-langsmith             # si usas trazas o monitorización
-langgraph             # si usas workflows con LangGraph
+# Database and ORM
+sqlalchemy>=2.0.0
+alembic>=1.13.0
+psycopg2-binary>=2.9.0  # PostgreSQL driver
+
+# Configuration and settings
+pydantic>=2.8.0
+pydantic-settings>=2.5.0
+python-dotenv>=1.0.0
+
+# LangChain and AI tools (use compatible versions)
+langchain-core>=0.3.0
+langchain-ollama>=0.2.0
+langchain-openai>=0.2.0
+langsmith>=0.1.0
+langgraph>=0.2.0
 
 # Security and validation
-slowapi               # Rate limiting
-python-multipart      # Form handling
-bleach                # HTML sanitization
+slowapi>=0.1.9
+python-multipart>=0.0.18  # Fixed version conflict
+bleach>=6.1.0
+cryptography>=43.0.0
+passlib[bcrypt]>=1.7.4
+python-jose[cryptography]>=3.3.0
 
-# Extras opcionales útiles
-python-dotenv         # si usas archivos .env
-openai                # si usas modelos de OpenAI
-pydantic              # por si defines modelos directamente
+# HTTP client and utilities
+openai>=1.50.0
+requests>=2.32.0
+
+# Development and testing
+pytest>=8.3.0
+pytest-asyncio>=0.24.0
+httpx>=0.27.0  # For testing FastAPI
+
+# Code quality and formatting
+black>=24.8.0
+flake8>=7.1.0
+mypy>=1.11.0
+pre-commit>=3.8.0
+
+# Additional utilities
+typing-extensions>=4.12.0
