@@ -32,11 +32,16 @@ def create_tables():
     Should be called during application startup.
     """
     try:
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database tables created successfully")
+        # Use checkfirst=True to avoid errors for existing tables/indexes
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+        logger.info("Database tables created/verified successfully")
     except Exception as e:
-        logger.error(f"Failed to create database tables: {e}")
-        raise
+        # If it's just an index that already exists, log but don't fail
+        if "already exists" in str(e):
+            logger.info("Database tables already exist - continuing")
+        else:
+            logger.error(f"Failed to create database tables: {e}")
+            raise
 
 
 def drop_tables():
