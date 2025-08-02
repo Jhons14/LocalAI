@@ -15,11 +15,16 @@ from slowapi.errors import RateLimitExceeded
 from langchain_arcade import ToolManager
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, AIMessage
 
-from langgraph.graph import START, MessagesState, StateGraph
+from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.runnables import RunnableConfig
+
+from langgraph.graph import START, END, MessagesState, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import ToolNode
+from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.store.postgres import PostgresStore
+from langgraph.store.base import BaseStore
 
 from pydantic import BaseModel, field_validator, Field
 from typing import Any, Optional
@@ -55,6 +60,8 @@ ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 max_prompt_length = int(os.getenv("MAX_PROMPT_LENGTH", "10000"))
 max_thread_id_length = int(os.getenv("MAX_THREAD_ID_LENGTH", "100"))
 arcade_api_key = os.getenv("ARCADE_API_KEY")
+database_url = os.getenv("DATABASE_URL")
+email = os.getenv("EMAIL")
 
 workflow_store: dict[str, Any] = {}
 memory_store: dict[str, MemorySaver] = {}
@@ -134,6 +141,43 @@ def validate_thread_id(thread_id: str) -> str:
         raise ValueError(f"Thread ID too long. Maximum {max_thread_id_length} characters allowed")
     
     return thread_id
+
+
+
+def should_continue(state: MessagesState):
+    if state["messages"][-1].tool_calls:
+        for tool_call in state["messages"][-1].tool_calls:
+            if manager.requires_auth(tool_call["name"]):
+                return "authorization"
+        return "tools"  # Proceed to tool execution if no authorization is needed
+    return END  # End the workflow if no tool calls are present
+
+
+def authorize(state: MessagesState, config: RunnableConfig, *, store: BaseStore):
+    user_id = config["configurable"].get("user_id")
+    for tool_call in state["messages"][-1].tool_calls:
+        tool_name = tool_call["name"]
+        if not manager.requires_auth(tool_name):
+            continue
+        auth_response = manager.authorize(tool_name, user_id)
+        if auth_response.status != "completed":
+            # Print the authorization URL to the user with proper formatting
+            print(f"\n🔐 Authorization required for {tool_name}\n")
+            print(f"Visit the following URL to authorize:\n{auth_response.url}\n")
+            print("Waiting for authorization...\n")
+
+            # wait for the user to complete the authorization
+            # and then check the authorization status again
+            manager.wait_for_auth(auth_response.id)
+            if not manager.is_authorized(auth_response.id):
+                # node interrupt?
+                raise ValueError("Authorization failed")
+
+    return {"messages": []}
+
+
+
+
 
 class KeyPayload(BaseModel):
     provider: str = Field(..., min_length=1, max_length=50)
@@ -232,50 +276,61 @@ class ConfigRequest(BaseModel):
 @app.post("/configure")
 @limiter.limit("10/minute")
 def configure_model(request: Request, config: ConfigRequest):
-    try:
-        logger.info(f"Configuring model for thread {config.thread_id}, provider: {config.provider}, model: {config.model}")
+    with (
+        PostgresStore.from_conn_string(database_url) as store,
+        PostgresSaver.from_conn_string(database_url) as checkpointer,
+    ):    
+        try:
+            logger.info(f"Configuring model for thread {config.thread_id}, provider: {config.provider}, model: {config.model}")
+            
+            # Obtener o crear memoria por thread
+            memory = memory_store.setdefault(config.thread_id, MemorySaver())
+            
+            # Crear modelo dinámicamente
+            if config.provider == "openai":
+                if not config.apiKey:
+                    raise HTTPException(400, detail="API key is required for OpenAI provider")
+                
+                model = ChatOpenAI(
+                    model=config.model,
+                    temperature=0,
+                    max_tokens=4000,  # Set reasonable limit
+                    timeout=30,       # 30 second timeout
+                    max_retries=2,
+                    api_key=config.apiKey,
+                )
+                
+            elif config.provider == "ollama":
+                model = ChatOllama(
+                    model=config.model,
+                    streaming=True,
+                    
+                    base_url=ollama_url,
+                )
+                
+            else:
+                raise HTTPException(400, detail="Unsupported provider")
         
-        # Obtener o crear memoria por thread
-        memory = memory_store.setdefault(config.thread_id, MemorySaver())
+        except Exception as e:
+            logger.error(f"Error configuring model: {str(e)}")
+            raise HTTPException(500, detail="Failed to configure model")
+        # Crear el workflow con ese modelo
+        model_with_tools = model.bind_tools(tools)
         
-        # Crear modelo dinámicamente
-        if config.provider == "openai":
-            if not config.apiKey:
-                raise HTTPException(400, detail="API key is required for OpenAI provider")
-            
-            model = ChatOpenAI(
-                model=config.model,
-                temperature=0,
-                max_tokens=4000,  # Set reasonable limit
-                timeout=30,       # 30 second timeout
-                max_retries=2,
-                api_key=config.apiKey,
-            )
-            
-        elif config.provider == "ollama":
-            model = ChatOllama(
-                model=config.model,
-                streaming=True,
-                base_url=ollama_url,
-                timeout=30,
-            )
-            
-        else:
-            raise HTTPException(400, detail="Unsupported provider")
-    
-    except Exception as e:
-        logger.error(f"Error configuring model: {str(e)}")
-        raise HTTPException(500, detail="Failed to configure model")
-    # Crear el workflow con ese modelo
-    model_with_tools = model.bind_tools(tools)
-       
-    def call_model(state: dict):        
-        return {"messages": model_with_tools.invoke(state["messages"])}
-    
-    workflow = StateGraph(state_schema=MessagesState)
-    workflow.add_node("model", call_model)
-    workflow.add_node("tools", tool_node)
-    workflow.add_edge(START, "model")
+        def call_model(state: dict):        
+            return {"messages": model_with_tools.invoke(state["messages"])}
+        
+        workflow = StateGraph(state_schema=MessagesState)
+        workflow.add_node("agent", call_model)
+        workflow.add_node("tools", tool_node)
+        workflow.add_node("authorization", authorize)
+        
+        
+        workflow.add_edge(START, "agent")
+        workflow.add_conditional_edges("agent", should_continue, ["authorization", "tools", END])
+        workflow.add_edge("authorization", "tools")
+        workflow.add_edge("tools", "agent")
+   
     workflow_app = workflow.compile(checkpointer=memory)
     # # Guardarlo en memoria
     workflow_store[config.thread_id] = workflow_app
@@ -313,7 +368,7 @@ async def chat_model(request: Request, chat_request: ChatRequest):
     try:
         logger.info(f"Chat request for thread {chat_request.thread_id}")
         
-        config = {"configurable": {"thread_id": chat_request.thread_id}}
+        config = {"configurable": {"thread_id": chat_request.thread_id, "user_id": email}}
         input_messages = [HumanMessage(chat_request.prompt)]
         
         if chat_request.thread_id not in workflow_store:
@@ -336,20 +391,22 @@ def generate_response(thread_id, input_messages, config):
     
     try:
         logger.info(f"Generating response for thread {thread_id}")
-        
+        full_content = ""
+        content = ""
         for chunk, metadata in workflow_app.stream(
             {"messages": input_messages},
             config,
             stream_mode="messages",
         ):
             if isinstance(chunk, AIMessage):
+                full_content += chunk.content
                 content = chunk.content
                 if content:  # Only yield non-empty content
                     yield content
-                
+        print(f"Full content generated: {full_content}")
         if buffer:
             yield buffer
-            
+             
     except openai.AuthenticationError as e:
         logger.error(f"OpenAI authentication error for thread {thread_id}: {str(e)}")
         yield f"[ERROR] Authentication failed: {str(e)}"
