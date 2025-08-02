@@ -4,25 +4,33 @@ import requests
 import logging
 import re
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import StreamingResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+
+from langchain_arcade import ToolManager
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage
+
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.prebuilt import ToolNode
+
 from pydantic import BaseModel, field_validator, Field
 from typing import Any, Optional
 import openai
-from openai import AuthenticationError
 from pathlib import Path
 import os
 import bleach
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 # Configure logging
 logging.basicConfig(
@@ -37,6 +45,7 @@ logger = logging.getLogger(__name__)
 
 # Environment validation
 required_env_vars = []
+
 for var in required_env_vars:
     if not os.getenv(var):
         logger.error(f"Required environment variable {var} is not set")
@@ -45,15 +54,26 @@ for var in required_env_vars:
 ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 max_prompt_length = int(os.getenv("MAX_PROMPT_LENGTH", "10000"))
 max_thread_id_length = int(os.getenv("MAX_THREAD_ID_LENGTH", "100"))
+arcade_api_key = os.getenv("ARCADE_API_KEY")
 
 workflow_store: dict[str, Any] = {}
 memory_store: dict[str, MemorySaver] = {}
 
+manager = ToolManager(api_key=arcade_api_key)
+
+manager.init_tools(toolkits=["Gmail"])
+
+tools = manager.to_langchain(use_interrupts=True)
+
+
+tool_node = ToolNode(tools)
+
 # Rate limiting setup
 limiter = Limiter(key_func=get_remote_address)
 
+
 # CORS origins validation
-origins_str = os.getenv("CORS_ORIGINS", "http://localhost:4321")
+origins_str = os.getenv("CORS_ORIGINS", "http://localhost:4322")
 origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
 
 app = FastAPI(
@@ -180,7 +200,7 @@ def validateKeys(request: Request, payload: ValidateKeyPayload):
     try:
         openai.models.list()
         return {'Valid': True}
-    except AuthenticationError as e:
+    except openai.AuthenticationError as e:
         raise HTTPException(status_code=404, detail=f'[APIKEY_ERROR]: {str(e)}')
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Unexpected error:{str(e)}')
@@ -247,11 +267,14 @@ def configure_model(request: Request, config: ConfigRequest):
         logger.error(f"Error configuring model: {str(e)}")
         raise HTTPException(500, detail="Failed to configure model")
     # Crear el workflow con ese modelo
-    def call_model(state: dict):
-        return {"messages": model.invoke(state["messages"])}
+    model_with_tools = model.bind_tools(tools)
+       
+    def call_model(state: dict):        
+        return {"messages": model_with_tools.invoke(state["messages"])}
     
     workflow = StateGraph(state_schema=MessagesState)
     workflow.add_node("model", call_model)
+    workflow.add_node("tools", tool_node)
     workflow.add_edge(START, "model")
     workflow_app = workflow.compile(checkpointer=memory)
     # # Guardarlo en memoria
@@ -327,7 +350,7 @@ def generate_response(thread_id, input_messages, config):
         if buffer:
             yield buffer
             
-    except AuthenticationError as e:
+    except openai.AuthenticationError as e:
         logger.error(f"OpenAI authentication error for thread {thread_id}: {str(e)}")
         yield f"[ERROR] Authentication failed: {str(e)}"
     except Exception as e:
