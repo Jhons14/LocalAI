@@ -16,7 +16,7 @@ from langchain_arcade import ToolManager
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langchain_core.runnables import RunnableConfig
 
 from langgraph.graph import START, END, MessagesState, StateGraph
@@ -38,30 +38,10 @@ from dotenv import load_dotenv
 from asyncpg import create_pool
 
 load_dotenv()
-def health(checks):
-    """Simple health endpoint generator"""
-    async def endpoint():
-        results = {}
-        for check in checks:
-            try:
-                result = await check()
-            except Exception:
-                result = False
-            results[check.__name__] = result
-        return {"checks": results, "status": all(results.values())}
-    return endpoint
 
-def instrument_app(app: FastAPI) -> None:
-    # Add the /health endpoint
-    health_endpoint = health([database_check])
-    app.add_api_route("/health", health_endpoint, include_in_schema=False)
 
 
 # Initialize db pool globally (ensure database_url is set)
-class DB:
-    pool = None
-
-db = DB()
 
 app = FastAPI(
     title="LocalAI Chat API",
@@ -69,19 +49,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-@app.on_event("startup")
-async def startup_event():
-    if database_url:
-        db.pool = await create_pool(database_url)
-
-async def database_check() -> bool:
-    try:
-        async with db.pool.acquire() as conn:
-            await conn.execute("select 1")
-        return True
-    except Exception as e:
-        logger.error("error checking database: %s - %s", type(e).__name__, str(e))
-        return False
 
 # Configure logging
 logging.basicConfig(
@@ -200,27 +167,54 @@ def should_continue(state: MessagesState):
     return END  # End the workflow if no tool calls are present
 
 
+def get_tool_calls(message):
+    """Extrae tool_calls de un mensaje, sea objeto o dict"""
+    if isinstance(message, dict):
+        return message.get("tool_calls", [])
+    else:
+        return getattr(message, 'tool_calls', [])
+
 def authorize(state: MessagesState, config: RunnableConfig, *, store: BaseStore):
     user_id = config["configurable"].get("user_id")
-    for tool_call in state["messages"][-1].tool_calls:
+    
+    last_message = state["messages"][-1]
+    tool_calls = get_tool_calls(last_message)
+    
+    for tool_call in tool_calls:
         tool_name = tool_call["name"]
         if not manager.requires_auth(tool_name):
             continue
         auth_response = manager.authorize(tool_name, user_id)
         if auth_response.status != "completed":
-            # Print the authorization URL to the user with proper formatting
             print(f"\n🔐 Authorization required for {tool_name}\n")
             print(f"Visit the following URL to authorize:\n{auth_response.url}\n")
             print("Waiting for authorization...\n")
 
-            # wait for the user to complete the authorization
-            # and then check the authorization status again
             manager.wait_for_auth(auth_response.id)
             if not manager.is_authorized(auth_response.id):
-                # node interrupt?
                 raise ValueError("Authorization failed")
 
     return {"messages": []}
+
+def serialize_message(message):
+    """Serializa cualquier tipo de mensaje de LangChain"""
+    if hasattr(message, 'type') or isinstance(message, BaseMessage):
+        # Para AIMessage, HumanMessage, ToolMessage, etc.
+        return {
+            "type": getattr(message, 'type', 'unknown'),
+            "content": getattr(message, 'content', ''),
+            "additional_kwargs": getattr(message, 'additional_kwargs', {}),
+            "response_metadata": getattr(message, 'response_metadata', {}),
+            "id": getattr(message, 'id', None),
+            "tool_calls": getattr(message, 'tool_calls', []),
+            "usage_metadata": getattr(message, 'usage_metadata', {}),
+            "tool_call_id": getattr(message, 'tool_call_id', None),  # Para ToolMessage
+            "name": getattr(message, 'name', None),  # Para ToolMessage
+        }
+    else:
+        # Si ya es un dict, devolverlo tal como está
+        return message
+
 
 
 class KeyPayload(BaseModel):
@@ -361,8 +355,14 @@ async def configure_model(request: Request, config: ConfigRequest):
         # Crear el workflow con ese modelo
     model_with_tools = model.bind_tools(tools)
         
+        # Stream tokens using astream
     def call_model(state: dict):        
-        return {"messages": model_with_tools.invoke(state["messages"])}
+        response = model_with_tools.invoke(state["messages"])
+        
+        # Serializar la respuesta
+        serialized_response = serialize_message(response)
+        
+        return {"messages": [serialized_response]}
     
     workflow = StateGraph(state_schema=MessagesState)
     workflow.add_node("agent", call_model)
@@ -374,8 +374,6 @@ async def configure_model(request: Request, config: ConfigRequest):
     workflow.add_conditional_edges("agent", should_continue, ["authorization", "tools", END])
     workflow.add_edge("authorization", "tools")
     workflow.add_edge("tools", "agent")
-   
-    workflow_app = workflow.compile(checkpointer=checkpointer, store=store)
     # # Guardarlo en memoria
     workflow_store[config.thread_id] = workflow
     
@@ -414,6 +412,14 @@ def chat_model(request: Request, chat_request: ChatRequest):
         logger.info(f"Chat request for thread {chat_request.thread_id}")
         
         config = {"configurable": {"thread_id": chat_request.thread_id, "user_id": email}}
+        # Build messages list with user query
+  
+        
+        # Define the input with messages
+        # input_messages = [
+        #     HumanMessage(content=chat_request.prompt)
+        # ]
+        # Por esto:
         input_messages = [{
             "type": "human", 
             "content": chat_request.prompt
@@ -440,37 +446,38 @@ async def generate_response(thread_id, input_messages, config):
         workflow_app = workflow_store[thread_id].compile(checkpointer=checkpointer, store=store)
         buffer = ""
         
-        try:
-            logger.info(f"Generating response for thread {thread_id}")
-            full_content = ""
-            content = ""
-            async for chunk, metadata in workflow_app.astream(
-                {"messages": input_messages},
-                config,
-                stream_mode="messages",
-            ):
-                if isinstance(chunk, AIMessage):
-                    content = str(chunk.content) if chunk.content else ""
-                    if content:
-                        full_content = content
-                        print(f"Chunk content: {content}")
-                        yield str(content)  # Solo yield el string, no el objeto
-                    else:
-                        print("Empty chunk content received")
-                        print(chunk)
-                        break
+        
+        logger.info(f"Generating response for thread {thread_id}")
+        full_content = ""
+        content = ""
+        async for chunk, metadata in workflow_app.astream(
+            {"messages": input_messages},
+            config,
+            stream_mode="messages",
+        ):
+            if isinstance(chunk, AIMessage):
+                content = str(chunk.content) if chunk.content else ""
+                if content:
+                    print(f"Chunk content: {content}")
+                    yield content  # Solo yield el string, no el objeto
                 else:
-                    print("Received non-AIMessage chunk:", chunk)
+                    print("Empty chunk content received")
+                    # yield "Hola, soy un modelo de lenguaje. ¿En qué puedo ayudarte hoy?"
+                    print(chunk)
+            else:
+                print("Received non-AIMessage chunk:", chunk)
+        print("FUERA DEL STREAMING RESPONSE")
+
             # if buffer:
             #     yield buffer
                 
-        except openai.AuthenticationError as e:
-            logger.error(f"OpenAI authentication error for thread {thread_id}: {str(e)}")
-            yield f"[ERROR] Authentication failed: {str(e)}"
-        except Exception as e:
-            print(f"ERROR: {e}")
-            logger.error(f"Error generating response for thread {thread_id}: {str(e)}")
-            yield f"[ERROR] Internal server error: {str(e)}"
+        # except openai.AuthenticationError as e:
+        #     logger.error(f"OpenAI authentication error for thread {thread_id}: {str(e)}")
+        #     yield f"[ERROR] Authentication failed: {str(e)}"
+        # except Exception as e:
+        #     print(f"ERROR: {e}")
+        #     logger.error(f"Error generating response for thread {thread_id}: {str(e)}")
+        #     yield f"[ERROR] Internal server error: {str(e)}"
 
 @app.get("/health")
 def health_check():
