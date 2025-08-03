@@ -24,6 +24,8 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.store.postgres import PostgresStore
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.store.postgres import AsyncPostgresStore
 from langgraph.store.base import BaseStore
 
 from pydantic import BaseModel, field_validator, Field
@@ -33,9 +35,53 @@ from pathlib import Path
 import os
 import bleach
 from dotenv import load_dotenv
+from asyncpg import create_pool
 
 load_dotenv()
+def health(checks):
+    """Simple health endpoint generator"""
+    async def endpoint():
+        results = {}
+        for check in checks:
+            try:
+                result = await check()
+            except Exception:
+                result = False
+            results[check.__name__] = result
+        return {"checks": results, "status": all(results.values())}
+    return endpoint
 
+def instrument_app(app: FastAPI) -> None:
+    # Add the /health endpoint
+    health_endpoint = health([database_check])
+    app.add_api_route("/health", health_endpoint, include_in_schema=False)
+
+
+# Initialize db pool globally (ensure database_url is set)
+class DB:
+    pool = None
+
+db = DB()
+
+app = FastAPI(
+    title="LocalAI Chat API",
+    description="Secure chat interface for LLM models",
+    version="1.0.0"
+)
+
+@app.on_event("startup")
+async def startup_event():
+    if database_url:
+        db.pool = await create_pool(database_url)
+
+async def database_check() -> bool:
+    try:
+        async with db.pool.acquire() as conn:
+            await conn.execute("select 1")
+        return True
+    except Exception as e:
+        logger.error("error checking database: %s - %s", type(e).__name__, str(e))
+        return False
 
 # Configure logging
 logging.basicConfig(
@@ -55,6 +101,7 @@ for var in required_env_vars:
     if not os.getenv(var):
         logger.error(f"Required environment variable {var} is not set")
         raise ValueError(f"Missing required environment variable: {var}")
+
 
 ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 max_prompt_length = int(os.getenv("MAX_PROMPT_LENGTH", "10000"))
@@ -176,9 +223,6 @@ def authorize(state: MessagesState, config: RunnableConfig, *, store: BaseStore)
     return {"messages": []}
 
 
-
-
-
 class KeyPayload(BaseModel):
     provider: str = Field(..., min_length=1, max_length=50)
     model: str = Field(..., min_length=1, max_length=100)
@@ -275,10 +319,10 @@ class ConfigRequest(BaseModel):
     
 @app.post("/configure")
 @limiter.limit("10/minute")
-def configure_model(request: Request, config: ConfigRequest):
-    with (
-        PostgresStore.from_conn_string(database_url) as store,
-        PostgresSaver.from_conn_string(database_url) as checkpointer,
+async def configure_model(request: Request, config: ConfigRequest):
+    async with (
+        AsyncPostgresStore.from_conn_string(database_url) as store,
+        AsyncPostgresSaver.from_conn_string(database_url) as checkpointer,
     ):    
         try:
             logger.info(f"Configuring model for thread {config.thread_id}, provider: {config.provider}, model: {config.model}")
@@ -315,25 +359,26 @@ def configure_model(request: Request, config: ConfigRequest):
             logger.error(f"Error configuring model: {str(e)}")
             raise HTTPException(500, detail="Failed to configure model")
         # Crear el workflow con ese modelo
-        model_with_tools = model.bind_tools(tools)
+    model_with_tools = model.bind_tools(tools)
         
-        def call_model(state: dict):        
-            return {"messages": model_with_tools.invoke(state["messages"])}
-        
-        workflow = StateGraph(state_schema=MessagesState)
-        workflow.add_node("agent", call_model)
-        workflow.add_node("tools", tool_node)
-        workflow.add_node("authorization", authorize)
-        
-        
-        workflow.add_edge(START, "agent")
-        workflow.add_conditional_edges("agent", should_continue, ["authorization", "tools", END])
-        workflow.add_edge("authorization", "tools")
-        workflow.add_edge("tools", "agent")
+    def call_model(state: dict):        
+        return {"messages": model_with_tools.invoke(state["messages"])}
+    
+    workflow = StateGraph(state_schema=MessagesState)
+    workflow.add_node("agent", call_model)
+    workflow.add_node("tools", tool_node)
+    workflow.add_node("authorization", authorize)
+    
+    
+    workflow.add_edge(START, "agent")
+    workflow.add_conditional_edges("agent", should_continue, ["authorization", "tools", END])
+    workflow.add_edge("authorization", "tools")
+    workflow.add_edge("tools", "agent")
    
-    workflow_app = workflow.compile(checkpointer=memory)
+    workflow_app = workflow.compile(checkpointer=checkpointer, store=store)
     # # Guardarlo en memoria
-    workflow_store[config.thread_id] = workflow_app
+    workflow_store[config.thread_id] = workflow
+    
     return {"message": f"Workflow configurado para {config.thread_id}"}
 
 @app.get("/getModels")
@@ -364,13 +409,15 @@ class ChatRequest(BaseModel):
                  
 @app.post("/chat")
 @limiter.limit("30/minute")
-async def chat_model(request: Request, chat_request: ChatRequest):
+def chat_model(request: Request, chat_request: ChatRequest):
     try:
         logger.info(f"Chat request for thread {chat_request.thread_id}")
         
         config = {"configurable": {"thread_id": chat_request.thread_id, "user_id": email}}
-        input_messages = [HumanMessage(chat_request.prompt)]
-        
+        input_messages = [{
+            "type": "human", 
+            "content": chat_request.prompt
+        }]        
         if chat_request.thread_id not in workflow_store:
             raise HTTPException(400, detail="Model not configured for this thread")
 
@@ -384,35 +431,46 @@ async def chat_model(request: Request, chat_request: ChatRequest):
         logger.error(f"Error in chat endpoint: {str(e)}")
         raise HTTPException(500, detail="Internal server error")
     
-def generate_response(thread_id, input_messages, config):
+async def generate_response(thread_id, input_messages, config):
     """Generate streaming response from the workflow"""
-    workflow_app = workflow_store[thread_id]
-    buffer = ""
-    
-    try:
-        logger.info(f"Generating response for thread {thread_id}")
-        full_content = ""
-        content = ""
-        for chunk, metadata in workflow_app.stream(
-            {"messages": input_messages},
-            config,
-            stream_mode="messages",
-        ):
-            if isinstance(chunk, AIMessage):
-                full_content += chunk.content
-                content = chunk.content
-                if content:  # Only yield non-empty content
-                    yield content
-        print(f"Full content generated: {full_content}")
-        if buffer:
-            yield buffer
-             
-    except openai.AuthenticationError as e:
-        logger.error(f"OpenAI authentication error for thread {thread_id}: {str(e)}")
-        yield f"[ERROR] Authentication failed: {str(e)}"
-    except Exception as e:
-        logger.error(f"Error generating response for thread {thread_id}: {str(e)}")
-        yield f"[ERROR] Internal server error: {str(e)}"
+    async with (
+        AsyncPostgresStore.from_conn_string(database_url) as store,
+        AsyncPostgresSaver.from_conn_string(database_url) as checkpointer,
+    ):        
+        workflow_app = workflow_store[thread_id].compile(checkpointer=checkpointer, store=store)
+        buffer = ""
+        
+        try:
+            logger.info(f"Generating response for thread {thread_id}")
+            full_content = ""
+            content = ""
+            async for chunk, metadata in workflow_app.astream(
+                {"messages": input_messages},
+                config,
+                stream_mode="messages",
+            ):
+                if isinstance(chunk, AIMessage):
+                    content = str(chunk.content) if chunk.content else ""
+                    if content:
+                        full_content = content
+                        print(f"Chunk content: {content}")
+                        yield str(content)  # Solo yield el string, no el objeto
+                    else:
+                        print("Empty chunk content received")
+                        print(chunk)
+                        break
+                else:
+                    print("Received non-AIMessage chunk:", chunk)
+            # if buffer:
+            #     yield buffer
+                
+        except openai.AuthenticationError as e:
+            logger.error(f"OpenAI authentication error for thread {thread_id}: {str(e)}")
+            yield f"[ERROR] Authentication failed: {str(e)}"
+        except Exception as e:
+            print(f"ERROR: {e}")
+            logger.error(f"Error generating response for thread {thread_id}: {str(e)}")
+            yield f"[ERROR] Internal server error: {str(e)}"
 
 @app.get("/health")
 def health_check():
