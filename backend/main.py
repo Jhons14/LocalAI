@@ -215,7 +215,23 @@ def serialize_message(message):
         # Si ya es un dict, devolverlo tal como está
         return message
 
-
+def serialize_tool_node(state):
+    """ToolNode wrapper que serializa automáticamente los ToolMessage"""
+    print("🔧 tools_node - INPUT:", [type(msg) for msg in state["messages"]])
+    
+    # Ejecutar el ToolNode original
+    result = tool_node.invoke(state)
+    
+    # Serializar todos los mensajes en el resultado
+    if "messages" in result:
+        serialized_messages = []
+        for msg in result["messages"]:
+            serialized_msg = serialize_message(msg)
+            serialized_messages.append(serialized_msg)
+        result["messages"] = serialized_messages
+    
+    print("🔧 tools_node - OUTPUT:", [type(msg) for msg in result.get("messages", [])])
+    return result
 
 class KeyPayload(BaseModel):
     provider: str = Field(..., min_length=1, max_length=50)
@@ -366,7 +382,7 @@ async def configure_model(request: Request, config: ConfigRequest):
     
     workflow = StateGraph(state_schema=MessagesState)
     workflow.add_node("agent", call_model)
-    workflow.add_node("tools", tool_node)
+    workflow.add_node("tools", serialize_tool_node)
     workflow.add_node("authorization", authorize)
     
     
