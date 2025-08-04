@@ -68,9 +68,9 @@ export const ChatInput = memo(function ChatInput({ thread_id }: ChatInputProps) 
   }, [hasFieldError, clearValidation]);
 
   return (
-    <div className={`border-t border-gray-500 ${isMobile ? 'p-2' : 'p-4'}`}>
+    <div className={`border-t border-gray-300 ${isMobile ? 'p-3' : 'p-4'} bg-gray-50`}>
       <form
-        className={`flex items-end border-2 border-gray-500 rounded-lg ${isMobile ? 'p-2' : 'p-3'} bg-white`}
+        className={`flex items-end bg-blue-50 border-2 border-blue-200 rounded-xl ${isMobile ? 'p-3' : 'p-4'} transition-all duration-200 focus-within:border-blue-400 focus-within:bg-blue-100 focus-within:shadow-lg hover:border-blue-300`}
         onSubmit={handleSubmit}
         role="search"
         aria-label="Send message to AI"
@@ -80,10 +80,10 @@ export const ChatInput = memo(function ChatInput({ thread_id }: ChatInputProps) 
         </label>
         <textarea
           id="message-input"
-          className={`w-full focus:outline-0 resize-none keyboard-navigation ${isMobile ? 'px-2 py-1 text-base' : 'px-3 py-2'} overflow-y-auto min-h-[44px] max-h-32 ${
-            hasFieldError('message') ? 'border-red-500 border' : ''
+          className={`w-full bg-transparent focus:outline-none resize-none keyboard-navigation ${isMobile ? 'px-0 py-1 text-base' : 'px-1 py-2'} overflow-y-auto min-h-[44px] max-h-32 placeholder-blue-400 text-gray-800 ${
+            hasFieldError('message') ? 'placeholder-red-400' : ''
           }`}
-          placeholder={isMobile ? 'Ask...' : 'Ask something...'}
+          placeholder={isMobile ? 'Type your message...' : 'Type your message here...'}
           ref={chatInputRef}
           onKeyDown={handleKeyDown}
           onChange={handleInputChange}
@@ -101,8 +101,8 @@ export const ChatInput = memo(function ChatInput({ thread_id }: ChatInputProps) 
           </div>
         )}
         <button
-          className={`border-2 border-gray-500 rounded-lg bg-gray-500 hover:bg-gray-700 focus:bg-gray-700 cursor-pointer transition-colors keyboard-navigation touch-friendly ${isMobile ? 'p-2 ml-2' : 'py-2 px-3 ml-3'} ${
-            isValidating ? 'opacity-50 cursor-not-allowed' : ''
+          className={`rounded-lg bg-blue-500 hover:bg-blue-600 focus:bg-blue-600 focus:ring-2 focus:ring-blue-300 focus:ring-offset-1 cursor-pointer transition-all duration-200 keyboard-navigation touch-friendly text-white shadow-md hover:shadow-lg ${isMobile ? 'p-2.5 ml-2' : 'py-2.5 px-3 ml-3'} ${
+            isValidating ? 'opacity-50 cursor-not-allowed bg-blue-400' : ''
           }`}
           type='submit'
           aria-label='Send message to AI assistant'
@@ -117,9 +117,9 @@ export const ChatInput = memo(function ChatInput({ thread_id }: ChatInputProps) 
         </button>
       </form>
       {hasFieldError('message') && (
-        <div className="mt-1 flex items-center text-red-600 text-sm">
-          <MdWarning size={16} className="mr-1" />
-          {getFieldError('message')}
+        <div className="mt-2 flex items-center text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg p-2">
+          <MdWarning size={16} className="mr-2 flex-shrink-0" />
+          <span>{getFieldError('message')}</span>
         </div>
       )}
     </div>
