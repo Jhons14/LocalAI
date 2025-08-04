@@ -9,6 +9,7 @@ import type { ChatOutputProps, AssistantMessageOutputProps, UserMessageOutputPro
 import type { ChatMessage } from '@/types/chat';
 import { TypingIndicator } from '@/components/LoadingStates';
 import { useMobileFirst } from '@/hooks/useResponsive';
+import { useAriaLive } from '@/hooks/useAccessibility';
 
 import 'highlight.js/styles/tomorrow-night-blue.min.css';
 
@@ -58,26 +59,40 @@ export const ChatOutput = memo(function ChatOutput({ thread_id }: ChatOutputProp
   }, [thread_id]);
 
   return (
-    <div className='flex-1 overflow-y-auto' ref={containerRef}>
+    <div 
+      className='flex-1 overflow-y-auto' 
+      ref={containerRef}
+      role="log"
+      aria-label="Chat conversation history"
+      aria-live="polite"
+      aria-atomic="false"
+    >
       <div className='flex justify-center'>
         <div className={`w-full ${isMobile ? 'px-2 py-1' : 'px-4 py-2'} ${isMobile ? 'max-w-full' : 'max-w-[1000px]'}`}>
           {messages.length > ITEMS_TO_RENDER && (
-            <div className={`text-center text-gray-500 mb-4 p-2 bg-gray-100 rounded ${isMobile ? 'text-xs' : 'text-sm'}`}>
+            <div 
+              className={`text-center text-gray-500 mb-4 p-2 bg-gray-100 rounded ${isMobile ? 'text-xs' : 'text-sm'}`}
+              role="status"
+              aria-label={`Showing ${ITEMS_TO_RENDER} of ${messages.length} messages`}
+            >
               <div className="mb-1">Showing last {ITEMS_TO_RENDER} of {messages.length} messages</div>
               <button 
-                className={`text-blue-500 hover:text-blue-700 underline touch-friendly ${isMobile ? 'text-xs' : 'text-sm'}`}
+                className={`text-blue-500 hover:text-blue-700 focus:text-blue-700 underline keyboard-navigation touch-friendly ${isMobile ? 'text-xs' : 'text-sm'}`}
                 onClick={() => {
                   // Could implement "load more" functionality here
                   console.log('Load more messages');
                 }}
+                aria-label="Load earlier messages from conversation history"
               >
                 Load earlier messages
               </button>
             </div>
           )}
-          <AnimatePresence mode="popLayout">
-            {visibleMessages.map((msg, index) => renderMessage(msg, index))}
-          </AnimatePresence>
+          <div role="group" aria-label="Chat messages">
+            <AnimatePresence mode="popLayout">
+              {visibleMessages.map((msg, index) => renderMessage(msg, index))}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </div>
