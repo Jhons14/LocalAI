@@ -1,19 +1,19 @@
 import { createContext, useState, useEffect, useRef, useCallback } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useChatApi } from '@/hooks/useChatApi';
-import type { 
-  ChatMessage, 
-  ActiveModel, 
-  ChatContextValue, 
-  SendMessageParams, 
+import type {
+  ChatMessage,
+  ActiveModel,
+  ChatContextValue,
+  SendMessageParams,
   ConfigureModelParams,
   ModelName,
-  ModelProvider
+  ModelProvider,
 } from '@/types/chat';
 
-export const ChatHistoryContext = createContext<
-  ChatContextValue | undefined
->(undefined);
+export const ChatHistoryContext = createContext<ChatContextValue | undefined>(
+  undefined
+);
 
 export function ChatHistoryContextProvider({
   children,
@@ -21,7 +21,7 @@ export function ChatHistoryContextProvider({
   children: React.ReactNode;
 }) {
   const { sendChatMessage, configureModel: apiConfigureModel } = useChatApi();
-  
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isModelConnected, setIsModelConnected] = useState<boolean>(false);
   const [tempApiKey, setTempApiKey] = useState<string>('');
@@ -38,7 +38,7 @@ export function ChatHistoryContextProvider({
   }, []);
 
   const chatManager = useRef<
-    Record<string, { thread_id: string; messages: ChatMessage[] }>
+    Record<string, { thread_id?: string; messages: ChatMessage[] }>
   >({}); // Almacena el historial de mensajes
 
   useEffect(() => {
@@ -62,204 +62,204 @@ export function ChatHistoryContextProvider({
     }; // Actualizar el historial de mensajes en el chatManager
   }, [messages]); // Dependencia añadida para cargar mensajes al cambiar de modelo
 
-  const rechargeModel = useCallback((
-    model: ModelName,
-    provider: ModelProvider
-  ) => {
-    if (model in chatManager.current) {
-      setActiveModel({
-        model: model,
-        provider: provider,
-        thread_id:
-          chatManager?.current[model]?.thread_id ||
-          activeModel?.thread_id ||
-          '',
-      }); // Actualizar el modelo activo y el thread_id
-      setMessages(chatManager.current[model].messages); // Cargar el historial de mensajes del modelo activo
+  const rechargeModel = useCallback(
+    (model: ModelName, provider: ModelProvider) => {
+      if (model in chatManager.current) {
+        setActiveModel({
+          model: model,
+          provider: provider,
+          thread_id:
+            chatManager?.current[model]?.thread_id ||
+            activeModel?.thread_id ||
+            '',
+        }); // Actualizar el modelo activo y el thread_id
+        if (chatManager.current[model])
+          setMessages(chatManager.current[model].messages); // Cargar el historial de mensajes del modelo activo
 
-      setIsModelConnected(true); // Marcar el modelo como conectado
-      return;
-    }
+        setIsModelConnected(true); // Marcar el modelo como conectado
+        return;
+      }
 
-    setActiveModel({ model, provider, thread_id: uuid() }); // Actualizar el modelo activo y el x
-    setIsModelConnected(false); // Marcar el modelo como conectado
-  }, []);
+      setActiveModel({ model, provider, thread_id: uuid() }); // Actualizar el modelo activo y el x
+      setIsModelConnected(false); // Marcar el modelo como conectado
+    },
+    []
+  );
 
-  const configureModel = useCallback(async ({
-    model,
-    provider,
-    connectModel,
-  }: ConfigureModelParams) => {
-    if (!model || !provider) {
-      throw new Error('Please select a model and provider');
-    }
+  const configureModel = useCallback(
+    async ({ model, provider, connectModel }: ConfigureModelParams) => {
+      if (!model || !provider) {
+        throw new Error('Please select a model and provider');
+      }
 
-    if (connectModel === false) return;
+      if (connectModel === false) return;
 
-    const thread_id = activeModel?.thread_id || uuid();
-    setIsModelConnected(false);
+      const thread_id = activeModel?.thread_id || uuid();
+      setIsModelConnected(false);
 
-    if (provider === 'openai' && tempApiKey === '') {
-      alert('Please save your API key first');
-      return;
-    }
+      if (provider === 'openai' && tempApiKey === '') {
+        alert('Please save your API key first');
+        return;
+      }
 
-    try {
-      await apiConfigureModel({
-        model,
-        provider,
-        thread_id,
-        apiKey: tempApiKey,
-      });
+      try {
+        await apiConfigureModel({
+          model,
+          provider,
+          thread_id,
+          apiKey: tempApiKey,
+        });
 
-      chatManager.current[model] = {
-        thread_id,
-        messages: [],
-      };
+        chatManager.current[model] = {
+          thread_id,
+          messages: [],
+        };
 
-      setIsModelConnected(true);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Configuration failed';
-      alert(errorMessage);
-      throw error;
-    }
-  }, [apiConfigureModel, activeModel?.thread_id, tempApiKey]);
+        setIsModelConnected(true);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Configuration failed';
+        alert(errorMessage);
+        throw error;
+      }
+    },
+    [apiConfigureModel, activeModel?.thread_id, tempApiKey]
+  );
 
   // Función para enviar un mensaje al modelo
-  const sendMessage = useCallback(async ({
-    content,
-    thread_id,
-  }: SendMessageParams) => {
-    if (!thread_id) {
-      throw new Error('Please select a model');
-    }
-
-    const id = uuid();
-    const userMessage: ChatMessage = {
-      id,
-      role: 'user',
-      content,
-      createdAt: Date.now(),
-    };
-
-    const assistantMessage: ChatMessage = {
-      id: uuid(),
-      role: 'assistant',
-      content: '',
-      relatedTo: id,
-      createdAt: Date.now(),
-      status: 'streaming',
-    };
-
-    setMessages((prev) => [...prev, userMessage, assistantMessage]);
-
-    await sendChatMessage(
-      { content, thread_id },
-      // onChunk
-      (chunk: string) => {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessage.id
-              ? { ...msg, content: (msg.content || '') + chunk }
-              : msg
-          )
-        );
-      },
-      // onError
-      (error: string) => {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessage.id
-              ? { ...msg, status: 'error' as const, content: error }
-              : msg
-          )
-        );
-      },
-      // onComplete
-      () => {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessage.id 
-              ? { ...msg, status: 'complete' as const } 
-              : msg
-          )
-        );
+  const sendMessage = useCallback(
+    async ({ content, thread_id }: SendMessageParams) => {
+      if (!thread_id) {
+        throw new Error('Please select a model');
       }
-    );
-  }, [sendChatMessage]);
 
-  const edit = useCallback(async (
-    userMessageId: string,
-    newContent: string,
-    thread_id: string
-  ) => {
-    const userMsg = messages.find((msg) => msg.id === userMessageId);
-    const assistantMessage = messages.find(
-      (msg) => msg.relatedTo === userMessageId
-    );
+      const id = uuid();
+      const userMessage: ChatMessage = {
+        id,
+        role: 'user',
+        content,
+        createdAt: Date.now(),
+      };
 
-    if (!userMsg) return;
-    
-    const id = uuid();
-    const newUserMessage: ChatMessage = {
-      id,
-      role: 'user',
-      content: newContent,
-      createdAt: Date.now(),
-      edited: true,
-    };
-    const newAssistantMessage: ChatMessage = {
-      id: uuid(),
-      role: 'assistant',
-      content: '',
-      relatedTo: id,
-      createdAt: Date.now(),
-      status: 'streaming',
-    };
-    
-    setMessages((prev) =>
-      prev.map((msg) => {
-        if (msg.id === userMessageId) return newUserMessage;
-        if (msg.id === assistantMessage?.id) return newAssistantMessage;
-        return msg;
-      })
-    );
+      const assistantMessage: ChatMessage = {
+        id: uuid(),
+        role: 'assistant',
+        content: '',
+        relatedTo: id,
+        createdAt: Date.now(),
+        status: 'streaming',
+      };
 
-    await sendChatMessage(
-      { content: newContent, thread_id },
-      // onChunk
-      (chunk: string) => {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === newAssistantMessage.id
-              ? { ...msg, content: (msg.content || '') + chunk }
-              : msg
-          )
-        );
-      },
-      // onError
-      (error: string) => {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === newAssistantMessage.id
-              ? { ...msg, status: 'error' as const, content: error }
-              : msg
-          )
-        );
-      },
-      // onComplete
-      () => {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === newAssistantMessage.id
-              ? { ...msg, status: 'complete' as const }
-              : msg
-          )
-        );
-      }
-    );
-  }, [messages, sendChatMessage]);
-  
+      setMessages((prev) => [...prev, userMessage, assistantMessage]);
+
+      await sendChatMessage(
+        { content, thread_id },
+        // onChunk
+        (chunk: string) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessage.id
+                ? { ...msg, content: (msg.content || '') + chunk }
+                : msg
+            )
+          );
+        },
+        // onError
+        (error: string) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessage.id
+                ? { ...msg, status: 'error' as const, content: error }
+                : msg
+            )
+          );
+        },
+        // onComplete
+        () => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessage.id
+                ? { ...msg, status: 'complete' as const }
+                : msg
+            )
+          );
+        }
+      );
+    },
+    [sendChatMessage]
+  );
+
+  const edit = useCallback(
+    async (userMessageId: string, newContent: string, thread_id: string) => {
+      const userMsg = messages.find((msg) => msg.id === userMessageId);
+      const assistantMessage = messages.find(
+        (msg) => msg.relatedTo === userMessageId
+      );
+
+      if (!userMsg) return;
+
+      const id = uuid();
+      const newUserMessage: ChatMessage = {
+        id,
+        role: 'user',
+        content: newContent,
+        createdAt: Date.now(),
+        edited: true,
+      };
+      const newAssistantMessage: ChatMessage = {
+        id: uuid(),
+        role: 'assistant',
+        content: '',
+        relatedTo: id,
+        createdAt: Date.now(),
+        status: 'streaming',
+      };
+
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.id === userMessageId) return newUserMessage;
+          if (msg.id === assistantMessage?.id) return newAssistantMessage;
+          return msg;
+        })
+      );
+
+      await sendChatMessage(
+        { content: newContent, thread_id },
+        // onChunk
+        (chunk: string) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === newAssistantMessage.id
+                ? { ...msg, content: (msg.content || '') + chunk }
+                : msg
+            )
+          );
+        },
+        // onError
+        (error: string) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === newAssistantMessage.id
+                ? { ...msg, status: 'error' as const, content: error }
+                : msg
+            )
+          );
+        },
+        // onComplete
+        () => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === newAssistantMessage.id
+                ? { ...msg, status: 'complete' as const }
+                : msg
+            )
+          );
+        }
+      );
+    },
+    [messages, sendChatMessage]
+  );
+
   const clear = useCallback(() => setMessages([]), []);
 
   return (

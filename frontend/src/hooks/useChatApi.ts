@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useApi } from './useApi';
-import type { ChatMessage, SendMessageParams, ConfigureModelParams } from '@/types/chat';
+import type { SendMessageParams, ConfigureModelParams } from '@/types/chat';
 
 export function useChatApi() {
   const { streamRequest, postRequest } = useApi();

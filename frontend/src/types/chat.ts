@@ -29,6 +29,7 @@ export interface ConfigureModelParams {
   model: ModelName;
   provider: ModelProvider;
   connectModel?: boolean;
+  thread_id?: string;
 }
 
 export interface ChatContextValue {
@@ -43,6 +44,5 @@ export interface ChatContextValue {
   setTempApiKey: (tempApiKey: string) => void;
   isModelConnected: boolean;
   setIsModelConnected: (isModelConnected: boolean) => void;
-  thread_id?: string;
   rechargeModel: (model: ModelName, provider: ModelProvider) => void;
 }
