@@ -1,10 +1,11 @@
 import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, History } from 'lucide-react';
 import { useState, memo, useCallback, useMemo } from 'react';
 import { LoadingButton, ConnectionStatus } from '@/components/LoadingStates';
 import { useToast } from '@/hooks/useToast';
 import { useMobileFirst } from '@/hooks/useResponsive';
 import { useValidation } from '@/hooks/useValidation';
+import { ChatHistoryManager } from '@/components/ChatHistoryManager';
 
 export const TopNavBar = memo(function TopNavBar() {
   const {
@@ -17,6 +18,7 @@ export const TopNavBar = memo(function TopNavBar() {
   const { success, error } = useToast();
   const { isMobile } = useMobileFirst();
   const [showApikeyMenu, setShowApikeyMenu] = useState<boolean>(false);
+  const [showHistoryManager, setShowHistoryManager] = useState<boolean>(false);
   const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
   const [isModelLoading, setIsModelLoading] = useState<boolean>(false);
   
@@ -87,10 +89,24 @@ export const TopNavBar = memo(function TopNavBar() {
           ) : (
             <span className={`${isMobile ? 'text-center text-sm' : 'text-base'}`}>Api key saved</span>
           ))}
+        <button
+          onClick={() => setShowHistoryManager(true)}
+          className={`flex items-center gap-2 px-3 py-2 border border-gray-300 rounded hover:bg-gray-50 keyboard-navigation ${isMobile ? 'w-full justify-center' : ''}`}
+          aria-label="Open chat history manager"
+        >
+          <History size={16} />
+          {isMobile ? 'History' : 'Chat History'}
+        </button>
+        
         <div className={`${isMobile ? 'w-full flex justify-center' : ''}`}>
           {renderConnectButton}
         </div>
       </div>
+      
+      <ChatHistoryManager 
+        isOpen={showHistoryManager}
+        onClose={() => setShowHistoryManager(false)}
+      />
     </div>
   );
 });
