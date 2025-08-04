@@ -1,15 +1,20 @@
 {
   "name": "localai",
   "module": "index.ts",
-  "type": "module",
-  "private": true,
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "concurrently": "^9.2.0"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
+  "private": true,
   "scripts": {
-    "dev": "cd "
+    "dev": "concurrently \"cd backend && venv\\Scripts\\activate && uvicorn main:app --reload\" \"cd frontend && bun run dev\"",
+    "dev:unix": "concurrently \"cd backend && source venv/bin/activate && fastapi dev\" \"cd frontend && bun run dev\""
+  },
+  "type": "module",
+  "dependencies": {
+    "localai": "."
   }
 }
