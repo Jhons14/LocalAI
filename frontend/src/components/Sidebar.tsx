@@ -1,9 +1,9 @@
-import { type JSX, use, useEffect, useMemo, useState } from 'react';
+import { type JSX, useEffect, useMemo, useState, memo, useCallback } from 'react';
 import { Menu } from 'lucide-react';
 import { SidebarItem } from './SidebarItem';
 import OpenAILogo from '../assets/OpenAILogo.svg?react';
 import OllamaLogo from '../assets/OllamaLogo.svg?react';
-import { useChatHistoryContext } from '@/hooks/useChatHistoryContext'; // Asegúrate de que la ruta sea correcta
+import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
 import { v4 as uuid } from 'uuid';
 
 type NavType = {
@@ -19,7 +19,7 @@ type SubItemType = {
   api_key?: string;
 };
 
-export function Sidebar() {
+export const Sidebar = memo(function Sidebar() {
   const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL; // Asegúrate de que la ruta sea correcta
 
   const [isBarOpen, setIsBarOpen] = useState(false);
@@ -110,7 +110,7 @@ export function Sidebar() {
     };
   }, [selectedIndex]);
 
-  const handleClick = ({
+  const handleClick = useCallback(({
     index,
     model,
     provider,
@@ -132,9 +132,9 @@ export function Sidebar() {
     // }
     rechargeModel(model, provider);
     setSelectedSubitemIndex(index);
-  };
+  }, [selectedSubitemIndex, rechargeModel]);
 
-  const renderOllamaSubItems = () => {
+  const renderOllamaSubItems = useCallback(() => {
     if (error) {
       return (
         <div className='text-sm text-red-500 text-center px-2'>{error}</div>
@@ -149,7 +149,38 @@ export function Sidebar() {
       );
     }
 
-    return choosedNavItem?.subItems.map((subItem, index) => (
+    const subItems = choosedNavItem?.subItems || [];
+    
+    // Virtual scrolling for large model lists
+    if (subItems.length > 20) {
+      return (
+        <div className='overflow-y-auto max-h-96'>
+          <div className='text-xs text-gray-400 px-2 py-1'>
+            {subItems.length} models available
+          </div>
+          {subItems.map((subItem, index) => (
+            <button
+              key={subItem.title}
+              className={`flex items-center justify-center cursor-pointer w-full py-1 px-2 hover:bg-gray-800 transition-all duration-300 text-sm ${
+                selectedSubitemIndex === index && 'bg-gray-800'
+              }`}
+              type='button'
+              onClick={() =>
+                handleClick({
+                  index: index,
+                  model: subItem.model,
+                  provider: subItem.provider,
+                })
+              }
+            >
+              {subItem.title}
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    return subItems.map((subItem, index) => (
       <button
         key={subItem.title}
         className={`flex items-center justify-center cursor-pointer w-full py-1 px-2 hover:bg-gray-800 transition-all duration-500 ${
@@ -167,7 +198,7 @@ export function Sidebar() {
         {subItem.title}
       </button>
     ));
-  };
+  }, [error, ollamaSubItemsLoading, choosedNavItem?.subItems, selectedSubitemIndex, handleClick]);
 
   return (
     <div
@@ -207,14 +238,16 @@ export function Sidebar() {
               : 'flex flex-col border-l-stone-50/10 border-l-2 w-32 content-center'
           } `}
         >
-          <div className={`${!isItemOpen && 'hidden'} h-full animate-fade-in`}>
+          <div className={`${!isItemOpen && 'hidden'} h-full animate-fade-in flex flex-col`}>
             <h1 className='pl-2 mb-2 font-bold text-xl'>
               {choosedNavItem?.name}
             </h1>
-            {renderOllamaSubItems()}
+            <div className='flex-1 overflow-hidden'>
+              {renderOllamaSubItems()}
+            </div>
           </div>
         </nav>
       </div>
     </div>
   );
-}
+});

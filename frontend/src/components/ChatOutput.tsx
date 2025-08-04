@@ -6,41 +6,74 @@ import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js';
 import type { ChatOutputProps, AssistantMessageOutputProps, UserMessageOutputProps } from '@/types/components';
+import type { ChatMessage } from '@/types/chat';
 
 import 'highlight.js/styles/tomorrow-night-blue.min.css';
 
 export const ChatOutput = memo(function ChatOutput({ thread_id }: ChatOutputProps) {
-  const { messages } = useChatHistoryContext(); // Obtener la función sendMessage del contexto
+  const { messages } = useChatHistoryContext();
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Virtual scrolling for large message lists
+  const ITEMS_TO_RENDER = 50; // Only render last 50 messages for performance
+  const visibleMessages = useMemo(() => {
+    if (messages.length <= ITEMS_TO_RENDER) {
+      return messages;
+    }
+    return messages.slice(-ITEMS_TO_RENDER);
+  }, [messages]);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (containerRef.current) {
+      const container = containerRef.current;
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+      
+      if (isNearBottom) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+  }, [messages.length]);
+
+  const renderMessage = useCallback((msg: ChatMessage, index: number) => {
+    return (
+      <motion.div
+        key={msg.id}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        transition={{ duration: 0.3 }}
+        className="mb-4"
+      >
+        {msg.role === 'assistant' ? (
+          <AssistantMessageOutput content={msg.content} />
+        ) : (
+          <UserMessageOutput msg={msg} thread_id={thread_id} />
+        )}
+      </motion.div>
+    );
+  }, [thread_id]);
 
   return (
-    <div className='flex-1  overflow-y-auto '>
+    <div className='flex-1 overflow-y-auto' ref={containerRef}>
       <div className='flex justify-center'>
-        <div className='w-full max-w-[1000px] px-4 py-2 space-y-2'>
-          <AnimatePresence>
-            {messages.map((msg) => {
-              return (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 1 }}
-                  transition={{ duration: 1 }}
-                >
-                  {msg.role === 'assistant' ? (
-                    <AssistantMessageOutput
-                      key={msg.id}
-                      content={msg.content}
-                    />
-                  ) : (
-                    <UserMessageOutput
-                      key={msg.id}
-                      msg={msg}
-                      thread_id={thread_id}
-                    />
-                  )}
-                </motion.div>
-              );
-            })}
+        <div className='w-full max-w-[1000px] px-4 py-2'>
+          {messages.length > ITEMS_TO_RENDER && (
+            <div className="text-center text-gray-500 text-sm mb-4 p-2 bg-gray-100 rounded">
+              Showing last {ITEMS_TO_RENDER} of {messages.length} messages
+              <button 
+                className="ml-2 text-blue-500 hover:text-blue-700 underline"
+                onClick={() => {
+                  // Could implement "load more" functionality here
+                  console.log('Load more messages');
+                }}
+              >
+                Load earlier messages
+              </button>
+            </div>
+          )}
+          <AnimatePresence mode="popLayout">
+            {visibleMessages.map((msg, index) => renderMessage(msg, index))}
           </AnimatePresence>
         </div>
       </div>
