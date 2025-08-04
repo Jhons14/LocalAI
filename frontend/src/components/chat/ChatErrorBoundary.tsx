@@ -1,4 +1,4 @@
-import { ErrorBoundary } from './ErrorBoundary';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { type ReactNode } from 'react';
 
 interface ChatErrorBoundaryProps {

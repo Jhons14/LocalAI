@@ -69,3 +69,30 @@ export {
 // Validation utilities
 export type { ValidationRule, ValidationResult } from './validation';
 export { validateRequired, validateEmail, validateApiKey, validateMessage } from './validation';
+
+// Logging utilities
+export { logger, apiLogger, chatLogger, storageLogger, uiLogger, errorLogger } from './logger';
+
+// Development tools
+export { 
+  PerformanceMonitor, 
+  MemoryMonitor, 
+  withDebugInfo, 
+  DevErrorBoundary,
+  devTools 
+} from './devTools';
+
+// Error monitoring
+export type { ApplicationError, ErrorReporter } from './errorMonitoring';
+export {
+  errorMonitor,
+  captureError,
+  captureException,
+  captureMessage,
+  captureApiError,
+  captureNetworkError,
+  captureValidationError,
+  captureStorageError,
+  withErrorCapture,
+  useErrorCapture,
+} from './errorMonitoring';

@@ -1,4 +1,6 @@
 import { useRef, useCallback } from 'react';
+import { apiLogger } from '@/utils/logger';
+import { captureApiError, captureNetworkError } from '@/utils/errorMonitoring';
 
 interface ApiError {
   status: number;
@@ -21,23 +23,31 @@ export function useApi() {
     return controller;
   }, []);
 
-  const handleApiError = useCallback((status: number): string => {
-    switch (status) {
-      case 503:
-        return 'Service is not available, please try again later';
-      case 400:
-        return 'Invalid request, please connect to the model first';
-      case 401:
-        return 'Unauthorized access';
-      case 403:
-        return 'Forbidden access';
-      case 404:
-        return 'Resource not found';
-      case 500:
-        return 'Internal server error';
-      default:
-        return 'An unexpected error occurred';
-    }
+  const handleApiError = useCallback((status: number, endpoint: string, statusText?: string): string => {
+    const errorMessage = (() => {
+      switch (status) {
+        case 503:
+          return 'Service is not available, please try again later';
+        case 400:
+          return 'Invalid request, please connect to the model first';
+        case 401:
+          return 'Unauthorized access';
+        case 403:
+          return 'Forbidden access';
+        case 404:
+          return 'Resource not found';
+        case 500:
+          return 'Internal server error';
+        default:
+          return 'An unexpected error occurred';
+      }
+    })();
+
+    // Log and capture the error
+    apiLogger.error(`API Error: ${status} ${statusText || ''} - ${endpoint}`, 'API', { status, statusText, endpoint });
+    captureApiError(endpoint, status, statusText || 'Unknown', null);
+    
+    return errorMessage;
   }, []);
 
   const makeRequest = useCallback(async (
@@ -54,15 +64,24 @@ export function useApi() {
       });
 
       if (!response.ok) {
-        const errorMessage = handleApiError(response.status);
+        const errorMessage = handleApiError(response.status, endpoint, response.statusText);
         throw new ApiError(response.status, errorMessage);
       }
+
+      // Log successful request
+      apiLogger.debug(`API Request successful: ${endpoint}`, 'API', { status: response.status });
 
       return response;
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;
       }
+      
+      // Capture network errors
+      const networkError = error as Error;
+      apiLogger.error(`Network error for ${endpoint}: ${networkError.message}`, 'API');
+      captureNetworkError(`${BACKEND_URL}${endpoint}`, networkError);
+      
       throw new ApiError(0, 'Network error occurred');
     }
   }, [BACKEND_URL, handleApiError]);
