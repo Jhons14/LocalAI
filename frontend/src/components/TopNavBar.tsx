@@ -4,6 +4,7 @@ import { useState, memo, useCallback, useMemo } from 'react';
 import { LoadingButton, ConnectionStatus } from '@/components/LoadingStates';
 import { useToast } from '@/hooks/useToast';
 import { useMobileFirst } from '@/hooks/useResponsive';
+import { useValidation } from '@/hooks/useValidation';
 
 export const TopNavBar = memo(function TopNavBar() {
   const {
@@ -98,19 +99,32 @@ const ApiKeyInput = memo(function ApiKeyInput({ model, provider }: { model: stri
   const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
   const [show, setShow] = useState(false);
   const [apiKey, setApiKey] = useState('');
-  const [inputError, setInputError] = useState('');
   const [loading, setLoading] = useState(false);
   const { setTempApiKey } = useChatHistoryContext();
+  const { validateField, getFieldError, hasFieldError, clearValidation } = useValidation();
+  const { error: showError, success: showSuccess } = useToast();
 
   const saveKeys = useCallback(async () => {
-    setInputError('');
     setLoading(true);
-    if (!apiKey) {
-      setInputError('API Key is required');
+    
+    // Validate the API key
+    const validation = validateField('apiKey', apiKey);
+    
+    if (!validation.isValid) {
+      showError('Invalid API Key', validation.errors[0]);
       setLoading(false);
       return;
     }
-    setTempApiKey(apiKey);
+
+    try {
+      // Use sanitized value if available
+      const sanitizedApiKey = validation.sanitizedValue || apiKey;
+      setTempApiKey(sanitizedApiKey);
+      showSuccess('API Key Saved', 'Your API key has been securely saved.');
+      clearValidation('apiKey');
+    } catch (error) {
+      showError('Save Failed', 'Failed to save API key. Please try again.');
+    }
 
     // try {
     //   const res = await fetch(BACKEND_URL + '/keys/validate-keys', {
@@ -155,7 +169,7 @@ const ApiKeyInput = memo(function ApiKeyInput({ model, provider }: { model: stri
     //   console.error('Error:', error);
     // }
     setLoading(false);
-  }, [apiKey, setTempApiKey]);
+  }, [apiKey, setTempApiKey, validateField, showError, showSuccess, clearValidation]);
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -184,11 +198,18 @@ const ApiKeyInput = memo(function ApiKeyInput({ model, provider }: { model: stri
               placeholder='sk-...'
               autoComplete='off'
               className={`w-full pr-10 px-4 py-2 border ${
-                !inputError ? 'border-gray-300' : 'border-red-500'
-              } rounded-lg shadow-sm focus:outline-none focus:ring focus:border-blue-500`}
+                hasFieldError('apiKey') ? 'border-red-500' : 'border-gray-300'
+              } rounded-lg shadow-sm focus:outline-none focus:ring focus:border-blue-500 keyboard-navigation`}
               value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
+              onChange={(e) => {
+                setApiKey(e.target.value);
+                if (hasFieldError('apiKey')) {
+                  clearValidation('apiKey');
+                }
+              }}
               onKeyDown={handleKeyPress}
+              aria-invalid={hasFieldError('apiKey')}
+              aria-describedby={hasFieldError('apiKey') ? 'apikey-error' : undefined}
             />
             <button
               type='button'
@@ -207,10 +228,10 @@ const ApiKeyInput = memo(function ApiKeyInput({ model, provider }: { model: stri
         <div className='loader'></div>
       )}
 
-      {inputError && (
-        <p className='flex w-40 self-end pb-4 text-red-500 shadow-xl '>
-          {inputError}
-        </p>
+      {hasFieldError('apiKey') && (
+        <div id="apikey-error" className='flex w-40 self-end pb-4 text-red-500 shadow-xl text-sm' role="alert">
+          {getFieldError('apiKey')}
+        </div>
       )}
     </div>
   );
