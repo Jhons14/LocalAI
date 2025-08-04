@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { v4 as uuid } from 'uuid';
-import type { Toast, ToastType } from '@/components/Toast';
+import type { Toast, ToastType } from '@/components/ui/Toast';
 
 export function useToast() {
   const [toasts, setToasts] = useState<Toast[]>([]);

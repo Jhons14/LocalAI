@@ -3,7 +3,9 @@ import { Trash2, Download, Clock, MessageSquare } from 'lucide-react';
 import { usePersistence } from '@/hooks/usePersistentState';
 import { useMobileFirst } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
-import { LoadingButton } from './LoadingStates';
+import { useEscapeKey } from '@/hooks/useKeyboard';
+import { LoadingButton } from '@/components/ui/LoadingStates';
+import { formatRelativeTime } from '@/utils/common';
 
 interface ChatHistoryManagerProps {
   isOpen: boolean;
@@ -26,6 +28,11 @@ export const ChatHistoryManager = memo(function ChatHistoryManager({
 
   const [loading, setLoading] = useState(false);
   const [threads, setThreads] = useState(() => getAllThreads());
+
+  // Close on Escape key
+  useEscapeKey(() => {
+    if (isOpen) onClose();
+  });
 
   const refreshThreads = useCallback(() => {
     setThreads(getAllThreads());
@@ -77,13 +84,7 @@ export const ChatHistoryManager = memo(function ChatHistoryManager({
   }, [exportData, success, showError]);
 
   const formatDate = useCallback((timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatRelativeTime(timestamp);
   }, []);
 
   const storageUsage = getStorageUsage();

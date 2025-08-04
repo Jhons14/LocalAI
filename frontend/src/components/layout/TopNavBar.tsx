@@ -1,11 +1,11 @@
 import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
 import { Eye, EyeOff, History } from 'lucide-react';
 import { useState, memo, useCallback, useMemo } from 'react';
-import { LoadingButton, ConnectionStatus } from '@/components/LoadingStates';
+import { LoadingButton, ConnectionStatus } from '@/components/ui/LoadingStates';
 import { useToast } from '@/hooks/useToast';
 import { useMobileFirst } from '@/hooks/useResponsive';
 import { useValidation } from '@/hooks/useValidation';
-import { ChatHistoryManager } from '@/components/ChatHistoryManager';
+import { ChatHistoryManager } from '@/components/chat/ChatHistoryManager';
 
 export const TopNavBar = memo(function TopNavBar() {
   const {

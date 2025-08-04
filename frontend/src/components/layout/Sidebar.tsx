@@ -1,10 +1,10 @@
 import { type JSX, useEffect, useMemo, useState, memo, useCallback } from 'react';
 import { Menu } from 'lucide-react';
 import { SidebarItem } from './SidebarItem';
-import OpenAILogo from '../assets/OpenAILogo.svg?react';
-import OllamaLogo from '../assets/OllamaLogo.svg?react';
+import OpenAILogo from '../../assets/OpenAILogo.svg?react';
+import OllamaLogo from '../../assets/OllamaLogo.svg?react';
 import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
-import { ModelListSkeleton } from '@/components/SkeletonLoader';
+import { ModelListSkeleton } from '@/components/ui/SkeletonLoader';
 import { useToast } from '@/hooks/useToast';
 import { v4 as uuid } from 'uuid';
 

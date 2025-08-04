@@ -1,9 +1,9 @@
-import { ChatOutput } from '@/components/ChatOutput';
+import { ChatOutput } from './ChatOutput';
 import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
-import { ChatInput } from '@/components/ChatInput';
-import { TopNavBar } from '@/components/TopNavBar';
-import { ChatErrorBoundary } from '@/components/ChatErrorBoundary';
-import { ToastContainer } from '@/components/Toast';
+import { ChatInput } from './ChatInput';
+import { TopNavBar } from '@/components/layout/TopNavBar';
+import { ChatErrorBoundary } from './ChatErrorBoundary';
+import { ToastContainer } from '@/components/ui/Toast';
 import { useToast } from '@/hooks/useToast';
 import { useMobileFirst } from '@/hooks/useResponsive';
 import { useSkipToContent, useAriaLive } from '@/hooks/useAccessibility';

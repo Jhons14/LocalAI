@@ -7,7 +7,7 @@ import DOMPurify from 'dompurify';
 import hljs from 'highlight.js';
 import type { ChatOutputProps, AssistantMessageOutputProps, UserMessageOutputProps } from '@/types/components';
 import type { ChatMessage } from '@/types/chat';
-import { TypingIndicator } from '@/components/LoadingStates';
+import { TypingIndicator } from '@/components/ui/LoadingStates';
 import { useMobileFirst } from '@/hooks/useResponsive';
 import { useAriaLive } from '@/hooks/useAccessibility';
 
