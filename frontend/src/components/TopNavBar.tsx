@@ -1,8 +1,8 @@
-import { useChatHistoryContext } from '@/hooks/useChatHistoryContext'; // Asegúrate de que la ruta sea correcta
-import { Eye, EyeOff } from 'lucide-react'; // Puedes usar cualquier ícono SVG
-import { useState } from 'react';
+import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
+import { Eye, EyeOff } from 'lucide-react';
+import { useState, memo, useCallback, useMemo } from 'react';
 
-export function TopNavBar() {
+export const TopNavBar = memo(function TopNavBar() {
   // Obtener el contexto de ChatHistoryContext
   const {
     activeModel,
@@ -14,20 +14,31 @@ export function TopNavBar() {
   const [showApikeyMenu, setShowApikeyMenu] = useState<boolean>(false);
   const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
   const [isModelLoading, setIsModelLoading] = useState<boolean>(false);
-  const deleteKey = () => {
+  
+  const deleteKey = useCallback(() => {
     setTempApiKey('');
-    // await fetch(
-    //   `${BACKEND_URL}/keys/${activeModel.provider}/${activeModel.model}`,
-    //   {
-    //     method: 'delete',
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //     },
-    //   }
-    // );
-  };
+  }, [setTempApiKey]);
 
-  const renderConnectButton = () => {
+  const handleConnect = useCallback(async () => {
+    if (!activeModel) {
+      alert('Please select a model first.');
+      return;
+    }
+    setIsModelLoading(true);
+
+    try {
+      await configureModel({
+        model: activeModel.model,
+        provider: activeModel.provider,
+      });
+    } catch (error) {
+      console.error('Error connecting to model:', error);
+    }
+
+    setIsModelLoading(false);
+  }, [activeModel, configureModel]);
+
+  const renderConnectButton = useMemo(() => {
     if (!!isModelConnected && !isModelLoading) {
       return <span className='text-2xl'>Conectado</span>;
     }
@@ -39,31 +50,14 @@ export function TopNavBar() {
         <div className='text-2xl'>
           <button
             className='cursor-pointer rounded-lg bg-gray-500 px-4 py-2 text-white hover:bg-blue-600'
-            onClick={async () => {
-              if (!activeModel) {
-                alert('Please select a model first.');
-                return;
-              }
-              setIsModelLoading(true);
-
-              try {
-                await configureModel({
-                  model: activeModel.model,
-                  provider: activeModel.provider,
-                });
-              } catch (error) {
-                console.error('Error connecting to model:', error);
-              }
-
-              setIsModelLoading(false);
-            }}
+            onClick={handleConnect}
           >
             Conectar
           </button>
         </div>
       );
     }
-  };
+  }, [isModelConnected, isModelLoading, activeModel, handleConnect]);
 
   return (
     <div className='flex justify-between items-center gap-4 px-8 border-b border-gray-500 h-20'>
@@ -80,12 +74,12 @@ export function TopNavBar() {
         ) : (
           <span>Api key saved</span>
         ))}
-      {renderConnectButton()}
+      {renderConnectButton}
     </div>
   );
-}
+});
 
-function ApiKeyInput({ model, provider }: { model: string; provider: string }) {
+const ApiKeyInput = memo(function ApiKeyInput({ model, provider }: { model: string; provider: string }) {
   const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
   const [show, setShow] = useState(false);
   const [apiKey, setApiKey] = useState('');
@@ -93,7 +87,7 @@ function ApiKeyInput({ model, provider }: { model: string; provider: string }) {
   const [loading, setLoading] = useState(false);
   const { setTempApiKey } = useChatHistoryContext();
 
-  const saveKeys = async () => {
+  const saveKeys = useCallback(async () => {
     setInputError('');
     setLoading(true);
     if (!apiKey) {
@@ -146,7 +140,15 @@ function ApiKeyInput({ model, provider }: { model: string; provider: string }) {
     //   console.error('Error:', error);
     // }
     setLoading(false);
-  };
+  }, [apiKey, setTempApiKey]);
+
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      saveKeys();
+      setApiKey('');
+      e.currentTarget.blur();
+    }
+  }, [saveKeys]);
 
   return (
     <div className='relative flex w-full items-center justify-center gap-2'>
@@ -171,14 +173,7 @@ function ApiKeyInput({ model, provider }: { model: string; provider: string }) {
               } rounded-lg shadow-sm focus:outline-none focus:ring focus:border-blue-500`}
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  // Aquí puedes manejar el evento de enviar la API Key
-                  saveKeys();
-                  setApiKey(''); // Limpiar el campo después de enviarq
-                  e.currentTarget.blur(); // Volver a enfocar el input
-                }
-              }}
+              onKeyDown={handleKeyPress}
             />
             <button
               type='button'
@@ -204,4 +199,4 @@ function ApiKeyInput({ model, provider }: { model: string; provider: string }) {
       )}
     </div>
   );
-}
+});

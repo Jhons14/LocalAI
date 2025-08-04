@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, memo, useCallback, useMemo } from 'react';
 import { MdEdit, MdSend, MdClose } from 'react-icons/md';
 import { marked } from 'marked';
 import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
@@ -9,7 +9,7 @@ import type { ChatOutputProps, AssistantMessageOutputProps, UserMessageOutputPro
 
 import 'highlight.js/styles/tomorrow-night-blue.min.css';
 
-export function ChatOutput({ thread_id }: ChatOutputProps) {
+export const ChatOutput = memo(function ChatOutput({ thread_id }: ChatOutputProps) {
   const { messages } = useChatHistoryContext(); // Obtener la función sendMessage del contexto
 
   return (
@@ -46,9 +46,9 @@ export function ChatOutput({ thread_id }: ChatOutputProps) {
       </div>
     </div>
   );
-}
+});
 
-function AssistantMessageOutput({ content }: AssistantMessageOutputProps) {
+const AssistantMessageOutput = memo(function AssistantMessageOutput({ content }: AssistantMessageOutputProps) {
   const bottomRef = useRef<HTMLDivElement>(null); // 🔽 Este es el marcador de scroll
   const containerRef = useRef<Element>(null);
 
@@ -79,15 +79,29 @@ function AssistantMessageOutput({ content }: AssistantMessageOutputProps) {
       <div ref={bottomRef} />
     </div>
   );
-}
+});
 
-function UserMessageOutput({
+const UserMessageOutput = memo(function UserMessageOutput({
   msg,
   thread_id,
 }: UserMessageOutputProps) {
-  const { edit } = useChatHistoryContext(); // Obtener la función sendMessage del contexto
+  const { edit } = useChatHistoryContext();
   const [isEditingId, setIsEditingId] = useState<String | null>(null);
-  const editMsgTextAreaRef = useRef<HTMLTextAreaElement>(null); // Crear una referencia al input
+  const editMsgTextAreaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleEditSubmit = useCallback(() => {
+    if (!editMsgTextAreaRef.current?.value || !thread_id) return;
+    edit(
+      msg.id,
+      editMsgTextAreaRef.current.value,
+      thread_id
+    );
+    setIsEditingId(null);
+  }, [edit, msg.id, thread_id]);
+
+  const handleEditToggle = useCallback(() => {
+    setIsEditingId(isEditingId === msg.id ? null : msg.id);
+  }, [isEditingId, msg.id]);
   if (msg.id === isEditingId) {
     return (
       <div className='flex-1  flex flex-col items-end'>
@@ -105,13 +119,7 @@ function UserMessageOutput({
           </button>
           <button
             className='py-1 px-2 cursor-pointer hover:bg-gray-500/30 rounded'
-            onClick={() => {
-              edit(
-                msg.id, //AssistantMsgId
-                editMsgTextAreaRef.current?.value || '', //UserMsgId
-                thread_id || ''
-              );
-            }}
+            onClick={handleEditSubmit}
           >
             <MdSend size={20} />
           </button>
@@ -129,9 +137,7 @@ function UserMessageOutput({
         </div>
         <button
           className='cursor-pointer hover:scale-110 transition-transform duration-200 my-1'
-          onClick={() => {
-            setIsEditingId(msg.id);
-          }}
+          onClick={handleEditToggle}
           type='button'
         >
           <MdEdit className='hover:fill-amber-50 text-gray-500' size={20} />
@@ -139,4 +145,4 @@ function UserMessageOutput({
       </div>
     );
   }
-}
+});

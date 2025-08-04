@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useRef } from 'react';
+import { createContext, useState, useEffect, useRef, useCallback } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useChatApi } from '@/hooks/useChatApi';
 import type { 
@@ -62,7 +62,7 @@ export function ChatHistoryContextProvider({
     }; // Actualizar el historial de mensajes en el chatManager
   }, [messages]); // Dependencia añadida para cargar mensajes al cambiar de modelo
 
-  const rechargeModel = (
+  const rechargeModel = useCallback((
     model: ModelName,
     provider: ModelProvider
   ) => {
@@ -83,9 +83,9 @@ export function ChatHistoryContextProvider({
 
     setActiveModel({ model, provider, thread_id: uuid() }); // Actualizar el modelo activo y el x
     setIsModelConnected(false); // Marcar el modelo como conectado
-  };
+  }, []);
 
-  const configureModel = async ({
+  const configureModel = useCallback(async ({
     model,
     provider,
     connectModel,
@@ -123,10 +123,10 @@ export function ChatHistoryContextProvider({
       alert(errorMessage);
       throw error;
     }
-  };
+  }, [apiConfigureModel, activeModel?.thread_id, tempApiKey]);
 
   // Función para enviar un mensaje al modelo
-  const sendMessage = async ({
+  const sendMessage = useCallback(async ({
     content,
     thread_id,
   }: SendMessageParams) => {
@@ -186,9 +186,9 @@ export function ChatHistoryContextProvider({
         );
       }
     );
-  };
+  }, [sendChatMessage]);
 
-  const edit = async (
+  const edit = useCallback(async (
     userMessageId: string,
     newContent: string,
     thread_id: string
@@ -258,8 +258,9 @@ export function ChatHistoryContextProvider({
         );
       }
     );
-  };
-  const clear = () => setMessages([]);
+  }, [messages, sendChatMessage]);
+  
+  const clear = useCallback(() => setMessages([]), []);
 
   return (
     <ChatHistoryContext.Provider
