@@ -8,11 +8,13 @@ import hljs from 'highlight.js';
 import type { ChatOutputProps, AssistantMessageOutputProps, UserMessageOutputProps } from '@/types/components';
 import type { ChatMessage } from '@/types/chat';
 import { TypingIndicator } from '@/components/LoadingStates';
+import { useMobileFirst } from '@/hooks/useResponsive';
 
 import 'highlight.js/styles/tomorrow-night-blue.min.css';
 
 export const ChatOutput = memo(function ChatOutput({ thread_id }: ChatOutputProps) {
   const { messages } = useChatHistoryContext();
+  const { isMobile } = useMobileFirst();
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Virtual scrolling for large message lists
@@ -58,12 +60,12 @@ export const ChatOutput = memo(function ChatOutput({ thread_id }: ChatOutputProp
   return (
     <div className='flex-1 overflow-y-auto' ref={containerRef}>
       <div className='flex justify-center'>
-        <div className='w-full max-w-[1000px] px-4 py-2'>
+        <div className={`w-full ${isMobile ? 'px-2 py-1' : 'px-4 py-2'} ${isMobile ? 'max-w-full' : 'max-w-[1000px]'}`}>
           {messages.length > ITEMS_TO_RENDER && (
-            <div className="text-center text-gray-500 text-sm mb-4 p-2 bg-gray-100 rounded">
-              Showing last {ITEMS_TO_RENDER} of {messages.length} messages
+            <div className={`text-center text-gray-500 mb-4 p-2 bg-gray-100 rounded ${isMobile ? 'text-xs' : 'text-sm'}`}>
+              <div className="mb-1">Showing last {ITEMS_TO_RENDER} of {messages.length} messages</div>
               <button 
-                className="ml-2 text-blue-500 hover:text-blue-700 underline"
+                className={`text-blue-500 hover:text-blue-700 underline touch-friendly ${isMobile ? 'text-xs' : 'text-sm'}`}
                 onClick={() => {
                   // Could implement "load more" functionality here
                   console.log('Load more messages');
@@ -130,6 +132,7 @@ const UserMessageOutput = memo(function UserMessageOutput({
   thread_id,
 }: UserMessageOutputProps) {
   const { edit } = useChatHistoryContext();
+  const { isMobile } = useMobileFirst();
   const [isEditingId, setIsEditingId] = useState<String | null>(null);
   const editMsgTextAreaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -148,24 +151,35 @@ const UserMessageOutput = memo(function UserMessageOutput({
   }, [isEditingId, msg.id]);
   if (msg.id === isEditingId) {
     return (
-      <div className='flex-1  flex flex-col items-end'>
+      <div className='flex-1 flex flex-col items-end'>
         <textarea
           ref={editMsgTextAreaRef}
-          className='focus:outline-0 resize-none text-sm leading-relaxed px-4 py-2 rounded-xl text-white w-[200px] bg-gray-500/50'
+          className={`focus:outline-0 resize-none leading-relaxed rounded-xl text-white bg-gray-500/50 ${
+            isMobile 
+              ? 'text-sm px-3 py-2 w-full max-w-[280px]' 
+              : 'text-sm px-4 py-2 w-[200px]'
+          }`}
           defaultValue={msg.content}
+          rows={isMobile ? 3 : 2}
         />
-        <div className='flex justify-between my-2'>
+        <div className={`flex justify-between my-2 ${isMobile ? 'w-full max-w-[280px]' : ''}`}>
           <button
-            className='py-1 px-2 cursor-pointer hover:bg-gray-500/30 rounded'
+            className={`cursor-pointer hover:bg-gray-500/30 rounded touch-friendly ${
+              isMobile ? 'py-2 px-3' : 'py-1 px-2'
+            }`}
             onClick={() => setIsEditingId(null)}
+            aria-label="Cancel edit"
           >
-            <MdClose size={20} />
+            <MdClose size={isMobile ? 18 : 20} />
           </button>
           <button
-            className='py-1 px-2 cursor-pointer hover:bg-gray-500/30 rounded'
+            className={`cursor-pointer hover:bg-gray-500/30 rounded touch-friendly ${
+              isMobile ? 'py-2 px-3' : 'py-1 px-2'
+            }`}
             onClick={handleEditSubmit}
+            aria-label="Save edit"
           >
-            <MdSend size={20} />
+            <MdSend size={isMobile ? 18 : 20} />
           </button>
         </div>
       </div>
@@ -173,18 +187,25 @@ const UserMessageOutput = memo(function UserMessageOutput({
   } else {
     return (
       <div className='flex flex-col items-end'>
-        <div className='text-sm leading-relaxed px-4 py-2 rounded-md w-auto bg-gray-600 text-white'>
-          <p>{msg.content?.trim()}</p>
+        <div className={`leading-relaxed rounded-md w-auto bg-gray-600 text-white max-w-[85%] ${
+          isMobile 
+            ? 'text-sm px-3 py-2 break-words' 
+            : 'text-sm px-4 py-2'
+        }`}>
+          <p className="whitespace-pre-wrap">{msg.content?.trim()}</p>
           {msg.status === 'streaming' && (
             <span className='animate-blink'>|</span>
           )}
         </div>
         <button
-          className='cursor-pointer hover:scale-110 transition-transform duration-200 my-1'
+          className={`cursor-pointer hover:scale-110 transition-transform duration-200 my-1 touch-friendly ${
+            isMobile ? 'p-2' : 'p-1'
+          }`}
           onClick={handleEditToggle}
           type='button'
+          aria-label="Edit message"
         >
-          <MdEdit className='hover:fill-amber-50 text-gray-500' size={20} />
+          <MdEdit className='hover:fill-amber-50 text-gray-500' size={isMobile ? 18 : 20} />
         </button>
       </div>
     );

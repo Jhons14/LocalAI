@@ -3,6 +3,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useState, memo, useCallback, useMemo } from 'react';
 import { LoadingButton, ConnectionStatus } from '@/components/LoadingStates';
 import { useToast } from '@/hooks/useToast';
+import { useMobileFirst } from '@/hooks/useResponsive';
 
 export const TopNavBar = memo(function TopNavBar() {
   const {
@@ -13,6 +14,7 @@ export const TopNavBar = memo(function TopNavBar() {
     configureModel,
   } = useChatHistoryContext();
   const { success, error } = useToast();
+  const { isMobile } = useMobileFirst();
   const [showApikeyMenu, setShowApikeyMenu] = useState<boolean>(false);
   const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
   const [isModelLoading, setIsModelLoading] = useState<boolean>(false);
@@ -69,21 +71,25 @@ export const TopNavBar = memo(function TopNavBar() {
   }, [isModelConnected, isModelLoading, activeModel, handleConnect]);
 
   return (
-    <div className='flex justify-between items-center gap-4 px-8 border-b border-gray-500 h-20'>
-      <h1 className='text-xl font-bold w-fit min-w-max'>
-        {activeModel?.model || 'Select a model to start...'}
+    <div className={`flex ${isMobile ? 'flex-col gap-2 p-3' : 'flex-row justify-between items-center gap-4 px-8'} border-b border-gray-500 ${isMobile ? 'min-h-[100px]' : 'h-20'}`}>
+      <h1 className={`${isMobile ? 'text-lg text-center' : 'text-xl'} font-bold w-fit ${isMobile ? 'w-full' : 'min-w-max'}`}>
+        {activeModel?.model || 'Select a model...'}
       </h1>
 
-      {activeModel?.provider === 'openai' &&
-        (!tempApiKey ? (
-          <ApiKeyInput
-            model={activeModel.model}
-            provider={activeModel.provider}
-          />
-        ) : (
-          <span>Api key saved</span>
-        ))}
-      {renderConnectButton}
+      <div className={`flex ${isMobile ? 'flex-col gap-2 w-full' : 'flex-row items-center gap-4'}`}>
+        {activeModel?.provider === 'openai' &&
+          (!tempApiKey ? (
+            <ApiKeyInput
+              model={activeModel.model}
+              provider={activeModel.provider}
+            />
+          ) : (
+            <span className={`${isMobile ? 'text-center text-sm' : 'text-base'}`}>Api key saved</span>
+          ))}
+        <div className={`${isMobile ? 'w-full flex justify-center' : ''}`}>
+          {renderConnectButton}
+        </div>
+      </div>
     </div>
   );
 });

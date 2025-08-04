@@ -13,6 +13,33 @@
   }
 }
 
+/* Mobile-first responsive utilities */
+@layer utilities {
+  .mobile-padding {
+    @apply px-4 py-2;
+  }
+  
+  .desktop-padding {
+    @apply sm:px-6 sm:py-4;
+  }
+  
+  .responsive-text {
+    @apply text-sm sm:text-base;
+  }
+  
+  .mobile-hidden {
+    @apply hidden sm:block;
+  }
+  
+  .mobile-only {
+    @apply block sm:hidden;
+  }
+  
+  .touch-friendly {
+    @apply min-h-[44px] min-w-[44px];
+  }
+}
+
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
     display: none;
