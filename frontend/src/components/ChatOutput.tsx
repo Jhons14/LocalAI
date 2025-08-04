@@ -7,6 +7,7 @@ import DOMPurify from 'dompurify';
 import hljs from 'highlight.js';
 import type { ChatOutputProps, AssistantMessageOutputProps, UserMessageOutputProps } from '@/types/components';
 import type { ChatMessage } from '@/types/chat';
+import { TypingIndicator } from '@/components/LoadingStates';
 
 import 'highlight.js/styles/tomorrow-night-blue.min.css';
 
@@ -82,7 +83,7 @@ export const ChatOutput = memo(function ChatOutput({ thread_id }: ChatOutputProp
 });
 
 const AssistantMessageOutput = memo(function AssistantMessageOutput({ content }: AssistantMessageOutputProps) {
-  const bottomRef = useRef<HTMLDivElement>(null); // 🔽 Este es el marcador de scroll
+  const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<Element>(null);
 
   useEffect(() => {
@@ -102,6 +103,16 @@ const AssistantMessageOutput = memo(function AssistantMessageOutput({ content }:
 
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [content]);
+
+  // Show typing indicator if no content yet
+  if (!content || content.trim() === '') {
+    return (
+      <div className='flex-1 overflow-y-auto p-4'>
+        <TypingIndicator />
+        <div ref={bottomRef} />
+      </div>
+    );
+  }
 
   return (
     <div className='flex-1 overflow-y-auto'>

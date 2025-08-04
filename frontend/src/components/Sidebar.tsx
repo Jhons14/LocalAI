@@ -4,6 +4,8 @@ import { SidebarItem } from './SidebarItem';
 import OpenAILogo from '../assets/OpenAILogo.svg?react';
 import OllamaLogo from '../assets/OllamaLogo.svg?react';
 import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
+import { ModelListSkeleton } from '@/components/SkeletonLoader';
+import { useToast } from '@/hooks/useToast';
 import { v4 as uuid } from 'uuid';
 
 type NavType = {
@@ -20,16 +22,17 @@ type SubItemType = {
 };
 
 export const Sidebar = memo(function Sidebar() {
-  const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL; // Asegúrate de que la ruta sea correcta
+  const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
 
   const [isBarOpen, setIsBarOpen] = useState(false);
   const [isItemOpen, setIsItemOpen] = useState(false);
-  const [ollamaSubItems, setOllamaSubItems] = useState<Array<SubItemType>>([]); // Obtener la función sendMessage del contexto
-  const [ollamaSubItemsLoading, setOllamaSubItemsLoading] = useState(false); // Obtener la función sendMessage del contexto
+  const [ollamaSubItems, setOllamaSubItems] = useState<Array<SubItemType>>([]);
+  const [ollamaSubItemsLoading, setOllamaSubItemsLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number>();
   const [selectedSubitemIndex, setSelectedSubitemIndex] = useState<number>();
   const [error, setError] = useState<string | null>(null);
-  const { rechargeModel, setIsModelConnected } = useChatHistoryContext(); // Obtener la función sendMessage del contexto
+  const { rechargeModel, setIsModelConnected } = useChatHistoryContext();
+  const { error: showError } = useToast();
 
   const navItems = useMemo<NavType>(
     () => [
@@ -90,7 +93,9 @@ export const Sidebar = memo(function Sidebar() {
       } catch (err: any) {
         if (err.name !== 'AbortError') {
           console.error('Error fetching models from Ollama:', err);
-          setError('Error getting models, check your ollama connection');
+          const errorMessage = 'Error getting models, check your ollama connection';
+          setError(errorMessage);
+          showError('Ollama Connection Error', errorMessage);
         }
       } finally {
         setOllamaSubItemsLoading(false);
@@ -142,11 +147,7 @@ export const Sidebar = memo(function Sidebar() {
     }
 
     if (ollamaSubItemsLoading) {
-      return (
-        <div className='flex items-center h-full justify-center'>
-          <span className='loader'></span>
-        </div>
-      );
+      return <ModelListSkeleton />;
     }
 
     const subItems = choosedNavItem?.subItems || [];

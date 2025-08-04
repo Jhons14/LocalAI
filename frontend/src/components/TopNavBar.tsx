@@ -1,9 +1,10 @@
 import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
 import { Eye, EyeOff } from 'lucide-react';
 import { useState, memo, useCallback, useMemo } from 'react';
+import { LoadingButton, ConnectionStatus } from '@/components/LoadingStates';
+import { useToast } from '@/hooks/useToast';
 
 export const TopNavBar = memo(function TopNavBar() {
-  // Obtener el contexto de ChatHistoryContext
   const {
     activeModel,
     isModelConnected,
@@ -11,6 +12,7 @@ export const TopNavBar = memo(function TopNavBar() {
     setTempApiKey,
     configureModel,
   } = useChatHistoryContext();
+  const { success, error } = useToast();
   const [showApikeyMenu, setShowApikeyMenu] = useState<boolean>(false);
   const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
   const [isModelLoading, setIsModelLoading] = useState<boolean>(false);
@@ -21,7 +23,7 @@ export const TopNavBar = memo(function TopNavBar() {
 
   const handleConnect = useCallback(async () => {
     if (!activeModel) {
-      alert('Please select a model first.');
+      error('No Model Selected', 'Please select a model first.');
       return;
     }
     setIsModelLoading(true);
@@ -31,32 +33,39 @@ export const TopNavBar = memo(function TopNavBar() {
         model: activeModel.model,
         provider: activeModel.provider,
       });
-    } catch (error) {
-      console.error('Error connecting to model:', error);
+      success('Connected!', `Successfully connected to ${activeModel.model}`);
+    } catch (err) {
+      console.error('Error connecting to model:', err);
+      error('Connection Failed', err instanceof Error ? err.message : 'Failed to connect to model');
     }
 
     setIsModelLoading(false);
-  }, [activeModel, configureModel]);
+  }, [activeModel, configureModel, success, error]);
 
   const renderConnectButton = useMemo(() => {
-    if (!!isModelConnected && !isModelLoading) {
-      return <span className='text-2xl'>Conectado</span>;
+    if (!activeModel) {
+      return <span className='text-sm text-gray-500'>Select a model to start</span>;
     }
-    if (isModelLoading) {
-      return <div className='loader'></div>;
-    }
-    if (!isModelConnected && !isModelLoading && activeModel) {
+
+    if (isModelConnected && !isModelLoading) {
       return (
-        <div className='text-2xl'>
-          <button
-            className='cursor-pointer rounded-lg bg-gray-500 px-4 py-2 text-white hover:bg-blue-600'
-            onClick={handleConnect}
-          >
-            Conectar
-          </button>
-        </div>
+        <ConnectionStatus 
+          isConnected={true} 
+          isConnecting={false} 
+          modelName={activeModel.model} 
+        />
       );
     }
+
+    return (
+      <LoadingButton
+        isLoading={isModelLoading}
+        onClick={handleConnect}
+        className='bg-blue-500 text-white hover:bg-blue-600'
+      >
+        {isModelLoading ? 'Connecting...' : 'Connect'}
+      </LoadingButton>
+    );
   }, [isModelConnected, isModelLoading, activeModel, handleConnect]);
 
   return (
