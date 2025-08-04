@@ -1,14 +1,15 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRef, useState, useEffect, use } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { MdEdit, MdSend, MdClose } from 'react-icons/md';
 import { marked } from 'marked';
-import { useChatHistoryContext } from '@/hooks/useChatHistoryContext'; // Asegúrate de que la ruta sea correcta
+import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js';
+import type { ChatOutputProps, AssistantMessageOutputProps, UserMessageOutputProps } from '@/types/components';
 
-import 'highlight.js/styles/tomorrow-night-blue.min.css'; // O el tema que prefieras
+import 'highlight.js/styles/tomorrow-night-blue.min.css';
 
-export function ChatOutput({ thread_id }: { thread_id?: string }) {
+export function ChatOutput({ thread_id }: ChatOutputProps) {
   const { messages } = useChatHistoryContext(); // Obtener la función sendMessage del contexto
 
   return (
@@ -47,7 +48,7 @@ export function ChatOutput({ thread_id }: { thread_id?: string }) {
   );
 }
 
-function AssistantMessageOutput({ content }: { content?: string }) {
+function AssistantMessageOutput({ content }: AssistantMessageOutputProps) {
   const bottomRef = useRef<HTMLDivElement>(null); // 🔽 Este es el marcador de scroll
   const containerRef = useRef<Element>(null);
 
@@ -83,14 +84,7 @@ function AssistantMessageOutput({ content }: { content?: string }) {
 function UserMessageOutput({
   msg,
   thread_id,
-}: {
-  msg: {
-    id: string;
-    content?: string;
-    status?: 'complete' | 'streaming' | 'error';
-  };
-  thread_id?: string;
-}) {
+}: UserMessageOutputProps) {
   const { edit } = useChatHistoryContext(); // Obtener la función sendMessage del contexto
   const [isEditingId, setIsEditingId] = useState<String | null>(null);
   const editMsgTextAreaRef = useRef<HTMLTextAreaElement>(null); // Crear una referencia al input

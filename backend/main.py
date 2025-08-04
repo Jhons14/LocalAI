@@ -186,7 +186,7 @@ def authorize(state: MessagesState, config: RunnableConfig, *, store: BaseStore)
             continue
         auth_response = manager.authorize(tool_name, user_id)
         if auth_response.status != "completed":
-            print(f"\n🔐 Authorization required for {tool_name}\n")
+            print(f"\nAuthorization required for {tool_name}\n")
             print(f"Visit the following URL to authorize:\n{auth_response.url}\n")
             print("Waiting for authorization...\n")
 
@@ -217,7 +217,7 @@ def serialize_message(message):
 
 def serialize_tool_node(state):
     """ToolNode wrapper que serializa automáticamente los ToolMessage"""
-    print("🔧 tools_node - INPUT:", [type(msg) for msg in state["messages"]])
+    print("tools_node - INPUT:", [type(msg) for msg in state["messages"]])
     
     # Ejecutar el ToolNode original
     result = tool_node.invoke(state)
@@ -230,7 +230,7 @@ def serialize_tool_node(state):
             serialized_messages.append(serialized_msg)
         result["messages"] = serialized_messages
     
-    print("🔧 tools_node - OUTPUT:", [type(msg) for msg in result.get("messages", [])])
+    print("tools_node - OUTPUT:", [type(msg) for msg in result.get("messages", [])])
     return result
 
 class KeyPayload(BaseModel):
@@ -466,34 +466,25 @@ async def generate_response(thread_id, input_messages, config):
         logger.info(f"Generating response for thread {thread_id}")
         full_content = ""
         content = ""
-        async for chunk, metadata in workflow_app.astream(
-            {"messages": input_messages},
-            config,
-            stream_mode="messages",
-        ):
-            if isinstance(chunk, AIMessage):
-                content = str(chunk.content) if chunk.content else ""
-                if content:
-                    print(f"Chunk content: {content}")
-                    yield content  # Solo yield el string, no el objeto
-                else:
-                    print("Empty chunk content received")
-                    # yield "Hola, soy un modelo de lenguaje. ¿En qué puedo ayudarte hoy?"
-                    print(chunk)
-            else:
-                print("Received non-AIMessage chunk:", chunk)
-        print("FUERA DEL STREAMING RESPONSE")
+        try:
+            async for chunk, metadata in workflow_app.astream(
+                {"messages": input_messages},
+                config,
+                stream_mode="messages",
+            ):
+                if isinstance(chunk, AIMessage):
+                    content = str(chunk.content) if chunk.content else ""
+                    if content:
+                        yield content  # Solo yield el string, no el objeto
 
-            # if buffer:
-            #     yield buffer
-                
-        # except openai.AuthenticationError as e:
-        #     logger.error(f"OpenAI authentication error for thread {thread_id}: {str(e)}")
-        #     yield f"[ERROR] Authentication failed: {str(e)}"
-        # except Exception as e:
-        #     print(f"ERROR: {e}")
-        #     logger.error(f"Error generating response for thread {thread_id}: {str(e)}")
-        #     yield f"[ERROR] Internal server error: {str(e)}"
+
+        except openai.AuthenticationError as e:
+            logger.error(f"OpenAI authentication error for thread {thread_id}: {str(e)}")
+            yield f"[ERROR] Authentication failed: {str(e)}"
+        except Exception as e:
+            print(f"ERROR: {e}")
+            logger.error(f"Error generating response for thread {thread_id}: {str(e)}")
+            yield f"[ERROR] Internal server error: {str(e)}"
 
 @app.get("/health")
 def health_check():
