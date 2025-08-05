@@ -21,7 +21,7 @@ export const TopNavBar = memo(function TopNavBar() {
   const [showHistoryManager, setShowHistoryManager] = useState<boolean>(false);
   const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
   const [isModelLoading, setIsModelLoading] = useState<boolean>(false);
-  
+
   const deleteKey = useCallback(() => {
     setTempApiKey('');
   }, [setTempApiKey]);
@@ -41,7 +41,10 @@ export const TopNavBar = memo(function TopNavBar() {
       success('Connected!', `Successfully connected to ${activeModel.model}`);
     } catch (err) {
       console.error('Error connecting to model:', err);
-      error('Connection Failed', err instanceof Error ? err.message : 'Failed to connect to model');
+      error(
+        'Connection Failed',
+        err instanceof Error ? err.message : 'Failed to connect to model'
+      );
     }
 
     setIsModelLoading(false);
@@ -49,15 +52,17 @@ export const TopNavBar = memo(function TopNavBar() {
 
   const renderConnectButton = useMemo(() => {
     if (!activeModel) {
-      return <span className='text-sm text-gray-500'>Select a model to start</span>;
+      return (
+        <span className='text-sm text-gray-500'>Select a model to start</span>
+      );
     }
 
     if (isModelConnected && !isModelLoading) {
       return (
-        <ConnectionStatus 
-          isConnected={true} 
-          isConnecting={false} 
-          modelName={activeModel.model} 
+        <ConnectionStatus
+          isConnected={true}
+          isConnecting={false}
+          modelName={activeModel.model}
         />
       );
     }
@@ -66,7 +71,7 @@ export const TopNavBar = memo(function TopNavBar() {
       <LoadingButton
         isLoading={isModelLoading}
         onClick={handleConnect}
-        className='bg-blue-500 text-white hover:bg-blue-600'
+        className='bg-[#555555] text-white hover:bg-[#777777]'
       >
         {isModelLoading ? 'Connecting...' : 'Connect'}
       </LoadingButton>
@@ -74,12 +79,26 @@ export const TopNavBar = memo(function TopNavBar() {
   }, [isModelConnected, isModelLoading, activeModel, handleConnect]);
 
   return (
-    <div className={`flex ${isMobile ? 'flex-col gap-2 p-3' : 'flex-row justify-between items-center gap-4 px-8'} border-b border-gray-500 ${isMobile ? 'min-h-[100px]' : 'h-20'}`}>
-      <h1 className={`${isMobile ? 'text-lg text-center' : 'text-xl'} font-bold w-fit ${isMobile ? 'w-full' : 'min-w-max'}`}>
+    <div
+      className={`flex mb-2 ${
+        isMobile
+          ? 'flex-col gap-2 p-3'
+          : 'flex-row justify-between items-center gap-4 px-8'
+      } border-b border-[#999999] ${isMobile ? 'min-h-[100px]' : 'h-20'}`}
+    >
+      <h1
+        className={`${
+          isMobile ? 'text-lg text-center' : 'text-xl'
+        } font-bold w-fit ${isMobile ? 'w-full' : 'min-w-max'}`}
+      >
         {activeModel?.model || 'Select a model...'}
       </h1>
 
-      <div className={`flex ${isMobile ? 'flex-col gap-2 w-full' : 'flex-row items-center gap-4'}`}>
+      <div
+        className={`flex ${
+          isMobile ? 'flex-col gap-2 w-full' : 'flex-row items-center gap-4'
+        }`}
+      >
         {activeModel?.provider === 'openai' &&
           (!tempApiKey ? (
             <ApiKeyInput
@@ -87,23 +106,29 @@ export const TopNavBar = memo(function TopNavBar() {
               provider={activeModel.provider}
             />
           ) : (
-            <span className={`${isMobile ? 'text-center text-sm' : 'text-base'}`}>Api key saved</span>
+            <span
+              className={`${isMobile ? 'text-center text-sm' : 'text-base'}`}
+            >
+              Api key saved
+            </span>
           ))}
         <button
           onClick={() => setShowHistoryManager(true)}
-          className={`flex items-center gap-2 px-3 py-2 border border-gray-300 rounded hover:bg-gray-50 keyboard-navigation ${isMobile ? 'w-full justify-center' : ''}`}
-          aria-label="Open chat history manager"
+          className={`flex items-center gap-2 px-3 py-2 border cursor-pointer border-[#999999] rounded hover:bg-[#555555] hover:text-white transition-all duration-200] keyboard-navigation ${
+            isMobile ? 'w-full justify-center' : ''
+          }`}
+          aria-label='Open chat history manager'
         >
           <History size={16} />
           {isMobile ? 'History' : 'Chat History'}
         </button>
-        
+
         <div className={`${isMobile ? 'w-full flex justify-center' : ''}`}>
           {renderConnectButton}
         </div>
       </div>
-      
-      <ChatHistoryManager 
+
+      <ChatHistoryManager
         isOpen={showHistoryManager}
         onClose={() => setShowHistoryManager(false)}
       />
@@ -111,21 +136,28 @@ export const TopNavBar = memo(function TopNavBar() {
   );
 });
 
-const ApiKeyInput = memo(function ApiKeyInput({ model, provider }: { model: string; provider: string }) {
+const ApiKeyInput = memo(function ApiKeyInput({
+  model,
+  provider,
+}: {
+  model: string;
+  provider: string;
+}) {
   const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
   const [show, setShow] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [loading, setLoading] = useState(false);
   const { setTempApiKey } = useChatHistoryContext();
-  const { validateField, getFieldError, hasFieldError, clearValidation } = useValidation();
+  const { validateField, getFieldError, hasFieldError, clearValidation } =
+    useValidation();
   const { error: showError, success: showSuccess } = useToast();
 
   const saveKeys = useCallback(async () => {
     setLoading(true);
-    
+
     // Validate the API key
     const validation = validateField('apiKey', apiKey);
-    
+
     if (!validation.isValid) {
       showError('Invalid API Key', validation.errors[0]);
       setLoading(false);
@@ -185,23 +217,33 @@ const ApiKeyInput = memo(function ApiKeyInput({ model, provider }: { model: stri
     //   console.error('Error:', error);
     // }
     setLoading(false);
-  }, [apiKey, setTempApiKey, validateField, showError, showSuccess, clearValidation]);
+  }, [
+    apiKey,
+    setTempApiKey,
+    validateField,
+    showError,
+    showSuccess,
+    clearValidation,
+  ]);
 
-  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      saveKeys();
-      setApiKey('');
-      e.currentTarget.blur();
-    }
-  }, [saveKeys]);
+  const handleKeyPress = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        saveKeys();
+        setApiKey('');
+        e.currentTarget.blur();
+      }
+    },
+    [saveKeys]
+  );
 
   return (
-    <div className='relative flex w-full items-center justify-center gap-2'>
+    <div className='relative flex w-full items-center justify-center gap-2 '>
       {!loading ? (
         <div className='flex flex-col py-2'>
           <label
             htmlFor='apiKey'
-            className='mb-1 text-nowrap text-sm font-thin text-gray-300'
+            className='mb-1 text-nowrap text-sm font-thin'
           >
             OpenAI API Key
           </label>
@@ -214,8 +256,8 @@ const ApiKeyInput = memo(function ApiKeyInput({ model, provider }: { model: stri
               placeholder='sk-...'
               autoComplete='off'
               className={`w-full pr-10 px-4 py-2 border ${
-                hasFieldError('apiKey') ? 'border-red-500' : 'border-gray-300'
-              } rounded-lg shadow-sm focus:outline-none focus:ring focus:border-blue-500 keyboard-navigation`}
+                hasFieldError('apiKey') ? 'border-red-500' : 'border-[#999999]'
+              }  rounded-lg shadow-sm`}
               value={apiKey}
               onChange={(e) => {
                 setApiKey(e.target.value);
@@ -225,7 +267,9 @@ const ApiKeyInput = memo(function ApiKeyInput({ model, provider }: { model: stri
               }}
               onKeyDown={handleKeyPress}
               aria-invalid={hasFieldError('apiKey')}
-              aria-describedby={hasFieldError('apiKey') ? 'apikey-error' : undefined}
+              aria-describedby={
+                hasFieldError('apiKey') ? 'apikey-error' : undefined
+              }
             />
             <button
               type='button'
@@ -245,7 +289,11 @@ const ApiKeyInput = memo(function ApiKeyInput({ model, provider }: { model: stri
       )}
 
       {hasFieldError('apiKey') && (
-        <div id="apikey-error" className='flex w-40 self-end pb-4 text-red-500 shadow-xl text-sm' role="alert">
+        <div
+          id='apikey-error'
+          className='flex w-40 self-end pb-4 text-red-500 shadow-xl text-sm'
+          role='alert'
+        >
           {getFieldError('apiKey')}
         </div>
       )}

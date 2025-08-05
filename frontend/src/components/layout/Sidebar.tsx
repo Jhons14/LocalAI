@@ -1,4 +1,11 @@
-import { type JSX, useEffect, useMemo, useState, memo, useCallback } from 'react';
+import {
+  type JSX,
+  useEffect,
+  useMemo,
+  useState,
+  memo,
+  useCallback,
+} from 'react';
 import { Menu } from 'lucide-react';
 import { SidebarItem } from './SidebarItem';
 import OpenAILogo from '../../assets/OpenAILogo.svg?react';
@@ -93,7 +100,8 @@ export const Sidebar = memo(function Sidebar() {
       } catch (err: any) {
         if (err.name !== 'AbortError') {
           console.error('Error fetching models from Ollama:', err);
-          const errorMessage = 'Error getting models, check your ollama connection';
+          const errorMessage =
+            'Error getting models, check your ollama connection';
           setError(errorMessage);
           showError('Ollama Connection Error', errorMessage);
         }
@@ -115,29 +123,32 @@ export const Sidebar = memo(function Sidebar() {
     };
   }, [selectedIndex]);
 
-  const handleClick = useCallback(({
-    index,
-    model,
-    provider,
-  }: {
-    index: number;
-    model: 'qwen2.5:3b' | 'gpt-4.1-nano';
-    provider: 'ollama' | 'openai';
-  }) => {
-    if (index === selectedSubitemIndex) {
-      return;
-    }
+  const handleClick = useCallback(
+    ({
+      index,
+      model,
+      provider,
+    }: {
+      index: number;
+      model: 'qwen2.5:3b' | 'gpt-4.1-nano';
+      provider: 'ollama' | 'openai';
+    }) => {
+      if (index === selectedSubitemIndex) {
+        return;
+      }
 
-    // if (provider === 'ollama') {
-    //   configureModel({
-    //     model: model,
-    //     provider: provider,
-    //     connectModel: true,
-    //   }); // Configurar el modelo activo
-    // }
-    rechargeModel(model, provider);
-    setSelectedSubitemIndex(index);
-  }, [selectedSubitemIndex, rechargeModel]);
+      // if (provider === 'ollama') {
+      //   configureModel({
+      //     model: model,
+      //     provider: provider,
+      //     connectModel: true,
+      //   }); // Configurar el modelo activo
+      // }
+      rechargeModel(model, provider);
+      setSelectedSubitemIndex(index);
+    },
+    [selectedSubitemIndex, rechargeModel]
+  );
 
   const renderOllamaSubItems = useCallback(() => {
     if (error) {
@@ -151,7 +162,7 @@ export const Sidebar = memo(function Sidebar() {
     }
 
     const subItems = choosedNavItem?.subItems || [];
-    
+
     // Virtual scrolling for large model lists
     if (subItems.length > 20) {
       return (
@@ -162,8 +173,8 @@ export const Sidebar = memo(function Sidebar() {
           {subItems.map((subItem, index) => (
             <button
               key={subItem.title}
-              className={`flex items-center justify-center cursor-pointer w-full py-1 px-2 hover:bg-gray-800 transition-all duration-300 text-sm ${
-                selectedSubitemIndex === index && 'bg-gray-800'
+              className={`flex items-center justify-center cursor-pointer w-full py-1 px-2 hover:bg-[#555555] transition-all duration-300 text-sm ${
+                selectedSubitemIndex === index && 'bg-[#555555]'
               }`}
               type='button'
               onClick={() =>
@@ -184,8 +195,8 @@ export const Sidebar = memo(function Sidebar() {
     return subItems.map((subItem, index) => (
       <button
         key={subItem.title}
-        className={`flex items-center justify-center cursor-pointer w-full py-1 px-2 hover:bg-gray-800 transition-all duration-500 ${
-          selectedSubitemIndex === index && 'bg-gray-800'
+        className={`flex items-center justify-center cursor-pointer w-full py-1 px-2 hover:bg-[#555555] transition-all duration-500 ${
+          selectedSubitemIndex === index && 'bg-[#555555]'
         }`}
         type='button'
         onClick={() =>
@@ -199,15 +210,21 @@ export const Sidebar = memo(function Sidebar() {
         {subItem.title}
       </button>
     ));
-  }, [error, ollamaSubItemsLoading, choosedNavItem?.subItems, selectedSubitemIndex, handleClick]);
+  }, [
+    error,
+    ollamaSubItemsLoading,
+    choosedNavItem?.subItems,
+    selectedSubitemIndex,
+    handleClick,
+  ]);
 
   return (
     <div
-      className={`h-screen bg-gray-900 text-white transition-all duration-400 flex flex-col `}
+      className={`h-screen bg-[#333333] text-white transition-all duration-400 flex flex-col `}
     >
       <button
         onClick={() => setIsBarOpen(!isBarOpen)}
-        className='cursor-pointer p-4 focus:outline-none hover:bg-gray-800 '
+        className='cursor-pointer p-4 focus:outline-none hover:bg-[#555555] transition-all duration-500'
       >
         <Menu />
       </button>
@@ -215,7 +232,7 @@ export const Sidebar = memo(function Sidebar() {
         <nav
           className={`${
             !isBarOpen ? 'w-14' : 'w-32'
-          } h-full bg-gray-900 text-white transition-all duration-400 flex-1`}
+          } h-full bg-[#333333] text-white transition-all duration-400 flex-1 border-r border-gray-700`}
         >
           {navItems.map((item, index) => (
             <SidebarItem
@@ -239,7 +256,11 @@ export const Sidebar = memo(function Sidebar() {
               : 'flex flex-col border-l-stone-50/10 border-l-2 w-32 content-center'
           } `}
         >
-          <div className={`${!isItemOpen && 'hidden'} h-full animate-fade-in flex flex-col`}>
+          <div
+            className={`${
+              !isItemOpen && 'hidden'
+            } h-full animate-fade-in flex flex-col`}
+          >
             <h1 className='pl-2 mb-2 font-bold text-xl'>
               {choosedNavItem?.name}
             </h1>
