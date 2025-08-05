@@ -231,8 +231,8 @@ export const Sidebar = memo(function Sidebar() {
       <div className='flex h-full'>
         <nav
           className={`${
-            !isBarOpen ? 'w-14' : 'w-32'
-          } h-full bg-[#333333] text-white transition-all duration-400 flex-1 border-r border-gray-700`}
+            !isBarOpen ? 'w-14' : 'w-28'
+          } h-full bg-[#333333] text-white transition-all duration-400 flex-1 `}
         >
           {navItems.map((item, index) => (
             <SidebarItem
@@ -252,8 +252,8 @@ export const Sidebar = memo(function Sidebar() {
         <nav
           className={`transition-all duration-500 ${
             !isItemOpen
-              ? 'w-0 '
-              : 'flex flex-col border-l-stone-50/10 border-l-2 w-32 content-center'
+              ? 'w-0'
+              : 'flex flex-col border-x-[#999999] border-x w-32 content-center'
           } `}
         >
           <div

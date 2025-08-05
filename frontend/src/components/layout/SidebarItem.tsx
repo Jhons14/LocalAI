@@ -45,7 +45,7 @@ export function SidebarItem({
     <button
       className={`${
         index === selectedIndex && 'bg-[#555555]'
-      } flex justify-center items-center gap-2 py-4 px-2 hover:bg-[#555555] w-full cursor-pointer transition-all duration-500`}
+      } flex justify-center items-center gap-2 py-2 px-1 hover:bg-[#555555] w-full cursor-pointer transition-all duration-500`}
       type='button'
       onClick={() => {
         setIsBarOpen(true);

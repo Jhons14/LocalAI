@@ -18,39 +18,39 @@
   .mobile-padding {
     @apply px-4 py-2;
   }
-  
+
   .desktop-padding {
     @apply sm:px-6 sm:py-4;
   }
-  
+
   .responsive-text {
     @apply text-sm sm:text-base;
   }
-  
+
   .mobile-hidden {
     @apply hidden sm:block;
   }
-  
+
   .mobile-only {
     @apply block sm:hidden;
   }
-  
+
   .touch-friendly {
     @apply min-h-[44px] min-w-[44px];
   }
-  
+
   /* Accessibility utilities */
   .sr-only {
     @apply absolute w-px h-px p-0 -m-px overflow-hidden whitespace-nowrap border-0;
     clip: rect(0, 0, 0, 0);
   }
-  
+
   .focus-visible-ring {
     @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2;
   }
-  
+
   .keyboard-navigation {
-    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2;
   }
 }
 

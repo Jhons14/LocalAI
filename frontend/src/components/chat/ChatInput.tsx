@@ -80,7 +80,7 @@ export const ChatInput = memo(function ChatInput({
   );
 
   return (
-    <div className={`border-t ${isMobile ? 'p-3' : 'p-4'}`}>
+    <div className={`border-t border-[#999999] ${isMobile ? 'p-3' : 'p-4'}`}>
       <form
         className={`flex items-end bg-[#333333] border border-[#999999] rounded-xl ${
           isMobile ? 'p-1' : 'p-2'
@@ -119,9 +119,11 @@ export const ChatInput = memo(function ChatInput({
           </div>
         )}
         <button
-          className={`rounded-lg bg-[#555555] hover:bg-[#777777] focus:bg-blue-600 focus:ring-2 focus:ring-blue-300 focus:ring-offset-1 cursor-pointer transition-all duration-200 keyboard-navigation touch-friendly text-white shadow-md hover:shadow-lg ${
+          className={`rounded-lg bg-[#555555] hover:bg-[#777777] cursor-pointer transition-all duration-200 keyboard-navigation touch-friendly text-white shadow-md hover:shadow-lg ${
             isMobile ? 'p-2.5 ml-2' : 'py-2.5 px-3 ml-3'
-          } ${isValidating ? 'opacity-50 cursor-not-allowed bg-blue-400' : ''}`}
+          } ${
+            isValidating ? 'opacity-50 cursor-not-allowed bg-[#333333] ' : ''
+          }`}
           type='submit'
           aria-label='Send message to AI assistant'
           disabled={isValidating}

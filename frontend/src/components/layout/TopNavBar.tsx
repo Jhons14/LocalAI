@@ -71,7 +71,7 @@ export const TopNavBar = memo(function TopNavBar() {
       <LoadingButton
         isLoading={isModelLoading}
         onClick={handleConnect}
-        className='bg-[#555555] text-white hover:bg-[#777777]'
+        className='bg-[#555555] text-white hover:bg-[#777777] keyboard-navigation'
       >
         {isModelLoading ? 'Connecting...' : 'Connect'}
       </LoadingButton>
@@ -174,48 +174,6 @@ const ApiKeyInput = memo(function ApiKeyInput({
       showError('Save Failed', 'Failed to save API key. Please try again.');
     }
 
-    // try {
-    //   const res = await fetch(BACKEND_URL + '/keys/validate-keys', {
-    //     method: 'POST',
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //     },
-    //     body: JSON.stringify({ apiKey }),
-    //   });
-
-    //   if (!res.ok) {
-    //     const jsonRes = await res.json();
-    //     setInputError('Invalid ' + provider + ' apikey');
-    //     throw new Error(jsonRes.detail);
-    //   }
-
-    //   const POSTKeysRes = await fetch(BACKEND_URL + '/keys', {
-    //     method: 'POST',
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //     },
-    //     body: JSON.stringify({ model, provider, api_key: apiKey }),
-    //   });
-    //   if (!POSTKeysRes.ok) {
-    //     throw new Error('Network response was not ok');
-    //   }
-
-    //   const GETkeysRes = await fetch(BACKEND_URL + '/keys', {
-    //     method: 'GET',
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //     },
-    //   });
-
-    //   if (!GETkeysRes.ok) {
-    //     throw new Error('Network response was not ok');
-    //   }
-    //   const keys = await GETkeysRes.json();
-
-    //   setIsApiKeySaved(provider in keys ? true : false);
-    // } catch (error) {
-    //   console.error('Error:', error);
-    // }
     setLoading(false);
   }, [
     apiKey,
@@ -257,7 +215,7 @@ const ApiKeyInput = memo(function ApiKeyInput({
               autoComplete='off'
               className={`w-full pr-10 px-4 py-2 border ${
                 hasFieldError('apiKey') ? 'border-red-500' : 'border-[#999999]'
-              }  rounded-lg shadow-sm`}
+              }  rounded-lg shadow-sm keyboard-navigation`}
               value={apiKey}
               onChange={(e) => {
                 setApiKey(e.target.value);
