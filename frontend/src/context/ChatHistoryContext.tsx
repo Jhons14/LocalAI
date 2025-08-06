@@ -1,10 +1,13 @@
 import { createContext, useState, useEffect, useRef, useCallback } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useChatApi } from '@/hooks/useChatApi';
-import { usePersistentChatHistory, usePersistentActiveModel, useStorageMaintenance } from '@/hooks/usePersistentState';
+import {
+  usePersistentChatHistory,
+  usePersistentActiveModel,
+  useStorageMaintenance,
+} from '@/hooks/usePersistentState';
 import type {
   ChatMessage,
-  ActiveModel,
   ChatContextValue,
   SendMessageParams,
   ConfigureModelParams,
@@ -23,7 +26,7 @@ export function ChatHistoryContextProvider({
 }) {
   const { sendChatMessage, configureModel: apiConfigureModel } = useChatApi();
   const { saveChatHistory, loadChatHistory } = usePersistentChatHistory();
-  const { activeModel, setActiveModel, isLoaded } = usePersistentActiveModel();
+  const { activeModel, setActiveModel } = usePersistentActiveModel();
   const { checkStorageUsage } = useStorageMaintenance();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -46,7 +49,7 @@ export function ChatHistoryContextProvider({
     if (activeModel?.thread_id) {
       // Load from persistent storage first
       const persistedMessages = loadChatHistory(activeModel.thread_id);
-      
+
       if (persistedMessages.length > 0) {
         setMessages(persistedMessages);
         // Also update in-memory cache
@@ -80,10 +83,16 @@ export function ChatHistoryContextProvider({
     };
 
     // Save to persistent storage
-    saveChatHistory(activeModel.thread_id, messages, activeModel.model, activeModel.provider);
-    
+    saveChatHistory(
+      activeModel.thread_id,
+      messages,
+      activeModel.model,
+      activeModel.provider
+    );
+
     // Check storage usage periodically
-    if (messages.length % 10 === 0) { // Check every 10 messages
+    if (messages.length % 10 === 0) {
+      // Check every 10 messages
       checkStorageUsage();
     }
   }, [messages, activeModel, saveChatHistory, checkStorageUsage]);
@@ -290,7 +299,12 @@ export function ChatHistoryContextProvider({
     setMessages([]);
     // Also clear from persistent storage if we have an active model
     if (activeModel?.thread_id) {
-      saveChatHistory(activeModel.thread_id, [], activeModel.model, activeModel.provider);
+      saveChatHistory(
+        activeModel.thread_id,
+        [],
+        activeModel.model,
+        activeModel.provider
+      );
     }
   }, [activeModel, saveChatHistory]);
 

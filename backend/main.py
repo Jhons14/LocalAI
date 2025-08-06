@@ -16,14 +16,13 @@ from langchain_arcade import ToolManager
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 
-from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from langgraph.graph import START, END, MessagesState, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import ToolNode
-from langgraph.checkpoint.postgres import PostgresSaver
-from langgraph.store.postgres import PostgresStore
+
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.store.postgres import AsyncPostgresStore
 from langgraph.store.base import BaseStore
@@ -36,6 +35,7 @@ import os
 import bleach
 from dotenv import load_dotenv
 from asyncpg import create_pool
+import uuid
 
 load_dotenv()
 
@@ -82,7 +82,8 @@ memory_store: dict[str, MemorySaver] = {}
 
 manager = ToolManager(api_key=arcade_api_key)
 
-manager.init_tools(toolkits=["Gmail"])
+# manager.init_tools(toolkits=["Gmail"])
+manager.init_tools(toolkits=["Firecrawl"])
 
 tools = manager.to_langchain(use_interrupts=True)
 
@@ -149,13 +150,10 @@ def sanitize_string(value: str, max_length: int = 1000) -> str:
 def validate_thread_id(thread_id: str) -> str:
     """Validate thread ID format"""
     if not re.match(r'^[a-zA-Z0-9_-]+$', thread_id):
-        raise ValueError("Thread ID can only contain alphanumeric characters, underscores, and hyphens")
-    
+        raise ValueError("Thread ID can only contain alphanumeric characters, underscores, and hyphens")    
     if len(thread_id) > max_thread_id_length:
         raise ValueError(f"Thread ID too long. Maximum {max_thread_id_length} characters allowed")
-    
     return thread_id
-
 
 
 def should_continue(state: MessagesState):
@@ -229,7 +227,7 @@ def serialize_tool_node(state):
             serialized_msg = serialize_message(msg)
             serialized_messages.append(serialized_msg)
         result["messages"] = serialized_messages
-    
+    print('TOOL RESULTS:', result)
     print("tools_node - OUTPUT:", [type(msg) for msg in result.get("messages", [])])
     return result
 
@@ -372,16 +370,66 @@ async def configure_model(request: Request, config: ConfigRequest):
     model_with_tools = model.bind_tools(tools)
         
         # Stream tokens using astream
-    def call_model(state: dict):        
-        response = model_with_tools.invoke(state["messages"])
+    async def call_agent(state: MessagesState, writer, config: RunnableConfig, *, store: BaseStore):
+        messages = state["messages"]
         
-        # Serializar la respuesta
+        # Get user_id from config
+        user_id = config["configurable"].get("user_id").replace(".", "")
+        namespace = ("memories", user_id)
+        
+        # Search for relevant memories based on the last user message
+        last_user_message = None
+        for msg in reversed(messages):
+            if isinstance(msg, HumanMessage) or (hasattr(msg, 'type') and msg.type == "human"):
+                last_user_message = msg
+                break
+        
+        # Retrieve memories if there's a user message
+        memories_str = ""
+        if last_user_message:
+            memories = await store.asearch(namespace, query=str(last_user_message.content))
+            if memories:
+                memories_str = "\n".join([f"- {d.value['data']}" for d in memories])
+        
+        # Build system message with memories
+        system_msg = f"You are a helpful AI assistant. User memories:\n{memories_str}" if memories_str else "You are a helpful AI assistant."
+        
+        # Insert system message at the beginning if not already present
+        messages_with_system = messages[:]
+        if not messages or not isinstance(messages[0], SystemMessage):
+            messages_with_system = [SystemMessage(content=system_msg)] + messages
+        
+        # Check if user wants to remember something
+        if last_user_message and "remember" in str(last_user_message.content).lower():
+            # Extract what to remember (simple heuristic - you can make this more sophisticated)
+            content = str(last_user_message.content)
+            # Store the entire message as a memory
+            await store.aput(namespace, str(uuid.uuid4()), {"data": content})
+        
+        # Stream tokens using astream
+        full_content = ""
+        tool_calls = []
+        
+        async for chunk in model_with_tools.astream(messages_with_system):
+            # Stream content tokens
+            if chunk.content:
+                writer(chunk.content)
+                full_content += chunk.content
+            
+            # Accumulate tool calls
+            if hasattr(chunk, 'tool_calls') and chunk.tool_calls:
+                # Filter out tool calls with empty name attribute
+                valid_tool_calls = [tc for tc in chunk.tool_calls if tc.get("name", "").strip()]
+                tool_calls.extend(valid_tool_calls)
+        
+        # Create the full response message with accumulated content and tool calls
+        response = AIMessage(content=full_content, tool_calls=tool_calls)
         serialized_response = serialize_message(response)
-        
+        # Return the updated message history
         return {"messages": [serialized_response]}
     
     workflow = StateGraph(state_schema=MessagesState)
-    workflow.add_node("agent", call_model)
+    workflow.add_node("agent", call_agent)
     workflow.add_node("tools", serialize_tool_node)
     workflow.add_node("authorization", authorize)
     
