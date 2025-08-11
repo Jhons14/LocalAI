@@ -193,22 +193,23 @@ export const Sidebar = memo(function Sidebar() {
     }
 
     return subItems.map((subItem, index) => (
-      <button
-        key={subItem.title}
-        className={`flex items-center justify-center cursor-pointer w-full py-1 px-2 hover:bg-[#555555] transition-all duration-500 ${
-          selectedSubitemIndex === index && 'bg-[#555555]'
-        }`}
-        type='button'
-        onClick={() =>
-          handleClick({
-            index: index,
-            model: subItem.model,
-            provider: subItem.provider,
-          })
-        }
-      >
-        {subItem.title}
-      </button>
+      <li key={subItem.title}>
+        <button
+          className={`flex items-center justify-center cursor-pointer w-full py-2 px-2 hover:bg-[#555555] transition-all duration-500 ${
+            selectedSubitemIndex === index && 'bg-[#555555]'
+          }`}
+          type='button'
+          onClick={() =>
+            handleClick({
+              index: index,
+              model: subItem.model,
+              provider: subItem.provider,
+            })
+          }
+        >
+          {subItem.title}
+        </button>
+      </li>
     ));
   }, [
     error,
@@ -220,11 +221,11 @@ export const Sidebar = memo(function Sidebar() {
 
   return (
     <div
-      className={`h-screen bg-[#333333] text-white transition-all duration-400 flex flex-col `}
+      className={`h-screen border-r border-r-[#999999] bg-[#333333] text-white transition-all duration-400 flex flex-col `}
     >
       <button
         onClick={() => setIsBarOpen(!isBarOpen)}
-        className='cursor-pointer p-4 focus:outline-none hover:bg-[#555555] transition-all duration-500'
+        className='cursor-pointer p-4 border-b border-b-[#999999] focus:outline-none hover:bg-[#555555] transition-all duration-500'
       >
         <Menu />
       </button>
@@ -253,21 +254,19 @@ export const Sidebar = memo(function Sidebar() {
           className={`transition-all duration-500 ${
             !isItemOpen
               ? 'w-0'
-              : 'flex flex-col border-x-[#999999] border-x w-32 content-center'
+              : 'flex flex-col border-l-[#999999] border-l w-32 content-center h-full animate-fade-in '
           } `}
         >
-          <div
+          {/* <div
             className={`${
               !isItemOpen && 'hidden'
             } h-full animate-fade-in flex flex-col`}
-          >
-            <h1 className='pl-2 mb-2 font-bold text-xl'>
-              {choosedNavItem?.name}
-            </h1>
-            <div className='flex-1 overflow-hidden'>
-              {renderOllamaSubItems()}
-            </div>
-          </div>
+          > */}
+          <h2 className='overflow-hidden border-b border-b-[#999999] text-center py-3 font-bold text-xl'>
+            {choosedNavItem?.name}
+          </h2>
+          <ul className='overflow-hidden'>{renderOllamaSubItems()}</ul>
+          {/* </div> */}
         </nav>
       </div>
     </div>
