@@ -101,3 +101,21 @@ input::-ms-reveal {
     transform: rotate(1turn);
   }
 }
+
+/* ol {
+  @apply pl-8 space-y-1;
+  list-style: none;
+  counter-reset: item;
+} */
+
+/* ol li {
+  @apply mb-1 relative;
+  counter-increment: item;
+}
+
+ol li::before {
+  content: counter(item) '.';
+  @apply font-bold absolute left-0;
+  transform: translateX(-100%);
+  margin-right: 0.5rem;
+} */

@@ -1,6 +1,8 @@
 import json
 import requests
 import logging
+import asyncpg
+
 import re
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, Request
@@ -10,6 +12,7 @@ from starlette.responses import StreamingResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from langchain_arcade import ToolManager
 from langchain_ollama import ChatOllama
@@ -498,7 +501,6 @@ async def configure_model(request: Request, config: ConfigRequest):
             model = ChatOllama(
                 model=config.model,
                 streaming=True,
-                base_url=ollama_url,
             )
         else:
             raise HTTPException(400, detail="Unsupported provider")
@@ -706,9 +708,17 @@ def chat_model(request: Request, chat_request: ChatRequest):
     except Exception as e:
         logger.error(f"Error in chat endpoint: {str(e)}")
         raise HTTPException(500, detail="Internal server error")
-    
+
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10)
+)     
 async def generate_response(thread_id, input_messages, config):
+
     """Generate streaming response from the workflow"""
+
     async with (
         AsyncPostgresStore.from_conn_string(database_url) as store,
         AsyncPostgresSaver.from_conn_string(database_url) as checkpointer,

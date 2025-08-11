@@ -1,5 +1,5 @@
-import { JSX } from 'react';
-import { ModelName, ModelProvider } from './chat';
+import {type JSX } from 'react';
+import {type ModelName,type ModelProvider } from './chat';
 
 export interface NavItem {
   name: string;
@@ -26,7 +26,7 @@ export interface SidebarItemProps {
 }
 
 export interface ChatInputProps {
-  thread_id?: string;
+  thread_id?: string|undefined;
 }
 
 export interface ChatOutputProps {

@@ -37,6 +37,7 @@ export const ChatInput = memo(function ChatInput({
         setIsValidating(false);
         return;
       }
+      chatInputRef.current.value = '';
 
       try {
         // Use sanitized value if available
@@ -47,7 +48,6 @@ export const ChatInput = memo(function ChatInput({
           thread_id: thread_id,
         });
 
-        chatInputRef.current.value = '';
         clearValidation('message');
       } catch (error) {
         showError('Send Failed', 'Failed to send message. Please try again.');

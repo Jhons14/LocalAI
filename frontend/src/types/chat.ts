@@ -22,7 +22,7 @@ export interface ActiveModel {
 
 export interface SendMessageParams {
   content: string;
-  thread_id?: string;
+  thread_id?: string|undefined;
 }
 
 export interface ConfigureModelParams {

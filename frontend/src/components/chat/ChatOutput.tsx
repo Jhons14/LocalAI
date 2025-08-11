@@ -128,11 +128,39 @@ const AssistantMessageOutput = memo(function AssistantMessageOutput({
 
   useEffect(() => {
     if (content) {
-      const dirty = marked(content);
+      const dirty = marked(content, {
+        breaks: true,
+        gfm: true,
+        sanitize: false,
+      });
+
       const clean = DOMPurify.sanitize(dirty);
+
       if (containerRef.current) {
         containerRef.current.innerHTML = clean;
-        // Highlight dinámico de todos los bloques <code>
+
+        // Style lists
+        containerRef.current.querySelectorAll('ol').forEach((ol) => {
+          ol.classList.add(
+            'list-decimal',
+            'list-inside',
+            // 'pl-5',
+            'space-y-1',
+            'font-bold'
+          );
+        });
+
+        containerRef.current.querySelectorAll('ol li').forEach((li) => {
+          li.classList.add('mb-1');
+          // Make content normal weight, keep numbers bold
+          li.innerHTML = `<span class="font-normal">${li.innerHTML}</span>`;
+        });
+
+        containerRef.current.querySelectorAll('ul').forEach((ul) => {
+          ul.classList.add('list-disc', 'list-inside', 'pl-5', 'space-y-1');
+        });
+
+        // Highlight code blocks
         containerRef.current.querySelectorAll('pre code').forEach((block) => {
           hljs.highlightElement(block);
           block.parentElement?.classList.add('my-4');
@@ -143,6 +171,8 @@ const AssistantMessageOutput = memo(function AssistantMessageOutput({
 
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [content]);
+
+  // ... rest of your component
 
   // Show typing indicator if no content yet
   if (!content || content.trim() === '') {

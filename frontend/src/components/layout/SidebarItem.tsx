@@ -38,9 +38,6 @@ export function SidebarItem({
     }
   }, [isBarOpen]);
 
-  console.log('Index' + index);
-  console.log('selectedIndex' + selectedIndex);
-
   return (
     <button
       className={`${

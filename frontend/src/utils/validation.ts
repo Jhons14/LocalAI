@@ -11,7 +11,7 @@ export const ValidationRules = {
     minLength: 20,
     maxLength: 200,
     required: true,
-    pattern: /^sk-[a-zA-Z0-9]{20,}$/, // OpenAI API key pattern
+    pattern: /^sk-proj-[a-zA-Z0-9_-]+$/ // Specifically for project keys // OpenAI API key pattern
   },
   threadId: {
     pattern: /^[a-zA-Z0-9-_]{8,50}$/,
