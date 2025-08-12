@@ -1,7 +1,7 @@
 export type MessageRole = 'user' | 'assistant';
 export type MessageStatus = 'complete' | 'streaming' | 'error';
 export type ModelProvider = 'ollama' | 'openai';
-export type ModelName = 'qwen2.5:3b' | 'gpt-4.1-nano';
+export type ModelName = 'qwen2.5:3b' | 'gpt-4.1-nano' ;
 
 export interface ChatMessage {
   id: string;

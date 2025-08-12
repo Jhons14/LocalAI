@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/useToast';
 import { useMobileFirst } from '@/hooks/useResponsive';
 import { useValidation } from '@/hooks/useValidation';
 import { ChatHistoryManager } from '@/components/chat/ChatHistoryManager';
+import { ToolsList } from '../ui/ToolsList';
 
 export const TopNavBar = memo(function TopNavBar() {
   const {
@@ -79,7 +80,7 @@ export const TopNavBar = memo(function TopNavBar() {
 
   return (
     <div
-      className={`flex mb-2 ${
+      className={`grid grid-cols-[1fr_2fr_1fr_1fr_1fr] mb-2 ${
         isMobile
           ? 'flex-col gap-2 p-3'
           : 'flex-row justify-between items-center gap-4 px-8'
@@ -93,36 +94,25 @@ export const TopNavBar = memo(function TopNavBar() {
         {activeModel?.model || 'Select a model...'}
       </h1>
 
-      <div
-        className={`flex ${
-          isMobile ? 'flex-col gap-2 w-full' : 'flex-row items-center gap-4'
+      {!tempApiKey && activeModel ? (
+        <ApiKeyInput provider={activeModel.provider} />
+      ) : (
+        <span className={`${isMobile ? 'text-center text-sm' : 'text-base'}`}>
+          Api key saved
+        </span>
+      )}
+      <button
+        onClick={() => setShowHistoryManager(true)}
+        className={`flex items-center gap-2 px-3 py-2 border cursor-pointer border-[#999999] rounded hover:bg-[#555555] hover:text-white transition-all duration-200] keyboard-navigation ${
+          isMobile ? 'w-full justify-center' : ''
         }`}
+        aria-label='Open chat history manager'
       >
-        {activeModel?.provider === 'openai' &&
-          (!tempApiKey ? (
-            <ApiKeyInput provider={activeModel.provider} />
-          ) : (
-            <span
-              className={`${isMobile ? 'text-center text-sm' : 'text-base'}`}
-            >
-              Api key saved
-            </span>
-          ))}
-        <button
-          onClick={() => setShowHistoryManager(true)}
-          className={`flex items-center gap-2 px-3 py-2 border cursor-pointer border-[#999999] rounded hover:bg-[#555555] hover:text-white transition-all duration-200] keyboard-navigation ${
-            isMobile ? 'w-full justify-center' : ''
-          }`}
-          aria-label='Open chat history manager'
-        >
-          <History size={16} />
-          {isMobile ? 'History' : 'Chat History'}
-        </button>
-
-        <div className={`${isMobile ? 'w-full flex justify-center' : ''}`}>
-          {renderConnectButton}
-        </div>
-      </div>
+        <History size={16} />
+        {isMobile ? 'History' : 'Chat History'}
+      </button>
+      {activeModel?.model && <ToolsList model={activeModel.model} />}
+      {renderConnectButton}
 
       <ChatHistoryManager
         isOpen={showHistoryManager}
@@ -137,6 +127,7 @@ const ApiKeyInput = memo(function ApiKeyInput({
 }: {
   provider: string;
 }) {
+  if (provider !== 'openai') return <div></div>;
   const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
   const [show, setShow] = useState(false);
   const [apiKey, setApiKey] = useState('');
@@ -183,51 +174,49 @@ const ApiKeyInput = memo(function ApiKeyInput({
       if (e.key === 'Enter') {
         saveKeys();
         setApiKey('');
-        e.currentTarget.blur();
+        (e.currentTarget as HTMLInputElement).blur();
       }
     },
     [saveKeys]
   );
 
   return (
-    <div className='relative flex w-full items-center justify-center gap-2 '>
+    <div className='relative flex w-full items-center justify-center'>
       {!loading ? (
-        <div className='flex flex-col py-2'>
-          <div className='relative flex items-center'>
-            <input
-              type={show ? 'text' : 'password'}
-              id='apiKey'
-              name='apiKey'
-              placeholder={provider + ' API Key'}
-              autoComplete='off'
-              className={`w-full pr-10 px-4 py-2 border ${
-                hasFieldError('apiKey') ? 'border-red-500' : 'border-[#999999]'
-              }  rounded-lg shadow-sm keyboard-navigation`}
-              value={apiKey}
-              onChange={(e) => {
-                setApiKey(e.target.value);
-                if (hasFieldError('apiKey')) {
-                  clearValidation('apiKey');
-                }
-              }}
-              onKeyDown={handleKeyPress}
-              aria-invalid={hasFieldError('apiKey')}
-              aria-describedby={
-                hasFieldError('apiKey') ? 'apikey-error' : undefined
+        <div className='relative flex py-2 items-center w-full'>
+          <input
+            type={show ? 'text' : 'password'}
+            id='apiKey'
+            name='apiKey'
+            placeholder={provider + ' API Key'}
+            autoComplete='off'
+            className={`w-full pr-10 px-4 py-2 border ${
+              hasFieldError('apiKey') ? 'border-red-500' : 'border-[#999999]'
+            }  rounded-lg shadow-sm keyboard-navigation`}
+            value={apiKey}
+            onChange={(e) => {
+              setApiKey(e.target.value);
+              if (hasFieldError('apiKey')) {
+                clearValidation('apiKey');
               }
-            />
-            <button
-              type='button'
-              onClick={() => setShow((prev) => !prev)}
-              className='cursor-pointer absolute right-3 text-gray-500 hover:text-blue-600'
-            >
-              {show ? (
-                <EyeOff className='w-5 h-5' />
-              ) : (
-                <Eye className='w-5 h-5' />
-              )}
-            </button>
-          </div>
+            }}
+            onKeyDown={handleKeyPress}
+            aria-invalid={hasFieldError('apiKey')}
+            aria-describedby={
+              hasFieldError('apiKey') ? 'apikey-error' : undefined
+            }
+          />
+          <button
+            type='button'
+            onClick={() => setShow((prev) => !prev)}
+            className='cursor-pointer absolute right-3 text-gray-500 hover:text-blue-600'
+          >
+            {show ? (
+              <EyeOff className='w-5 h-5' />
+            ) : (
+              <Eye className='w-5 h-5' />
+            )}
+          </button>
         </div>
       ) : (
         <div className='loader'></div>
