@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useApi } from './useApi';
-import type { SendMessageParams, ConfigureModelParams } from '@/types/chat';
+import type { SendMessageParams, ConfigureModelParams, AddToolToModelParams } from '@/types/chat';
 
 export function useChatApi() {
   const { streamRequest, postRequest } = useApi();
@@ -43,6 +43,12 @@ export function useChatApi() {
     });
   }, [postRequest]);
 
+  const addToolsToModel = useCallback(async (params: AddToolToModelParams & { thread_id?: string }) => {
+    return postRequest('/addTools', {
+      thread_id: params.thread_id,
+    });
+  }, [postRequest]);
+
   const getOllamaModels = useCallback(async (): Promise<string[]> => {
     return postRequest('/getModels', {});
   }, [postRequest]);
@@ -50,6 +56,7 @@ export function useChatApi() {
   return {
     sendChatMessage,
     configureModel,
+    addToolsToModel,
     getOllamaModels,
   };
 }

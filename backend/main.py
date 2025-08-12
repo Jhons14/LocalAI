@@ -171,10 +171,10 @@ def should_continue(state: MessagesState):
     print(f"🔧 should_continue - Tool calls: {len(tool_calls)}")
     
     # CRITICAL: Check for empty args pattern that causes infinite loops
-    if tool_calls:
-        for tool_call in tool_calls:
-            args = tool_call.get("args", {})
-            name = tool_call.get("name", "")
+    # if tool_calls:
+    #     for tool_call in tool_calls:
+    #         args = tool_call.get("args", {})
+    #         name = tool_call.get("name", "")
             
             # If tool requires parameters but args are empty, create fake response and force END
             # if name in ["Gmail_GetThread", "Gmail_GetEmail", "Gmail_SendEmail"] and not args:
@@ -369,21 +369,6 @@ def serialize_tool_node(state):
             }
             error_messages.append(error_msg)
         
-def provide_fallback_response(state: MessagesState):
-    """Provides a helpful response when tools fail due to empty arguments"""
-    print("🔧 provide_fallback_response - Creating helpful response for user")
-    
-    fallback_message = {
-        "type": "ai",
-        "content": "I apologize, but I'm having trouble accessing the specific Gmail thread details due to a technical issue with parameter passing. Based on the emails I can see, it appears you want me to work with a specific email thread. Could you please provide more specific details about which email you'd like me to help with? For example:\n\n- The subject line of the email\n- The sender's email address\n- When the email was sent\n\nWith this information, I can better assist you with your Gmail-related task.",
-        "additional_kwargs": {},
-        "response_metadata": {},
-        "id": None,
-        "tool_calls": [],
-        "usage_metadata": {}
-    }
-    
-    return {"messages": [fallback_message]}
 
 class KeyPayload(BaseModel):
     provider: str = Field(..., min_length=1, max_length=50)
@@ -574,31 +559,6 @@ If you don't have the required information, ask the user for it instead of calli
             await store.aput(namespace, str(uuid.uuid4()), {"data": content})
         
         # Count recent tool calls to avoid infinite loops
-        recent_tool_calls = sum(1 for msg in messages[-5:] 
-                               if (isinstance(msg, dict) and msg.get("tool_calls")) or 
-                                  (hasattr(msg, 'tool_calls') and getattr(msg, 'tool_calls', [])))
-        
-        # Add instruction to stop making tool calls if too many recent ones
-        if recent_tool_calls > 3:
-            system_reminder = {
-                "type": "system",
-                "content": "You have made several tool calls recently. Only make additional tool calls if absolutely necessary. If the task is complete, provide a final response without tool calls."
-            }
-            messages_with_system.append(system_reminder)
-        
-        # If there are many empty args tool calls, provide specific guidance
-        empty_args_count = sum(1 for msg in messages[-5:] 
-                              if (isinstance(msg, dict) and msg.get("tool_calls") and 
-                                  any(not tc.get("args", {}) for tc in msg.get("tool_calls", []))) or
-                                 (hasattr(msg, 'tool_calls') and getattr(msg, 'tool_calls', []) and
-                                  any(not tc.get("args", {}) for tc in getattr(msg, 'tool_calls', []))))
-        
-        if empty_args_count > 2:
-            empty_args_reminder = {
-                "type": "system", 
-                "content": "IMPORTANT: You've been making tool calls without required parameters. If you need to get thread details, you must provide the thread_id parameter. If you cannot determine the correct parameters, provide a helpful response to the user explaining what information you need."
-            }
-            messages_with_system.append(empty_args_reminder)
         
         # Stream tokens using astream
         full_content = ""
@@ -606,7 +566,7 @@ If you don't have the required information, ask the user for it instead of calli
         
         print(f"🔧 call_agent - About to call model with {len(messages_with_system)} messages")
         
-        async for chunk in model_with_tools.astream(messages_with_system):
+        async for chunk in model.astream(messages_with_system):
             # Stream content tokens
             if chunk.content:
                 writer(chunk.content)
@@ -642,21 +602,51 @@ If you don't have the required information, ask the user for it instead of calli
     
     workflow = StateGraph(state_schema=MessagesState)
     workflow.add_node("agent", call_agent)
-    workflow.add_node("tools", serialize_tool_node)
-    workflow.add_node("authorization", authorize)
-    workflow.add_node("provide_fallback_response", provide_fallback_response)
+    # workflow.add_node("tools", serialize_tool_node)
+    # workflow.add_node("authorization", authorize)
     
     workflow.add_edge(START, "agent")
-    workflow.add_conditional_edges("agent", should_continue, ["authorization", "tools", "provide_fallback_response", END])
-    workflow.add_edge("authorization", "tools")
-    workflow.add_edge("tools", "agent")
-    workflow.add_edge("provide_fallback_response", END)
+    # workflow.add_conditional_edges("agent", should_continue, ["authorization", "tools"])
+    # workflow.add_edge("authorization", "tools")
+    # workflow.add_edge("tools", "agent")
+    workflow.add_edge("agent", END)
     
     # Guardarlo en memoria
     workflow_store[config.thread_id] = workflow
     
     return {"message": f"Workflow configurado para {config.thread_id}"}
 
+class AddToolsPayload(BaseModel):
+    thread_id: str = Field(..., min_length=1, max_length=100)
+    
+    @field_validator('thread_id')
+    def validate_thread_id_format(cls, v):
+        return validate_thread_id(v)
+
+@app.post("/addTools")
+@limiter.limit("20/minute")
+def add_tools(request: Request, payload: AddToolsPayload):
+    try:
+        # Verificar existencia del workflow
+        workflow = workflow_store.get(payload.thread_id)
+        if workflow is None:
+            raise HTTPException(status_code=404, detail="Model no configured for this thread")
+        
+        # Añadir nodos (considera verificar si ya existen)
+        workflow.add_node("tools", serialize_tool_node)
+        workflow.add_node("authorization", authorize)        
+        workflow.add_conditional_edges("agent", should_continue, ["authorization", "tools", END])
+        workflow.add_edge("authorization", "tools")
+        workflow.add_edge("tools", "agent")     
+        
+        return {"message": f"Workflow configurado para {payload.thread_id}"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding tools to model: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error adding tools to model")
+    
 @app.get("/getModels")
 @limiter.limit("20/minute")
 def get_ollama_models(request: Request):
@@ -711,10 +701,7 @@ def chat_model(request: Request, chat_request: ChatRequest):
 
 
 
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=10)
-)     
+
 async def generate_response(thread_id, input_messages, config):
 
     """Generate streaming response from the workflow"""
@@ -726,7 +713,7 @@ async def generate_response(thread_id, input_messages, config):
         # Add recursion limit to prevent infinite loops
         config_with_limit = {
             **config,
-            "recursion_limit": 50  # Increase from default 25
+            # "recursion_limit": 50  # Increase from default 25
         }
         
         workflow_app = workflow_store[thread_id].compile(checkpointer=checkpointer, store=store)

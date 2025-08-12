@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { ModelName } from '@/types/chat';
-
+import { useChatApi } from '@/hooks/useChatApi';
+import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
 function useToggleOutside() {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -23,8 +24,29 @@ function useToggleOutside() {
 }
 
 export function ToolsList({ model }: { model: ModelName }) {
+  const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
+
   const tools = ['Gmail', 'Asana'];
   const { isOpen, toggle, ref } = useToggleOutside();
+  const { addToolsToModel } = useChatApi();
+  const { activeModel } = useChatHistoryContext();
+  const addTools = async () => {
+    if (!activeModel) return;
+    const thread_id = activeModel.thread_id;
+
+    try {
+      if (!thread_id) return;
+
+      const res = await addToolsToModel({ thread_id });
+
+      console.error('Error agregando tools al modelo');
+      console.log(res);
+    } catch (err: any) {
+      console.error('Error agregando tools al modelo: ' + err);
+    }
+  };
+
+  console.log(activeModel);
 
   const renderTools = () => {
     if (!isOpen) return null;
@@ -32,7 +54,10 @@ export function ToolsList({ model }: { model: ModelName }) {
       <ul className='absolute flex flex-col top-full w-full bg-[#333333] text-center border border-[#999999] rounded shadow-lg mt-1 p-1'>
         {tools.map((tool) => (
           <li key={tool}>
-            <button className='cursor-pointer w-full hover:bg-[#555555] transition-all duration-200'>
+            <button
+              onClick={addTools}
+              className='cursor-pointer w-full hover:bg-[#555555] transition-all duration-200'
+            >
               {tool}
             </button>
           </li>

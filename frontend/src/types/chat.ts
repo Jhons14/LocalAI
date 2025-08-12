@@ -31,7 +31,9 @@ export interface ConfigureModelParams {
   connectModel?: boolean;
   thread_id?: string;
 }
-
+export interface AddToolToModelParams {
+  thread_id?: string;
+}
 export interface ChatContextValue {
   messages: ChatMessage[];
   sendMessage: (params: SendMessageParams) => void;
