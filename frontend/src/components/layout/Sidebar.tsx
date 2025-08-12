@@ -38,7 +38,7 @@ export const Sidebar = memo(function Sidebar() {
   const [selectedIndex, setSelectedIndex] = useState<number>();
   const [selectedSubitemIndex, setSelectedSubitemIndex] = useState<number>();
   const [error, setError] = useState<string | null>(null);
-  const { rechargeModel, setIsModelConnected } = useChatHistoryContext();
+  const { rechargeModel } = useChatHistoryContext();
   const { error: showError } = useToast();
 
   const navItems = useMemo<NavType>(
@@ -65,10 +65,7 @@ export const Sidebar = memo(function Sidebar() {
     if (choosedNavItem?.name !== 'Ollama')
       return () => {
         setSelectedSubitemIndex(undefined); // Resetea el índice del subitem seleccionado
-        setOllamaSubItems([]); // limpio para evitar mostrar datos viejos
-        setOllamaSubItemsLoading(false);
         setError(null);
-        setIsModelConnected(false);
       };
 
     const controller = new AbortController();
@@ -116,10 +113,8 @@ export const Sidebar = memo(function Sidebar() {
     return () => {
       controller.abort();
       setSelectedSubitemIndex(undefined); // Resetea el índice del subitem seleccionado
-      setOllamaSubItems([]); // limpio para evitar mostrar datos viejos
       setOllamaSubItemsLoading(false);
       setError(null);
-      setIsModelConnected(false);
     };
   }, [selectedIndex]);
 
@@ -147,7 +142,7 @@ export const Sidebar = memo(function Sidebar() {
       rechargeModel(model, provider);
       setSelectedSubitemIndex(index);
     },
-    [selectedSubitemIndex, rechargeModel]
+    [selectedSubitemIndex]
   );
 
   const renderOllamaSubItems = useCallback(() => {

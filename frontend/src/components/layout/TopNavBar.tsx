@@ -17,7 +17,6 @@ export const TopNavBar = memo(function TopNavBar() {
   } = useChatHistoryContext();
   const { success, error } = useToast();
   const { isMobile } = useMobileFirst();
-  const [showApikeyMenu, setShowApikeyMenu] = useState<boolean>(false);
   const [showHistoryManager, setShowHistoryManager] = useState<boolean>(false);
   const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
   const [isModelLoading, setIsModelLoading] = useState<boolean>(false);
@@ -101,10 +100,7 @@ export const TopNavBar = memo(function TopNavBar() {
       >
         {activeModel?.provider === 'openai' &&
           (!tempApiKey ? (
-            <ApiKeyInput
-              model={activeModel.model}
-              provider={activeModel.provider}
-            />
+            <ApiKeyInput provider={activeModel.provider} />
           ) : (
             <span
               className={`${isMobile ? 'text-center text-sm' : 'text-base'}`}
@@ -137,10 +133,8 @@ export const TopNavBar = memo(function TopNavBar() {
 });
 
 const ApiKeyInput = memo(function ApiKeyInput({
-  model,
   provider,
 }: {
-  model: string;
   provider: string;
 }) {
   const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
@@ -199,19 +193,12 @@ const ApiKeyInput = memo(function ApiKeyInput({
     <div className='relative flex w-full items-center justify-center gap-2 '>
       {!loading ? (
         <div className='flex flex-col py-2'>
-          <label
-            htmlFor='apiKey'
-            className='mb-1 text-nowrap text-sm font-thin'
-          >
-            OpenAI API Key
-          </label>
-
           <div className='relative flex items-center'>
             <input
               type={show ? 'text' : 'password'}
               id='apiKey'
               name='apiKey'
-              placeholder='sk-...'
+              placeholder={provider + ' API Key'}
               autoComplete='off'
               className={`w-full pr-10 px-4 py-2 border ${
                 hasFieldError('apiKey') ? 'border-red-500' : 'border-[#999999]'

@@ -15,8 +15,8 @@ export interface ChatMessage {
 
 export interface ActiveModel {
   thread_id?: string;
-  model: ModelName | '';
-  provider: ModelProvider | '';
+  model: ModelName ;
+  provider: ModelProvider;
   apiKey?: string;
 }
 
@@ -44,5 +44,5 @@ export interface ChatContextValue {
   setTempApiKey: (tempApiKey: string) => void;
   isModelConnected: boolean;
   setIsModelConnected: (isModelConnected: boolean) => void;
-  rechargeModel: (model: ModelName, provider: ModelProvider) => void;
+  rechargeModel: (model: string, provider: ModelProvider) => void;
 }

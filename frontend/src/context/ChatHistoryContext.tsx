@@ -116,7 +116,7 @@ export function ChatHistoryContextProvider({
       }
 
       setActiveModel({ model, provider, thread_id: uuid() }); // Actualizar el modelo activo y el x
-      setIsModelConnected(false); // Marcar el modelo como conectado
+      setIsModelConnected(false);
     },
     []
   );
