@@ -19,7 +19,6 @@ export const TopNavBar = memo(function TopNavBar() {
   const { success, error } = useToast();
   const { isMobile } = useMobileFirst();
   const [showHistoryManager, setShowHistoryManager] = useState<boolean>(false);
-  const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
   const [isModelLoading, setIsModelLoading] = useState<boolean>(false);
 
   const deleteKey = useCallback(() => {
@@ -128,7 +127,6 @@ const ApiKeyInput = memo(function ApiKeyInput({
   provider: string;
 }) {
   if (provider !== 'openai') return <div></div>;
-  const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
   const [show, setShow] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [loading, setLoading] = useState(false);

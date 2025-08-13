@@ -24,8 +24,6 @@ function useToggleOutside() {
 }
 
 export function ToolsList({ model }: { model: ModelName }) {
-  const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
-
   const tools = ['Gmail', 'Asana'];
   const { isOpen, toggle, ref } = useToggleOutside();
   const { addToolsToModel } = useChatApi();
@@ -39,7 +37,6 @@ export function ToolsList({ model }: { model: ModelName }) {
 
       const res = await addToolsToModel({ thread_id });
 
-      console.error('Error agregando tools al modelo');
       console.log(res);
     } catch (err: any) {
       console.error('Error agregando tools al modelo: ' + err);

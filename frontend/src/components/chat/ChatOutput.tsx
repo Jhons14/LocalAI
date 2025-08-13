@@ -172,8 +172,6 @@ const AssistantMessageOutput = memo(function AssistantMessageOutput({
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [content]);
 
-  // ... rest of your component
-
   // Show typing indicator if no content yet
   if (!content || content.trim() === '') {
     return (

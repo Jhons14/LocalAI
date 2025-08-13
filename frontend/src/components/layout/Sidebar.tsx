@@ -13,6 +13,7 @@ import OllamaLogo from '../../assets/OllamaLogo.svg?react';
 import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
 import { ModelListSkeleton } from '@/components/ui/SkeletonLoader';
 import { useToast } from '@/hooks/useToast';
+import { useChatApi } from '@/hooks/useChatApi';
 import { v4 as uuid } from 'uuid';
 
 type NavType = {
@@ -29,8 +30,6 @@ type SubItemType = {
 };
 
 export const Sidebar = memo(function Sidebar() {
-  const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
-
   const [isBarOpen, setIsBarOpen] = useState(false);
   const [isItemOpen, setIsItemOpen] = useState(false);
   const [ollamaSubItems, setOllamaSubItems] = useState<Array<SubItemType>>([]);
@@ -39,6 +38,7 @@ export const Sidebar = memo(function Sidebar() {
   const [selectedSubitemIndex, setSelectedSubitemIndex] = useState<number>();
   const [error, setError] = useState<string | null>(null);
   const { rechargeModel } = useChatHistoryContext();
+  const { getOllamaModels } = useChatApi();
   const { error: showError } = useToast();
 
   const navItems = useMemo<NavType>(
@@ -69,23 +69,20 @@ export const Sidebar = memo(function Sidebar() {
       };
 
     const controller = new AbortController();
-    const signal = controller.signal;
 
     const loadOllamaModels = async () => {
       setOllamaSubItemsLoading(true);
       setError(null);
 
       try {
-        const res = await fetch(BACKEND_URL + '/getModels', { signal });
+        const res = await getOllamaModels();
 
-        if (!res.ok) {
+        if (!res) {
           setError('Error obteniendo modelos ollama');
           return;
         }
 
-        const parsedRes = await res.json();
-
-        const tempOllamaSubItems: SubItemType[] = parsedRes.map(
+        const tempOllamaSubItems: SubItemType[] = res['ollama'].map(
           (model: string) => ({
             title: model,
             model: model,
