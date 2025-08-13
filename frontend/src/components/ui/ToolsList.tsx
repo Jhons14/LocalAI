@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import type { ModelName } from '@/types/chat';
 import { useChatApi } from '@/hooks/useChatApi';
 import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
+import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 function useToggleOutside() {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -43,20 +44,19 @@ export function ToolsList({ model }: { model: ModelName }) {
     }
   };
 
-  console.log(activeModel);
-
   const renderTools = () => {
     if (!isOpen) return null;
     return (
       <ul className='absolute flex flex-col top-full w-full bg-[#333333] text-center border border-[#999999] rounded shadow-lg mt-1 p-1'>
         {tools.map((tool) => (
-          <li key={tool}>
+          <li key={tool} className='flex justify-between items-center w-full'>
             <button
               onClick={addTools}
               className='cursor-pointer w-full hover:bg-[#555555] transition-all duration-200'
             >
               {tool}
             </button>
+            <ToggleSwitch size='x-small' />
           </li>
         ))}
       </ul>
