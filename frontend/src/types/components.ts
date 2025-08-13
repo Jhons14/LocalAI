@@ -21,16 +21,16 @@ export interface SidebarItemProps {
   setIsBarOpen: (open: boolean) => void;
   isItemOpen: boolean;
   setIsItemOpen: (open: boolean) => void;
-  selectedIndex: number | undefined;
-  setSelectedIndex: (index: number | undefined) => void;
+  selectedIndex: number ;
+  setSelectedIndex: (index: number ) => void;
 }
 
 export interface ChatInputProps {
-  thread_id?: string|undefined;
+  thread_id: string;
 }
 
 export interface ChatOutputProps {
-  thread_id?: string;
+  thread_id: string;
 }
 
 export interface UserMessageOutputProps {
@@ -39,7 +39,7 @@ export interface UserMessageOutputProps {
     content?: string;
     status?: 'complete' | 'streaming' | 'error';
   };
-  thread_id?: string;
+  thread_id: string;
 }
 
 export interface AssistantMessageOutputProps {

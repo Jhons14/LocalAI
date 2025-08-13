@@ -124,52 +124,54 @@ const AssistantMessageOutput = memo(function AssistantMessageOutput({
   content,
 }: AssistantMessageOutputProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<Element>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (content) {
-      const dirty = marked(content, {
-        breaks: true,
-        gfm: true,
-        sanitize: false,
-      });
-
-      const clean = DOMPurify.sanitize(dirty);
-
-      if (containerRef.current) {
-        containerRef.current.innerHTML = clean;
-
-        // Style lists
-        containerRef.current.querySelectorAll('ol').forEach((ol) => {
-          ol.classList.add(
-            'list-decimal',
-            'list-inside',
-            // 'pl-5',
-            'space-y-1',
-            'font-bold'
-          );
+    async function renderContent() {
+      if (content) {
+        const dirty = await marked.parse(content, {
+          breaks: true,
+          gfm: true,
         });
 
-        containerRef.current.querySelectorAll('ol li').forEach((li) => {
-          li.classList.add('mb-1');
-          // Make content normal weight, keep numbers bold
-          li.innerHTML = `<span class="font-normal">${li.innerHTML}</span>`;
-        });
+        const clean = DOMPurify.sanitize(dirty);
 
-        containerRef.current.querySelectorAll('ul').forEach((ul) => {
-          ul.classList.add('list-disc', 'list-inside', 'pl-5', 'space-y-1');
-        });
+        if (containerRef.current) {
+          containerRef.current.innerHTML = clean;
 
-        // Highlight code blocks
-        containerRef.current.querySelectorAll('pre code').forEach((block) => {
-          hljs.highlightElement(block);
-          block.parentElement?.classList.add('my-4');
-          block.classList.add('rounded-xl', 'border-1', 'border-white/50');
-        });
+          // Style lists
+          containerRef.current.querySelectorAll('ol').forEach((ol) => {
+            ol.classList.add(
+              'list-decimal',
+              'list-inside',
+              // 'pl-5',
+              'space-y-1',
+              'font-bold'
+            );
+          });
+
+          containerRef.current.querySelectorAll('ol li').forEach((li) => {
+            li.classList.add('mb-1');
+            // Make content normal weight, keep numbers bold
+            li.innerHTML = `<span class="font-normal">${li.innerHTML}</span>`;
+          });
+
+          containerRef.current.querySelectorAll('ul').forEach((ul) => {
+            ul.classList.add('list-disc', 'list-inside', 'pl-5', 'space-y-1');
+          });
+
+          // Highlight code blocks
+          containerRef.current.querySelectorAll('pre code').forEach((block) => {
+            hljs.highlightElement(block as HTMLElement);
+            block.parentElement?.classList.add('my-4');
+            block.classList.add('rounded-xl', 'border-1', 'border-white/50');
+          });
+        }
       }
-    }
 
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+    renderContent();
   }, [content]);
 
   // Show typing indicator if no content yet

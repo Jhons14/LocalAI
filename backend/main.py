@@ -655,7 +655,6 @@ async def generate_response(thread_id: str, input_messages: list, runtime_config
                         if isinstance(chunk, AIMessage):
                             content = str(chunk.content) if chunk.content else ""
                             if content:
-                                print(content)
                                 yield content.encode('utf-8', errors='ignore').decode('utf-8')
                     return  # Exit after successful completion with storage
                     

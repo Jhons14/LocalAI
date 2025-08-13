@@ -22,14 +22,15 @@ export function Chat() {
         <header role='banner'>
           <TopNavBar />
         </header>
-        <main
-          id='main-content'
-          className='flex-1 flex flex-col overflow-hidden'
-          role='main'
-          aria-label='Chat conversation'
-        >
-          <ChatOutput thread_id={activeModel?.thread_id} />
-          {activeModel?.model && (
+        {activeModel?.model && activeModel?.thread_id && (
+          <main
+            id='main-content'
+            className='flex-1 flex flex-col overflow-hidden'
+            role='main'
+            aria-label='Chat conversation'
+          >
+            <ChatOutput thread_id={activeModel?.thread_id} />
+
             <div
               className={`${isMobile ? 'p-2' : 'p-4'}`}
               role='region'
@@ -37,8 +38,8 @@ export function Chat() {
             >
               <ChatInput thread_id={activeModel?.thread_id} />
             </div>
-          )}
-        </main>
+          </main>
+        )}
         <div role='region' aria-label='Notifications' aria-live='polite'>
           <ToastContainer toasts={toasts} onClose={removeToast} />
         </div>
