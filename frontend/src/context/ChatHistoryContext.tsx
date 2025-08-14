@@ -164,7 +164,15 @@ export function ChatHistoryContextProvider({
 
   // Función para enviar un mensaje al modelo
   const sendMessage = useCallback(
-    async ({ content, thread_id }: SendMessageParams) => {
+    async ({
+      content,
+      thread_id,
+      model,
+      provider,
+      apiKey,
+      toolkits = [],
+      enable_memory = true,
+    }: SendMessageParams) => {
       if (!thread_id) {
         throw new Error('Please select a model');
       }
@@ -189,7 +197,14 @@ export function ChatHistoryContextProvider({
       setMessages((prev) => [...prev, userMessage, assistantMessage]);
 
       await sendChatMessage(
-        { content, thread_id },
+        {
+          content,
+          thread_id,
+          model,
+          provider,
+          toolkits,
+          enable_memory,
+        },
         // onChunk
         (chunk: string) => {
           setMessages((prev) =>

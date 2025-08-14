@@ -43,9 +43,12 @@ export const ChatInput = memo(function ChatInput({
         // Use sanitized value if available
         const sanitizedMessage = validation.sanitizedValue || message;
 
-        await sendMessage({
+        sendMessage({
           content: sanitizedMessage,
           thread_id: thread_id,
+          model: 'qwen3:1.7b',
+          provider: 'ollama',
+          toolkits: ['Gmail'],
         });
 
         clearValidation('message');

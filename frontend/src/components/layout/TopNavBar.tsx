@@ -25,61 +25,9 @@ export const TopNavBar = memo(function TopNavBar() {
     setTempApiKey('');
   }, [setTempApiKey]);
 
-  const handleConnect = useCallback(async () => {
-    if (!activeModel) {
-      error('No Model Selected', 'Please select a model first.');
-      return;
-    }
-    setIsModelLoading(true);
-
-    try {
-      await configureModel({
-        model: activeModel.model,
-        provider: activeModel.provider,
-      });
-      success('Connected!', `Successfully connected to ${activeModel.model}`);
-    } catch (err) {
-      console.error('Error connecting to model:', err);
-      error(
-        'Connection Failed',
-        err instanceof Error ? err.message : 'Failed to connect to model'
-      );
-    }
-
-    setIsModelLoading(false);
-  }, [activeModel, configureModel, success, error]);
-
-  const renderConnectButton = useMemo(() => {
-    if (!activeModel) {
-      return (
-        <span className='text-sm text-gray-500'>Select a model to start</span>
-      );
-    }
-
-    if (isModelConnected && !isModelLoading) {
-      return (
-        <ConnectionStatus
-          isConnected={true}
-          isConnecting={false}
-          modelName={activeModel.model}
-        />
-      );
-    }
-
-    return (
-      <LoadingButton
-        isLoading={isModelLoading}
-        onClick={handleConnect}
-        className='bg-[#555555] text-white hover:bg-[#777777] keyboard-navigation'
-      >
-        {isModelLoading ? 'Connecting...' : 'Connect'}
-      </LoadingButton>
-    );
-  }, [isModelConnected, isModelLoading, activeModel, handleConnect]);
-
   return (
     <div
-      className={`grid grid-cols-[1fr_2fr_1fr_1fr_1fr] mb-2 ${
+      className={`grid grid-cols-[1fr_2fr_1fr_1fr] mb-2 ${
         isMobile
           ? 'flex-col gap-2 p-3'
           : 'flex-row justify-between items-center gap-4 px-8'
@@ -111,7 +59,6 @@ export const TopNavBar = memo(function TopNavBar() {
         {isMobile ? 'History' : 'Chat History'}
       </button>
       {activeModel?.model && <ToolsList model={activeModel.model} />}
-      {renderConnectButton}
 
       <ChatHistoryManager
         isOpen={showHistoryManager}

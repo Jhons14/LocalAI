@@ -1,7 +1,7 @@
 export type MessageRole = 'user' | 'assistant';
 export type MessageStatus = 'complete' | 'streaming' | 'error';
 export type ModelProvider = 'ollama' | 'openai';
-export type ModelName = 'qwen2.5:3b' | 'gpt-4.1-nano' ;
+export type ModelName = 'qwen2.5:3b' | 'gpt-4.1-nano' | 'qwen3:1.7b' ;
 
 export interface ChatMessage {
   id: string;
@@ -11,7 +11,7 @@ export interface ChatMessage {
   relatedTo?: string;
   edited?: boolean;
   createdAt: number;
-  thread_id: string;
+  thread_id?: string;
 }
 
 export interface ActiveModel {
@@ -24,6 +24,11 @@ export interface ActiveModel {
 export interface SendMessageParams {
   content: string;
   thread_id: string;
+  model: ModelName;
+  provider: ModelProvider;
+  apiKey?: string;
+  toolkits?: string[];
+  enable_memory?: boolean;
 }
 
 export interface ConfigureModelParams {

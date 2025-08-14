@@ -15,6 +15,11 @@ export function useChatApi() {
       const { reader } = await streamRequest('/chat', {
         prompt: params.content,
         thread_id: params.thread_id,
+        model: params.model,
+        provider: params.provider,
+        apiKey: params.apiKey,
+        toolkits: params.toolkits,
+        enable_memory: params.enable_memory,
       });
 
       const decoder = new TextDecoder();
@@ -36,11 +41,11 @@ export function useChatApi() {
 
   const configureModel = useCallback(async (params: ConfigureModelParams & { apiKey?: string }) => {
     return postRequest('/configure', {
-      
       thread_id: params.thread_id,
       model: params.model,
       provider: params.provider,
       apiKey: params.apiKey,
+      
     });
   }, [postRequest]);
 

@@ -157,7 +157,7 @@ const AssistantMessageOutput = memo(function AssistantMessageOutput({
           });
 
           containerRef.current.querySelectorAll('ul').forEach((ul) => {
-            ul.classList.add('list-disc', 'list-inside', 'pl-5', 'space-y-1');
+            ul.classList.add('list-inside', 'pl-5', 'space-y-1');
           });
 
           // Highlight code blocks

@@ -505,102 +505,115 @@ class ChatRequest(BaseModel):
     def validate_prompt(cls, v):
         return sanitize_string(v, config.MAX_PROMPT_LENGTH)
 
+class CombinedChatRequest(BaseModel):
+    thread_id: str = Field(..., min_length=1, max_length=100)
+    prompt: str = Field(..., min_length=1, max_length=10000)
+    
+    # Optional configuration parameters for first-time setup
+    model: Optional[str] = Field(None, min_length=1, max_length=100)
+    provider: Optional[ModelProvider] = None
+    api_key: Optional[str] = Field(None, max_length=500)
+    temperature: Optional[float] = Field(None, ge=0, le=2)
+    max_tokens: Optional[int] = Field(None, ge=1, le=100000)
+    toolkits: Optional[List[str]] = Field(default_factory=list)
+    enable_memory: bool = Field(default=True)
+    
+    @field_validator('thread_id')
+    def validate_thread_id_format(cls, v):
+        return validate_thread_id(v)
+    
+    @field_validator('prompt')
+    def validate_prompt(cls, v):
+        return sanitize_string(v, config.MAX_PROMPT_LENGTH)
+
 # ==================== API Endpoints ====================
-@app.post("/configure")
-@limiter.limit("10/minute")
-async def configure_model(request: Request, config_req: ConfigRequest):
-    """Configure a model and workflow for a thread"""
-    try:
-        logger.info(f"Configuring model for thread {config_req.thread_id}")
-        
-        # Create model
-        model = ModelFactory.create_model(
-            provider=config_req.provider,
-            model_name=config_req.model,
-            api_key=config_req.api_key,
-            temperature=config_req.temperature or config.DEFAULT_TEMPERATURE,
-            max_tokens=config_req.max_tokens or config.DEFAULT_MAX_TOKENS
-        )
-        
-        # Initialize tool manager if toolkits specified
-        tool_manager = None
-        tools = []
-        if config_req.toolkits:
-            tool_manager = ToolManager(api_key=config.ARCADE_API_KEY)
-            tool_manager.init_tools(toolkits=config_req.toolkits)
-            tools = tool_manager.to_langchain(use_interrupts=True)
-            workflow_manager.set_tool_manager(config_req.thread_id, tool_manager)
-            
-            # Bind tools to model
-            model = model.bind_tools(tools)
-        
-        # Build workflow
-        workflow = StateGraph(state_schema=MessagesState)
-        
-        # Add agent node
-        agent_node = WorkflowBuilder.create_agent_node(model, tool_manager)
-        workflow.add_node("agent", agent_node)
-        
-        # Add tool nodes if tools are configured
-        if tools:
-            tool_node = WorkflowBuilder.create_tool_node(tools)
-            workflow.add_node("tools", tool_node)
-            
-            if tool_manager:
-                auth_node = WorkflowBuilder.create_authorization_node(tool_manager)
-                workflow.add_node("authorization", auth_node)
-            
-            # Add routing
-            routing_func = create_routing_function(
-                tool_manager, 
-                config.MAX_TOOL_CALLS_PER_TURN
-            )
-            workflow.add_conditional_edges("agent", routing_func, ["authorization", "tools", END])
-            workflow.add_edge("authorization", "tools")
-            workflow.add_edge("tools", "agent")
-        else:
-            workflow.add_edge("agent", END)
-        
-        workflow.add_edge(START, "agent")
-        
-        # Store workflow
-        workflow_manager.set_workflow(
-            config_req.thread_id, 
-            workflow,
-            {
-                "provider": config_req.provider,
-                "model": config_req.model,
-                "toolkits": config_req.toolkits,
-                "enable_memory": config_req.enable_memory
-            }
-        )
-        
-        return {
-            "status": "success",
-            "message": f"Workflow configured for thread {config_req.thread_id}",
-            "configuration": {
-                "provider": config_req.provider,
-                "model": config_req.model,
-                "toolkits": config_req.toolkits or [],
-                "enable_memory": config_req.enable_memory
-            }
-        }
-        
-    except Exception as e:
-        logger.error(f"Error configuring model: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat")
 @limiter.limit("30/minute")
-async def chat(request: Request, chat_req: ChatRequest):
-    """Chat with a configured model"""
+async def chat(request: Request, chat_req: CombinedChatRequest):
+    """Chat with a model, configuring it automatically on first request"""
     try:
+        # Check if thread already exists
         if not workflow_manager.exists(chat_req.thread_id):
-            raise HTTPException(
-                status_code=404, 
-                detail="Model not configured for this thread. Please configure first."
+            # Auto-configure on first request
+            logger.info(f"Auto-configuring model for new thread {chat_req.thread_id}")
+            
+            # Use provided config or defaults
+            provider = chat_req.provider or ModelProvider.OLLAMA
+            model = chat_req.model or "llama3.2"  # Default Ollama model
+            
+            # Validate required parameters for non-Ollama providers
+            if provider != ModelProvider.OLLAMA and not chat_req.api_key:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"API key required for {provider.value} provider"
+                )
+            
+            # Create model
+            model_instance = ModelFactory.create_model(
+                provider=provider,
+                model_name=model,
+                api_key=chat_req.api_key,
+                temperature=chat_req.temperature or config.DEFAULT_TEMPERATURE,
+                max_tokens=chat_req.max_tokens or config.DEFAULT_MAX_TOKENS
             )
+            
+            # Initialize tool manager if toolkits specified
+            tool_manager = None
+            tools = []
+            if chat_req.toolkits:
+                tool_manager = ToolManager(api_key=config.ARCADE_API_KEY)
+                tool_manager.init_tools(toolkits=chat_req.toolkits)
+                tools = tool_manager.to_langchain(use_interrupts=True)
+                workflow_manager.set_tool_manager(chat_req.thread_id, tool_manager)
+                
+                # Bind tools to model
+                model_instance = model_instance.bind_tools(tools)
+            
+            # Build workflow
+            workflow = StateGraph(state_schema=MessagesState)
+            
+            # Add agent node
+            agent_node = WorkflowBuilder.create_agent_node(model_instance, tool_manager)
+            workflow.add_node("agent", agent_node)
+            
+            # Add tool nodes if tools are configured
+            if tools:
+                tool_node = WorkflowBuilder.create_tool_node(tools)
+                workflow.add_node("tools", tool_node)
+                
+                if tool_manager:
+                    auth_node = WorkflowBuilder.create_authorization_node(tool_manager)
+                    workflow.add_node("authorization", auth_node)
+                
+                # Add routing
+                routing_func = create_routing_function(
+                    tool_manager, 
+                    config.MAX_TOOL_CALLS_PER_TURN
+                )
+                workflow.add_conditional_edges("agent", routing_func, ["authorization", "tools", END])
+                workflow.add_edge("authorization", "tools")
+                workflow.add_edge("tools", "agent")
+            else:
+                workflow.add_edge("agent", END)
+            
+            workflow.add_edge(START, "agent")
+            
+            # Store workflow
+            workflow_manager.set_workflow(
+                chat_req.thread_id, 
+                workflow,
+                {
+                    "provider": provider,
+                    "model": model,
+                    "toolkits": chat_req.toolkits or [],
+                    "enable_memory": chat_req.enable_memory
+                }
+            )
+            
+            logger.info(f"Successfully auto-configured thread {chat_req.thread_id}")
         
+        # Proceed with chat
         runtime_config = {
             "configurable": {
                 "thread_id": chat_req.thread_id,
@@ -624,6 +637,7 @@ async def chat(request: Request, chat_req: ChatRequest):
     except Exception as e:
         logger.error(f"Error in chat endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 async def generate_response(thread_id: str, input_messages: list, runtime_config: dict):
     """Generate streaming response from workflow"""
@@ -773,7 +787,8 @@ async def root():
         "redoc": "/redoc",
         "endpoints": {
             "configure": "POST /configure - Configure a model for a thread",
-            "chat": "POST /chat - Chat with a configured model",
+            "chat": "POST /chat - Chat with auto-configuration on first request",
+            "chat-legacy": "POST /chat-legacy - Chat with pre-configured model (legacy)",
             "models": "GET /models - List available models",
             "toolkits": "GET /toolkits - List available tool toolkits",
             "thread_status": "GET /threads/{thread_id}/status - Get thread status",
