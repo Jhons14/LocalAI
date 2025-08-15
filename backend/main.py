@@ -34,6 +34,8 @@ import os
 import bleach
 from dotenv import load_dotenv
 import uuid
+import json
+from pathlib import Path
 from enum import Enum
 
 load_dotenv()
@@ -76,6 +78,9 @@ class Config:
         "Calendar": "📅 View and manage calendar events",
         "Drive": "📁 Access and manage files and documents"
     }
+    
+    # User preferences storage
+    PREFERENCES_FILE = Path("user_preferences.json")
 
 config = Config()
 
@@ -171,6 +176,39 @@ class WorkflowManager:
     def get_usage_stats(self, thread_id: str) -> Dict:
         """Get usage statistics for a thread"""
         return self.usage_stats.get(thread_id, {})
+    
+    def save_user_preferences(self, user_id: str, preferred_toolkits: List[str]):
+        """Save user's preferred toolkit configuration"""
+        preferences = self._load_preferences()
+        preferences[user_id] = {
+            "preferred_toolkits": preferred_toolkits,
+            "updated_at": datetime.now().isoformat()
+        }
+        self._save_preferences(preferences)
+    
+    def get_user_preferences(self, user_id: str) -> List[str]:
+        """Get user's preferred toolkits"""
+        preferences = self._load_preferences()
+        user_prefs = preferences.get(user_id, {})
+        return user_prefs.get("preferred_toolkits", [])
+    
+    def _load_preferences(self) -> Dict:
+        """Load preferences from file"""
+        try:
+            if config.PREFERENCES_FILE.exists():
+                with open(config.PREFERENCES_FILE, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            logger.warning(f"Could not load preferences: {e}")
+        return {}
+    
+    def _save_preferences(self, preferences: Dict):
+        """Save preferences to file"""
+        try:
+            with open(config.PREFERENCES_FILE, 'w') as f:
+                json.dump(preferences, f, indent=2)
+        except Exception as e:
+            logger.error(f"Could not save preferences: {e}")
     
     def get_current_toolkits(self, thread_id: str) -> List[str]:
         """Get current toolkits from workflow configuration"""
@@ -704,6 +742,11 @@ async def chat(request: Request, chat_req: ChatRequest):
             provider = chat_req.provider or ModelProvider.OLLAMA
             model = chat_req.model or "llama3.2"  # Default Ollama model
             
+            # Use user preferences for toolkits if not specified
+            user_id = config.USER_EMAIL or "default_user"
+            if not chat_req.toolkits:
+                chat_req.toolkits = workflow_manager.get_user_preferences(user_id)
+            
             # Validate required parameters for non-Ollama providers
             if provider != ModelProvider.OLLAMA and not chat_req.api_key:
                 raise HTTPException(
@@ -772,6 +815,10 @@ async def chat(request: Request, chat_req: ChatRequest):
                     "enable_memory": chat_req.enable_memory
                 }
             )
+            
+            # Save user preferences if toolkits were configured
+            if chat_req.toolkits:
+                workflow_manager.save_user_preferences(user_id, chat_req.toolkits)
             
             logger.info(f"Successfully auto-configured thread {chat_req.thread_id}")
         
