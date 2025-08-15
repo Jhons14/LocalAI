@@ -68,6 +68,14 @@ class Config:
     
     # Available toolkits
     DEFAULT_TOOLKITS = ["Gmail", "Slack", "Calendar", "Drive"]
+    
+    # Tool capability descriptions
+    TOOL_CAPABILITIES = {
+        "Gmail": "📧 Read, send, and manage emails",
+        "Slack": "💬 Send messages and communicate in channels", 
+        "Calendar": "📅 View and manage calendar events",
+        "Drive": "📁 Access and manage files and documents"
+    }
 
 config = Config()
 
@@ -340,6 +348,10 @@ def create_tool_change_system_message(changes: dict, tool_manager: Optional[Tool
     
     if added_tools:
         message_parts.append(f"✅ Added tools: {', '.join(added_tools)}")
+        # Add capabilities for new tools
+        for tool in added_tools:
+            capability = config.TOOL_CAPABILITIES.get(tool, "🔧 General purpose tool")
+            message_parts.append(f"   {tool}: {capability}")
     
     if removed_tools:
         message_parts.append(f"❌ Removed tools: {', '.join(removed_tools)}")
@@ -947,9 +959,16 @@ async def list_models(request: Request, provider: Optional[ModelProvider] = None
 
 @app.get("/toolkits")
 async def list_toolkits():
-    """List available tool toolkits"""
+    """List available tool toolkits with capabilities"""
+    toolkits = []
+    for toolkit in config.DEFAULT_TOOLKITS:
+        toolkits.append({
+            "name": toolkit,
+            "capability": config.TOOL_CAPABILITIES.get(toolkit, "General purpose tool")
+        })
+    
     return {
-        "available_toolkits": config.DEFAULT_TOOLKITS,
+        "available_toolkits": toolkits,
         "description": "These toolkits can be enabled when configuring a thread"
     }
 
