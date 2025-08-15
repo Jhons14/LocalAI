@@ -126,8 +126,6 @@ export function ChatHistoryContextProvider({
       toolkits = [],
       enable_memory = true,
     }: SendMessageParams) => {
-      console.log(toolkits);
-
       if (!thread_id) {
         throw new Error('Please select a model');
       }

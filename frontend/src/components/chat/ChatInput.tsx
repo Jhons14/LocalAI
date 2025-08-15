@@ -18,7 +18,6 @@ export const ChatInput = memo(function ChatInput({
   const { error: showError } = useToast();
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const [isValidating, setIsValidating] = useState(false);
-  console.log(activeModel);
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent) => {

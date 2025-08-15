@@ -151,8 +151,13 @@ class WorkflowManager:
         if not self.exists(thread_id):
             raise ValueError(f"Thread {thread_id} does not exist")
         
-        # Get existing configuration
+        # Get existing configuration and current toolkits
         current_config = self.configurations[thread_id].copy()
+        old_toolkits = current_config.get("toolkits", [])
+        
+        # Determine changes for system message
+        added_tools = set(new_toolkits or []) - set(old_toolkits)
+        removed_tools = set(old_toolkits) - set(new_toolkits or [])
         
         # Update toolkits in configuration
         current_config["toolkits"] = new_toolkits or []
@@ -220,7 +225,16 @@ class WorkflowManager:
         self.workflows[thread_id] = workflow
         self.configurations[thread_id] = current_config
         
-        return workflow
+        # Return workflow and change information
+        return {
+            "workflow": workflow,
+            "changes": {
+                "added_tools": list(added_tools),
+                "removed_tools": list(removed_tools),
+                "old_toolkits": old_toolkits,
+                "new_toolkits": new_toolkits or []
+            }
+        }
 
 workflow_manager = WorkflowManager()
 
@@ -312,6 +326,32 @@ def validate_thread_id(thread_id: str) -> str:
         raise ValueError(f"Thread ID too long. Maximum {config.MAX_THREAD_ID_LENGTH} characters allowed")
     
     return thread_id
+
+def create_tool_change_system_message(changes: dict) -> str:
+    """Create a system message explaining tool configuration changes"""
+    added_tools = changes.get("added_tools", [])
+    removed_tools = changes.get("removed_tools", [])
+    new_toolkits = changes.get("new_toolkits", [])
+    
+    if not added_tools and not removed_tools:
+        return ""
+    
+    message_parts = ["[SYSTEM] Your tool configuration has been updated:"]
+    
+    if added_tools:
+        message_parts.append(f"✅ Added tools: {', '.join(added_tools)}")
+    
+    if removed_tools:
+        message_parts.append(f"❌ Removed tools: {', '.join(removed_tools)}")
+    
+    if new_toolkits:
+        message_parts.append(f"📋 Current available tools: {', '.join(new_toolkits)}")
+    else:
+        message_parts.append("📋 No tools are currently available")
+    
+    message_parts.append("You can now use your updated tool configuration to assist with requests.")
+    
+    return "\n".join(message_parts)
 
 # ==================== Message Serialization ====================
 def serialize_message(message) -> dict:
@@ -708,17 +748,22 @@ async def chat(request: Request, chat_req: CombinedChatRequest):
                 
                 # Reconfigure workflow with new tools
                 try:
-                    workflow_manager.reconfigure_workflow_tools(
+                    reconfigure_result = workflow_manager.reconfigure_workflow_tools(
                         chat_req.thread_id, 
                         requested_toolkits,
                         chat_req.api_key
                     )
+                    
+                    # Create system message about tool changes
+                    tool_change_message = create_tool_change_system_message(reconfigure_result["changes"])
+                    
                     logger.info(f"Successfully reconfigured tools for thread {chat_req.thread_id}")
                 except Exception as e:
                     logger.error(f"Error reconfiguring tools: {str(e)}")
                     raise HTTPException(status_code=500, detail=f"Error reconfiguring tools: {str(e)}")
             else:
                 logger.debug(f"No tool changes needed for thread {chat_req.thread_id}")
+                tool_change_message = ""  # No changes, no message
         
         # Proceed with chat
         runtime_config = {
@@ -729,10 +774,21 @@ async def chat(request: Request, chat_req: CombinedChatRequest):
             "recursion_limit": config.MAX_RECURSION_DEPTH
         }
         
-        input_messages = [{
+        # Prepare input messages
+        input_messages = []
+        
+        # Add tool change notification as system message if tools were reconfigured
+        if 'tool_change_message' in locals() and tool_change_message:
+            input_messages.append({
+                "type": "system",
+                "content": tool_change_message
+            })
+        
+        # Add user message
+        input_messages.append({
             "type": "human",
             "content": chat_req.prompt
-        }]
+        })
         
         return StreamingResponse(
             generate_response(chat_req.thread_id, input_messages, runtime_config),
