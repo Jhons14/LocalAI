@@ -124,6 +124,7 @@ class WorkflowManager:
         self.workflows: Dict[str, StateGraph] = {}
         self.configurations: Dict[str, Dict] = {}
         self.tool_managers: Dict[str, ToolManager] = {}
+        self.usage_stats: Dict[str, Dict] = {}  # Simple usage tracking
     
     def get_workflow(self, thread_id: str) -> Optional[StateGraph]:
         return self.workflows.get(thread_id)
@@ -148,6 +149,28 @@ class WorkflowManager:
         self.workflows.pop(thread_id, None)
         self.configurations.pop(thread_id, None)
         self.tool_managers.pop(thread_id, None)
+        self.usage_stats.pop(thread_id, None)
+    
+    def track_usage(self, thread_id: str, tool_name: Optional[str] = None):
+        """Track simple usage statistics"""
+        if thread_id not in self.usage_stats:
+            self.usage_stats[thread_id] = {
+                "chat_count": 0,
+                "tool_usage": {},
+                "last_used": datetime.now().isoformat()
+            }
+        
+        self.usage_stats[thread_id]["chat_count"] += 1
+        self.usage_stats[thread_id]["last_used"] = datetime.now().isoformat()
+        
+        if tool_name:
+            if tool_name not in self.usage_stats[thread_id]["tool_usage"]:
+                self.usage_stats[thread_id]["tool_usage"][tool_name] = 0
+            self.usage_stats[thread_id]["tool_usage"][tool_name] += 1
+    
+    def get_usage_stats(self, thread_id: str) -> Dict:
+        """Get usage statistics for a thread"""
+        return self.usage_stats.get(thread_id, {})
     
     def get_current_toolkits(self, thread_id: str) -> List[str]:
         """Get current toolkits from workflow configuration"""
@@ -816,6 +839,9 @@ async def chat(request: Request, chat_req: ChatRequest):
             "content": chat_req.prompt
         })
         
+        # Track usage
+        workflow_manager.track_usage(chat_req.thread_id)
+        
         return StreamingResponse(
             generate_response(chat_req.thread_id, input_messages, runtime_config),
             media_type="text/event-stream"
@@ -901,10 +927,13 @@ async def get_thread_status(thread_id: str):
         raise HTTPException(status_code=404, detail="Thread not found")
     
     config = workflow_manager.get_config(thread_id)
+    usage_stats = workflow_manager.get_usage_stats(thread_id)
+    
     return {
         "thread_id": thread_id,
         "status": "configured",
-        "configuration": config
+        "configuration": config,
+        "usage_stats": usage_stats
     }
 
 @app.delete("/threads/{thread_id}")
