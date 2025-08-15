@@ -451,17 +451,17 @@ def create_tool_change_system_message(changes: dict, tool_manager: Optional[Tool
         
         # Add authorization status for new tools (skip for now to avoid manager issues)
         # Note: Authorization checking disabled due to tool manager initialization issues
-        # if tool_manager and new_toolkits:
-        #     auth_required = []
-        #     for toolkit in new_toolkits:
-        #         try:
-        #             if hasattr(tool_manager, 'requires_auth') and tool_manager.requires_auth(toolkit):
-        #                 auth_required.append(toolkit)
-        #         except Exception as e:
-        #             logger.debug(f"Could not check auth requirements for {toolkit}: {e}")
-        #     
-        #     if auth_required:
-        #         message_parts.append(f"🔐 Tools requiring authorization: {', '.join(auth_required)}")
+        if tool_manager and new_toolkits:
+            auth_required = []
+            for toolkit in new_toolkits:
+                try:
+                    if hasattr(tool_manager, 'requires_auth') and tool_manager.requires_auth(toolkit):
+                        auth_required.append(toolkit)
+                except Exception as e:
+                    logger.debug(f"Could not check auth requirements for {toolkit}: {e}")
+            
+            if auth_required:
+                message_parts.append(f"🔐 Tools requiring authorization: {', '.join(auth_required)}")
         
         # Check for tool conflicts
         conflicts = detect_tool_conflicts(new_toolkits)
@@ -763,31 +763,6 @@ def create_routing_function(tool_manager: Optional[ToolManager], max_tool_calls:
     return should_continue
 
 # ==================== API Models ====================
-class ConfigRequest(BaseModel):
-    thread_id: str = Field(..., min_length=1, max_length=100)
-    model: str = Field(..., min_length=1, max_length=100)
-    provider: ModelProvider
-    api_key: Optional[str] = Field(None, max_length=500)
-    temperature: Optional[float] = Field(None, ge=0, le=2)
-    max_tokens: Optional[int] = Field(None, ge=1, le=100000)
-    toolkits: Optional[List[str]] = Field(default_factory=list)
-    enable_memory: bool = Field(default=True)
-    
-    @field_validator('thread_id')
-    def validate_thread_id_format(cls, v):
-        return validate_thread_id(v)
-
-class ChatRequest(BaseModel):
-    thread_id: str = Field(..., min_length=1, max_length=100)
-    prompt: str = Field(..., min_length=1, max_length=10000)
-    
-    @field_validator('thread_id')
-    def validate_thread_id_format(cls, v):
-        return validate_thread_id(v)
-    
-    @field_validator('prompt')
-    def validate_prompt(cls, v):
-        return sanitize_string(v, config.MAX_PROMPT_LENGTH)
 
 class ChatRequest(BaseModel):
     thread_id: str = Field(..., min_length=1, max_length=100)
