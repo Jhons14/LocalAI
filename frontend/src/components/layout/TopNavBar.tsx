@@ -9,13 +9,8 @@ import { ChatHistoryManager } from '@/components/chat/ChatHistoryManager';
 import { ToolsList } from '../ui/ToolsList';
 
 export const TopNavBar = memo(function TopNavBar() {
-  const {
-    activeModel,
-    isModelConnected,
-    tempApiKey,
-    setTempApiKey,
-    configureModel,
-  } = useChatHistoryContext();
+  const { activeModel, isModelConnected, tempApiKey, setTempApiKey } =
+    useChatHistoryContext();
   const { success, error } = useToast();
   const { isMobile } = useMobileFirst();
   const [showHistoryManager, setShowHistoryManager] = useState<boolean>(false);

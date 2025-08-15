@@ -129,13 +129,6 @@ export const Sidebar = memo(function Sidebar() {
         return;
       }
 
-      // if (provider === 'ollama') {
-      //   configureModel({
-      //     model: model,
-      //     provider: provider,
-      //     connectModel: true,
-      //   }); // Configurar el modelo activo
-      // }
       rechargeModel(model, provider);
       setSelectedSubitemIndex(index);
     },

@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import type { ModelName } from '@/types/chat';
-import { useChatApi } from '@/hooks/useChatApi';
+import type { ModelName, ToolName } from '@/types/chat';
 import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 function useToggleOutside() {
@@ -24,39 +23,47 @@ function useToggleOutside() {
   return { isOpen, toggle, ref };
 }
 
+const TOOLS = {
+  Gmail: false,
+  Asana: false,
+};
+
 export function ToolsList({ model }: { model: ModelName }) {
-  const tools = ['Gmail', 'Asana'];
+  const tools = Object.keys(TOOLS);
+
   const { isOpen, toggle, ref } = useToggleOutside();
-  const { addToolsToModel } = useChatApi();
-  const { activeModel } = useChatHistoryContext();
-  const addTools = async () => {
+  const { activeModel, setActiveModel } = useChatHistoryContext();
+
+  const handleTools = (tool: ToolName, value: boolean) => {
+    TOOLS[tool] = value;
     if (!activeModel) return;
-    const thread_id = activeModel.thread_id;
 
-    try {
-      if (!thread_id) return;
-
-      const res = await addToolsToModel({ thread_id });
-
-      console.log(res);
-    } catch (err: any) {
-      console.error('Error agregando tools al modelo: ' + err);
+    const toolkits: ToolName[] = [];
+    for (const [key, value] of Object.entries(TOOLS)) {
+      if (value) {
+        toolkits.push(key as ToolName);
+      }
     }
+
+    setActiveModel({ ...activeModel, toolkits });
   };
 
   const renderTools = () => {
     if (!isOpen) return null;
     return (
-      <ul className='absolute flex flex-col top-full w-full bg-[#333333] text-center border border-[#999999] rounded shadow-lg mt-1 p-1'>
+      <ul className='absolute flex flex-col top-full w-full bg-[#333333] text-center border border-[#999999] rounded-xl shadow-lg mt-1 p-1'>
         {tools.map((tool) => (
           <li key={tool} className='flex justify-between items-center w-full'>
-            <button
-              onClick={addTools}
-              className='cursor-pointer w-full hover:bg-[#555555] transition-all duration-200'
-            >
+            <label className='cursor-pointer w-full hover:bg-[#555555] transition-all duration-200'>
               {tool}
-            </button>
-            <ToggleSwitch size='x-small' />
+            </label>
+            <ToggleSwitch
+              size='x-small'
+              initialValue={TOOLS[tool as ToolName]}
+              onChange={(value) => {
+                handleTools(tool as ToolName, value);
+              }}
+            />
           </li>
         ))}
       </ul>

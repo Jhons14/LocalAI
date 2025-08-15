@@ -1,18 +1,15 @@
-import json
 import requests
 import logging
-import asyncpg
 import re
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import StreamingResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from contextlib import asynccontextmanager
-from typing import Any, Optional, Dict, List, Literal
+from typing import Optional, Dict, List
 
 from langchain_arcade import ToolManager
 from langchain_ollama import ChatOllama
@@ -30,8 +27,8 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.store.postgres import AsyncPostgresStore
 from langgraph.store.base import BaseStore
 
-from pydantic import BaseModel, field_validator, Field
-import openai
+from pydantic import BaseModel, field_validator, Field, SecretStr
+import uvicorn
 from pathlib import Path
 import os
 import bleach
@@ -95,7 +92,7 @@ app = FastAPI(
 # ==================== Middleware Setup ====================
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
 
 origins = [origin.strip() for origin in config.CORS_ORIGINS.split(",") if origin.strip()]
 app.add_middleware(
@@ -254,10 +251,9 @@ class ModelFactory:
             return ChatOpenAI(
                 model=model_name,
                 temperature=temperature,
-                max_tokens=max_tokens,
                 timeout=config.DEFAULT_TIMEOUT,
                 max_retries=2,
-                api_key=api_key,
+                api_key=SecretStr(api_key),
                 streaming=streaming
             )
         
@@ -265,7 +261,6 @@ class ModelFactory:
             return ChatOllama(
                 model=model_name,
                 temperature=temperature,
-                streaming=streaming,
                 base_url=config.OLLAMA_BASE_URL
             )
         
@@ -273,11 +268,12 @@ class ModelFactory:
             if not api_key:
                 raise ValueError("API key required for Anthropic")
             return ChatAnthropic(
-                model=model_name,
+                model_name=model_name,
                 temperature=temperature,
-                max_tokens=max_tokens,
-                api_key=api_key,
-                streaming=streaming
+                api_key=SecretStr(api_key),
+                streaming=streaming,
+                timeout=config.DEFAULT_TIMEOUT,
+                stop=None
             )
         
         elif provider == ModelProvider.GOOGLE:
@@ -344,7 +340,7 @@ class WorkflowBuilder:
         
         async def call_agent(state: MessagesState, writer, config: RunnableConfig, *, store: BaseStore):
             messages = state["messages"]
-            user_id = config["configurable"].get("user_id", "").replace(".", "")
+            user_id = config.get("configurable", {}).get("user_id", "").replace(".", "")
             namespace = ("memories", user_id)
             
             # Retrieve relevant memories
@@ -754,23 +750,31 @@ async def generate_response(thread_id: str, input_messages: list, runtime_config
     """Generate streaming response from workflow"""
     workflow = workflow_manager.get_workflow(thread_id)
     workflow_config = workflow_manager.get_config(thread_id)
-    
+
+    if workflow is None:
+        logger.error(f"No workflow found for thread_id: {thread_id}")
+        raise HTTPException(status_code=404, detail="Workflow not found for the given thread_id")
+
     # Check if we should use memory/persistence
-    use_memory = workflow_config.get("enable_memory", False) and config.DATABASE_URL
-    
+    use_memory = (
+        workflow_config is not None and
+        workflow_config.get("enable_memory", False) and
+        config.DATABASE_URL
+    )
+
     if use_memory:
         try:
             # Use async context managers for PostgreSQL components
             async with (AsyncPostgresStore.from_conn_string(config.DATABASE_URL) as store,
                         AsyncPostgresSaver.from_conn_string(config.DATABASE_URL) as checkpointer):
                     logger.info(f"Initialized storage for thread {thread_id}")
-                    
+
                     # Compile workflow with storage
                     workflow_app = workflow.compile(
                         checkpointer=checkpointer,
                         store=store
                     )
-                    
+
                     # Stream response with storage context
                     async for chunk, metadata in workflow_app.astream(
                         {"messages": input_messages},
@@ -783,16 +787,16 @@ async def generate_response(thread_id: str, input_messages: list, runtime_config
                                 print(content.encode('utf-8', errors='ignore').decode('utf-8'))
                                 yield content.encode('utf-8', errors='ignore').decode('utf-8')
                     return  # Exit after successful completion with storage
-                    
+
         except Exception as e:
             logger.warning(f"Could not initialize storage, continuing without persistence: {e}")
             # Fall through to run without storage
-    
+
     # Run without storage (either not enabled or initialization failed)
     try:
         # Compile workflow without storage
         workflow_app = workflow.compile()
-        
+
         # Stream response without storage
         async for chunk, metadata in workflow_app.astream(
             {"messages": input_messages},
@@ -803,7 +807,7 @@ async def generate_response(thread_id: str, input_messages: list, runtime_config
                 content = str(chunk.content) if chunk.content else ""
                 if content:
                     yield content.encode('utf-8', errors='ignore').decode('utf-8')
-                    
+
     except Exception as e:
         logger.error(f"Error generating response: {e}")
         yield f"[ERROR] {str(e)}"
@@ -898,7 +902,6 @@ async def root():
         "docs": "/docs",
         "redoc": "/redoc",
         "endpoints": {
-            "configure": "POST /configure - Configure a model for a thread",
             "chat": "POST /chat - Chat with auto-configuration on first request",
             "chat-legacy": "POST /chat-legacy - Chat with pre-configured model (legacy)",
             "models": "GET /models - List available models",
@@ -910,5 +913,4 @@ async def root():
     }
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

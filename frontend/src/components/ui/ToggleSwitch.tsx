@@ -22,6 +22,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
 
     const newValue = !isOn;
     setIsOn(newValue);
+
     if (onChange) {
       onChange(newValue);
     }

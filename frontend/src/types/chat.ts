@@ -2,6 +2,7 @@ export type MessageRole = 'user' | 'assistant';
 export type MessageStatus = 'complete' | 'streaming' | 'error';
 export type ModelProvider = 'ollama' | 'openai';
 export type ModelName = 'qwen2.5:3b' | 'gpt-4.1-nano' | 'qwen3:1.7b' ;
+export type ToolName = 'Gmail' | 'Asana' ;
 
 export interface ChatMessage {
   id: string;
@@ -19,6 +20,7 @@ export interface ActiveModel {
   model: ModelName ;
   provider: ModelProvider;
   apiKey?: string;
+  toolkits: string[];
 }
 
 export interface SendMessageParams {
@@ -27,7 +29,7 @@ export interface SendMessageParams {
   model: ModelName;
   provider: ModelProvider;
   apiKey?: string;
-  toolkits?: string[];
+  toolkits: string[];
   enable_memory?: boolean;
 }
 
@@ -47,7 +49,6 @@ export interface ChatContextValue {
   clear: () => void;
   activeModel: ActiveModel | undefined;
   setActiveModel: React.Dispatch<React.SetStateAction<ActiveModel | undefined>>;
-  configureModel: (params: ConfigureModelParams) => Promise<void>;
   tempApiKey: string;
   setTempApiKey: (tempApiKey: string) => void;
   isModelConnected: boolean;

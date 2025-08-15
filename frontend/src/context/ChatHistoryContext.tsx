@@ -24,7 +24,7 @@ export function ChatHistoryContextProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { sendChatMessage, configureModel: apiConfigureModel } = useChatApi();
+  const { sendChatMessage } = useChatApi();
   const { saveChatHistory, loadChatHistory } = usePersistentChatHistory();
   const { activeModel, setActiveModel } = usePersistentActiveModel();
   const { checkStorageUsage } = useStorageMaintenance();
@@ -32,13 +32,6 @@ export function ChatHistoryContextProvider({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isModelConnected, setIsModelConnected] = useState<boolean>(false);
   const [tempApiKey, setTempApiKey] = useState<string>('');
-
-  useEffect(() => {
-    // configureModel({
-    //   model: activeModel.model,
-    //   provider: activeModel.provider,
-    // });
-  }, []);
 
   const chatManager = useRef<
     Record<string, { thread_id?: string; messages: ChatMessage[] }>
@@ -122,46 +115,6 @@ export function ChatHistoryContextProvider({
     []
   );
 
-  const configureModel = useCallback(
-    async ({ model, provider, connectModel }: ConfigureModelParams) => {
-      if (!model || !provider) {
-        throw new Error('Please select a model and provider');
-      }
-
-      if (connectModel === false) return;
-
-      const thread_id = activeModel?.thread_id || uuid();
-      setIsModelConnected(false);
-
-      if (provider === 'openai' && tempApiKey === '') {
-        alert('Please save your API key first');
-        return;
-      }
-
-      try {
-        await apiConfigureModel({
-          model,
-          provider,
-          thread_id,
-          apiKey: tempApiKey,
-        });
-
-        chatManager.current[model] = {
-          thread_id,
-          messages: [],
-        };
-
-        setIsModelConnected(true);
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Configuration failed';
-        alert(errorMessage);
-        throw error;
-      }
-    },
-    [apiConfigureModel, activeModel?.thread_id, tempApiKey]
-  );
-
   // Función para enviar un mensaje al modelo
   const sendMessage = useCallback(
     async ({
@@ -173,6 +126,8 @@ export function ChatHistoryContextProvider({
       toolkits = [],
       enable_memory = true,
     }: SendMessageParams) => {
+      console.log(toolkits);
+
       if (!thread_id) {
         throw new Error('Please select a model');
       }
@@ -237,7 +192,7 @@ export function ChatHistoryContextProvider({
         }
       );
     },
-    [sendChatMessage]
+    [sendChatMessage, activeModel?.toolkits]
   );
 
   const edit = useCallback(
@@ -333,7 +288,6 @@ export function ChatHistoryContextProvider({
         clear,
         activeModel,
         setActiveModel,
-        configureModel,
         tempApiKey,
         setTempApiKey,
         isModelConnected,

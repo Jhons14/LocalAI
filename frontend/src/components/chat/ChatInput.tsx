@@ -10,7 +10,7 @@ import type { ChatInputProps } from '@/types/components';
 export const ChatInput = memo(function ChatInput({
   thread_id,
 }: ChatInputProps) {
-  const { sendMessage } = useChatHistoryContext();
+  const { sendMessage, activeModel } = useChatHistoryContext();
   const { isMobile } = useMobileFirst();
   const { getDescribedBy } = useAriaDescribedBy('chat-input');
   const { validateField, getFieldError, hasFieldError, clearValidation } =
@@ -18,6 +18,7 @@ export const ChatInput = memo(function ChatInput({
   const { error: showError } = useToast();
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const [isValidating, setIsValidating] = useState(false);
+  console.log(activeModel);
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent) => {
@@ -42,13 +43,13 @@ export const ChatInput = memo(function ChatInput({
       try {
         // Use sanitized value if available
         const sanitizedMessage = validation.sanitizedValue || message;
-
+        if (!activeModel) return;
         sendMessage({
           content: sanitizedMessage,
           thread_id: thread_id,
-          model: 'qwen3:1.7b',
-          provider: 'ollama',
-          toolkits: ['Gmail'],
+          model: activeModel.model,
+          provider: activeModel.provider,
+          toolkits: activeModel.toolkits,
         });
 
         clearValidation('message');

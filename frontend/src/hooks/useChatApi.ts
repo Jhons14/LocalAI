@@ -39,25 +39,9 @@ export function useChatApi() {
     }
   }, [streamRequest]);
 
-  const configureModel = useCallback(async (params: ConfigureModelParams & { apiKey?: string }) => {
-    return postRequest('/configure', {
-      thread_id: params.thread_id,
-      model: params.model,
-      provider: params.provider,
-      apiKey: params.apiKey,
-      
-    });
-  }, [postRequest]);
 
-  const addToolsToModel = useCallback(async (params: AddToolToModelParams & { thread_id?: string }) => {
-    return postRequest('/configure', {
-    "thread_id": params.thread_id,
-    "provider": "ollama",
-    "model": "qwen3:1.7b",
-    "toolkits": ["Gmail"],
-    "enable_memory": true
-});
-  }, [postRequest]);
+
+
 
   const getOllamaModels = useCallback(async (): Promise<string[]> => {
     return getRequest('/models?provider=ollama');
@@ -65,8 +49,6 @@ export function useChatApi() {
 
   return {
     sendChatMessage,
-    configureModel,
-    addToolsToModel,
     getOllamaModels,
   };
 }

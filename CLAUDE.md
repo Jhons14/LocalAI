@@ -27,8 +27,6 @@ This is a full-stack chat application that provides a secure interface for inter
 
 ### API Endpoints
 - `POST /chat` - Combined chat with auto-configuration
-- `POST /chat-legacy` - Legacy endpoint requiring pre-configuration
-- `POST /configure` - Explicit model configuration
 - `GET /models` - List available models by provider
 - `GET /toolkits` - List available tool toolkits
 - `GET /threads/{thread_id}/status` - Thread status
