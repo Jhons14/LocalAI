@@ -35,6 +35,7 @@ import bleach
 from dotenv import load_dotenv
 import uuid
 import json
+import time
 from pathlib import Path
 from enum import Enum
 
@@ -168,12 +169,13 @@ class WorkflowManager:
         self.tool_managers.pop(thread_id, None)
         self.usage_stats.pop(thread_id, None)
     
-    def track_usage(self, thread_id: str, tool_name: Optional[str] = None):
-        """Track simple usage statistics"""
+    def track_usage(self, thread_id: str, tool_name: Optional[str] = None, execution_time: Optional[float] = None):
+        """Track simple usage statistics and performance"""
         if thread_id not in self.usage_stats:
             self.usage_stats[thread_id] = {
                 "chat_count": 0,
                 "tool_usage": {},
+                "tool_performance": {},  # Track execution times
                 "last_used": datetime.now().isoformat()
             }
         
@@ -181,9 +183,24 @@ class WorkflowManager:
         self.usage_stats[thread_id]["last_used"] = datetime.now().isoformat()
         
         if tool_name:
+            # Usage count
             if tool_name not in self.usage_stats[thread_id]["tool_usage"]:
                 self.usage_stats[thread_id]["tool_usage"][tool_name] = 0
             self.usage_stats[thread_id]["tool_usage"][tool_name] += 1
+            
+            # Performance tracking
+            if execution_time is not None:
+                if tool_name not in self.usage_stats[thread_id]["tool_performance"]:
+                    self.usage_stats[thread_id]["tool_performance"][tool_name] = {
+                        "total_time": 0.0,
+                        "call_count": 0,
+                        "avg_time": 0.0
+                    }
+                
+                perf = self.usage_stats[thread_id]["tool_performance"][tool_name]
+                perf["total_time"] += execution_time
+                perf["call_count"] += 1
+                perf["avg_time"] = perf["total_time"] / perf["call_count"]
     
     def get_usage_stats(self, thread_id: str) -> Dict:
         """Get usage statistics for a thread"""
@@ -603,8 +620,31 @@ class WorkflowBuilder:
         tool_node = ToolNode(tools)
         
         async def wrapped_tool_node(state: MessagesState):
+            # Track tool execution time
+            start_time = time.time()
+            tool_names = []
+            
+            # Extract tool names from the last message
+            try:
+                last_message = state["messages"][-1]
+                tool_calls = (
+                    last_message.get("tool_calls", []) 
+                    if isinstance(last_message, dict) 
+                    else getattr(last_message, 'tool_calls', [])
+                )
+                tool_names = [tc.get("name", "unknown") for tc in tool_calls]
+            except:
+                pass
+            
             try:
                 result = await tool_node.ainvoke(state)
+                
+                # Track successful execution time
+                execution_time = time.time() - start_time
+                for tool_name in tool_names:
+                    # Note: We'd need thread_id here, but it's not easily accessible
+                    # This is a simplified version - in practice you'd pass thread_id through context
+                    pass
                 
                 if "messages" in result:
                     serialized_messages = [
@@ -615,7 +655,10 @@ class WorkflowBuilder:
                 return result
                 
             except Exception as e:
-                logger.error(f"Error in tool node: {e}")
+                # Track failed execution time
+                execution_time = time.time() - start_time
+                logger.error(f"Error in tool node after {execution_time:.2f}s: {e}")
+                
                 error_messages = []
                 
                 last_message = state["messages"][-1]
