@@ -327,7 +327,7 @@ def validate_thread_id(thread_id: str) -> str:
     
     return thread_id
 
-def create_tool_change_system_message(changes: dict) -> str:
+def create_tool_change_system_message(changes: dict, tool_manager: Optional[ToolManager] = None) -> str:
     """Create a system message explaining tool configuration changes"""
     added_tools = changes.get("added_tools", [])
     removed_tools = changes.get("removed_tools", [])
@@ -346,6 +346,16 @@ def create_tool_change_system_message(changes: dict) -> str:
     
     if new_toolkits:
         message_parts.append(f"📋 Current available tools: {', '.join(new_toolkits)}")
+        
+        # Add authorization status for new tools
+        if tool_manager and new_toolkits:
+            auth_required = []
+            for toolkit in new_toolkits:
+                if hasattr(tool_manager, 'requires_auth') and tool_manager.requires_auth(toolkit):
+                    auth_required.append(toolkit)
+            
+            if auth_required:
+                message_parts.append(f"🔐 Tools requiring authorization: {', '.join(auth_required)}")
     else:
         message_parts.append("📋 No tools are currently available")
     
@@ -622,7 +632,7 @@ class ChatRequest(BaseModel):
     def validate_prompt(cls, v):
         return sanitize_string(v, config.MAX_PROMPT_LENGTH)
 
-class CombinedChatRequest(BaseModel):
+class ChatRequest(BaseModel):
     thread_id: str = Field(..., min_length=1, max_length=100)
     prompt: str = Field(..., min_length=1, max_length=10000)
     
@@ -647,7 +657,7 @@ class CombinedChatRequest(BaseModel):
 
 @app.post("/chat")
 @limiter.limit("30/minute")
-async def chat(request: Request, chat_req: CombinedChatRequest):
+async def chat(request: Request, chat_req: ChatRequest):
     """Chat with a model, configuring it automatically on first request"""
     try:
         # Check if thread already exists
@@ -755,7 +765,11 @@ async def chat(request: Request, chat_req: CombinedChatRequest):
                     )
                     
                     # Create system message about tool changes
-                    tool_change_message = create_tool_change_system_message(reconfigure_result["changes"])
+                    current_tool_manager = workflow_manager.get_tool_manager(chat_req.thread_id)
+                    tool_change_message = create_tool_change_system_message(
+                        reconfigure_result["changes"], 
+                        current_tool_manager
+                    )
                     
                     logger.info(f"Successfully reconfigured tools for thread {chat_req.thread_id}")
                 except Exception as e:
