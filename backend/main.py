@@ -449,15 +449,19 @@ def create_tool_change_system_message(changes: dict, tool_manager: Optional[Tool
     if new_toolkits:
         message_parts.append(f"📋 Current available tools: {', '.join(new_toolkits)}")
         
-        # Add authorization status for new tools
-        if tool_manager and new_toolkits:
-            auth_required = []
-            for toolkit in new_toolkits:
-                if hasattr(tool_manager, 'requires_auth') and tool_manager.requires_auth(toolkit):
-                    auth_required.append(toolkit)
-            
-            if auth_required:
-                message_parts.append(f"🔐 Tools requiring authorization: {', '.join(auth_required)}")
+        # Add authorization status for new tools (skip for now to avoid manager issues)
+        # Note: Authorization checking disabled due to tool manager initialization issues
+        # if tool_manager and new_toolkits:
+        #     auth_required = []
+        #     for toolkit in new_toolkits:
+        #         try:
+        #             if hasattr(tool_manager, 'requires_auth') and tool_manager.requires_auth(toolkit):
+        #                 auth_required.append(toolkit)
+        #         except Exception as e:
+        #             logger.debug(f"Could not check auth requirements for {toolkit}: {e}")
+        #     
+        #     if auth_required:
+        #         message_parts.append(f"🔐 Tools requiring authorization: {', '.join(auth_required)}")
         
         # Check for tool conflicts
         conflicts = detect_tool_conflicts(new_toolkits)
@@ -927,10 +931,8 @@ async def chat(request: Request, chat_req: ChatRequest):
                     )
                     
                     # Create system message about tool changes
-                    current_tool_manager = workflow_manager.get_tool_manager(chat_req.thread_id)
                     tool_change_message = create_tool_change_system_message(
-                        reconfigure_result["changes"], 
-                        current_tool_manager
+                        reconfigure_result["changes"]
                     )
                     
                     logger.info(f"Successfully reconfigured tools for thread {chat_req.thread_id}")
@@ -1019,7 +1021,6 @@ async def generate_response(thread_id: str, input_messages: list, runtime_config
                         if isinstance(chunk, AIMessage):
                             content = str(chunk.content) if chunk.content else ""
                             if content:
-                                print(content.encode('utf-8', errors='ignore').decode('utf-8'))
                                 yield content.encode('utf-8', errors='ignore').decode('utf-8')
                     return  # Exit after successful completion with storage
 
