@@ -81,6 +81,18 @@ class Config:
     
     # User preferences storage
     PREFERENCES_FILE = Path("user_preferences.json")
+    
+    # Tool conflict detection - tools that might overlap in functionality
+    TOOL_CONFLICTS = {
+        "Gmail": {"conflicts_with": [], "note": ""},
+        "Slack": {"conflicts_with": [], "note": ""},
+        "Calendar": {"conflicts_with": [], "note": ""},
+        "Drive": {"conflicts_with": [], "note": ""},
+        # Example future tools that might conflict
+        "Outlook": {"conflicts_with": ["Gmail"], "note": "both provide email functionality"},
+        "Teams": {"conflicts_with": ["Slack"], "note": "both provide messaging functionality"},
+        "OneDrive": {"conflicts_with": ["Drive"], "note": "both provide file storage"}
+    }
 
 config = Config()
 
@@ -429,12 +441,37 @@ def create_tool_change_system_message(changes: dict, tool_manager: Optional[Tool
             
             if auth_required:
                 message_parts.append(f"🔐 Tools requiring authorization: {', '.join(auth_required)}")
+        
+        # Check for tool conflicts
+        conflicts = detect_tool_conflicts(new_toolkits)
+        if conflicts:
+            message_parts.append("⚠️ Potential tool conflicts detected:")
+            for conflict in conflicts:
+                message_parts.append(f"   {conflict}")
     else:
         message_parts.append("📋 No tools are currently available")
     
     message_parts.append("You can now use your updated tool configuration to assist with requests.")
     
     return "\n".join(message_parts)
+
+def detect_tool_conflicts(toolkits: List[str]) -> List[str]:
+    """Detect potential conflicts between tools"""
+    conflicts = []
+    
+    for tool in toolkits:
+        tool_config = config.TOOL_CONFLICTS.get(tool, {})
+        conflicts_with = tool_config.get("conflicts_with", [])
+        
+        for other_tool in toolkits:
+            if other_tool != tool and other_tool in conflicts_with:
+                note = tool_config.get("note", "")
+                conflict_msg = f"{tool} may conflict with {other_tool}"
+                if note:
+                    conflict_msg += f" ({note})"
+                conflicts.append(conflict_msg)
+    
+    return list(set(conflicts))  # Remove duplicates
 
 # ==================== Message Serialization ====================
 def serialize_message(message) -> dict:
