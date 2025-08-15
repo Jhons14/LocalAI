@@ -143,6 +143,87 @@ class WorkflowManager:
         self.workflows.pop(thread_id, None)
         self.configurations.pop(thread_id, None)
         self.tool_managers.pop(thread_id, None)
+    
+    def get_current_toolkits(self, thread_id: str) -> List[str]:
+        """Get current toolkits from workflow configuration"""
+        config = self.configurations.get(thread_id, {})
+        return config.get("toolkits", [])
+    
+    def reconfigure_workflow_tools(self, thread_id: str, new_toolkits: List[str], api_key: Optional[str] = None):
+        """Reconfigure existing workflow with new tools while preserving model configuration"""
+        if not self.exists(thread_id):
+            raise ValueError(f"Thread {thread_id} does not exist")
+        
+        # Get existing configuration
+        current_config = self.configurations[thread_id].copy()
+        
+        # Update toolkits in configuration
+        current_config["toolkits"] = new_toolkits or []
+        
+        # Get current model configuration from existing config
+        provider = current_config.get("provider", ModelProvider.OLLAMA)
+        model = current_config.get("model", "llama3.2")
+        
+        # Create model instance with existing configuration
+        # We need to get the model parameters from the existing workflow
+        # For now, we'll use defaults but this could be enhanced to preserve exact model settings
+        model_instance = ModelFactory.create_model(
+            provider=provider,
+            model_name=model,
+            api_key=api_key,  # Use provided API key for tool operations
+            temperature=config.DEFAULT_TEMPERATURE,
+            max_tokens=config.DEFAULT_MAX_TOKENS
+        )
+        
+        # Initialize tool manager if toolkits specified
+        tool_manager = None
+        tools = []
+        if new_toolkits:
+            tool_manager = ToolManager(api_key=config.ARCADE_API_KEY)
+            tool_manager.init_tools(toolkits=new_toolkits)
+            tools = tool_manager.to_langchain(use_interrupts=True)
+            self.set_tool_manager(thread_id, tool_manager)
+            
+            # Bind tools to model
+            model_instance = model_instance.bind_tools(tools)
+        else:
+            # Remove tool manager if no toolkits
+            self.tool_managers.pop(thread_id, None)
+        
+        # Build new workflow
+        workflow = StateGraph(state_schema=MessagesState)
+        
+        # Add agent node
+        agent_node = WorkflowBuilder.create_agent_node(model_instance, tool_manager)
+        workflow.add_node("agent", agent_node)
+        
+        # Add tool nodes if tools are configured
+        if tools:
+            tool_node = WorkflowBuilder.create_tool_node(tools)
+            workflow.add_node("tools", tool_node)
+            
+            if tool_manager:
+                auth_node = WorkflowBuilder.create_authorization_node(tool_manager)
+                workflow.add_node("authorization", auth_node)
+            
+            # Add routing
+            routing_func = create_routing_function(
+                tool_manager, 
+                config.MAX_TOOL_CALLS_PER_TURN
+            )
+            workflow.add_conditional_edges("agent", routing_func, ["authorization", "tools", END])
+            workflow.add_edge("authorization", "tools")
+            workflow.add_edge("tools", "agent")
+        else:
+            workflow.add_edge("agent", END)
+        
+        workflow.add_edge(START, "agent")
+        
+        # Update stored workflow and configuration
+        self.workflows[thread_id] = workflow
+        self.configurations[thread_id] = current_config
+        
+        return workflow
 
 workflow_manager = WorkflowManager()
 
@@ -613,6 +694,36 @@ async def chat(request: Request, chat_req: CombinedChatRequest):
             
             logger.info(f"Successfully auto-configured thread {chat_req.thread_id}")
         
+        else:
+            # Thread already exists - check if tools need to be reconfigured
+            current_toolkits = workflow_manager.get_current_toolkits(chat_req.thread_id)
+            requested_toolkits = chat_req.toolkits or []
+            
+            # Compare toolkits (order-independent comparison)
+            if set(current_toolkits) != set(requested_toolkits):
+                logger.info(f"Reconfiguring tools for thread {chat_req.thread_id}: {current_toolkits} -> {requested_toolkits}")
+                
+                # Validate API key for tool operations if tools are being added
+                if requested_toolkits and not config.ARCADE_API_KEY:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Arcade API key required for tool operations"
+                    )
+                
+                # Reconfigure workflow with new tools
+                try:
+                    workflow_manager.reconfigure_workflow_tools(
+                        chat_req.thread_id, 
+                        requested_toolkits,
+                        chat_req.api_key
+                    )
+                    logger.info(f"Successfully reconfigured tools for thread {chat_req.thread_id}")
+                except Exception as e:
+                    logger.error(f"Error reconfiguring tools: {str(e)}")
+                    raise HTTPException(status_code=500, detail=f"Error reconfiguring tools: {str(e)}")
+            else:
+                logger.debug(f"No tool changes needed for thread {chat_req.thread_id}")
+        
         # Proceed with chat
         runtime_config = {
             "configurable": {
@@ -669,6 +780,7 @@ async def generate_response(thread_id: str, input_messages: list, runtime_config
                         if isinstance(chunk, AIMessage):
                             content = str(chunk.content) if chunk.content else ""
                             if content:
+                                print(content.encode('utf-8', errors='ignore').decode('utf-8'))
                                 yield content.encode('utf-8', errors='ignore').decode('utf-8')
                     return  # Exit after successful completion with storage
                     
