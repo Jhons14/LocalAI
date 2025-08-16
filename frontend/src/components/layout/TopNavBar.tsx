@@ -1,60 +1,55 @@
 import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
 import { Eye, EyeOff, History } from 'lucide-react';
 import { useState, memo, useCallback, useMemo } from 'react';
-import { LoadingButton, ConnectionStatus } from '@/components/ui/LoadingStates';
 import { useToast } from '@/hooks/useToast';
 import { useMobileFirst } from '@/hooks/useResponsive';
 import { useValidation } from '@/hooks/useValidation';
 import { ChatHistoryManager } from '@/components/chat/ChatHistoryManager';
-import { ToolsList } from '../ui/ToolsList';
+import { Tools } from '../ui/Tools';
 
 export const TopNavBar = memo(function TopNavBar() {
   const { activeModel, isModelConnected, tempApiKey, setTempApiKey } =
     useChatHistoryContext();
-  const { success, error } = useToast();
   const { isMobile } = useMobileFirst();
   const [showHistoryManager, setShowHistoryManager] = useState<boolean>(false);
-  const [isModelLoading, setIsModelLoading] = useState<boolean>(false);
-
-  const deleteKey = useCallback(() => {
-    setTempApiKey('');
-  }, [setTempApiKey]);
 
   return (
     <div
-      className={`grid grid-cols-[1fr_2fr_1fr_1fr] mb-2 ${
-        isMobile
-          ? 'flex-col gap-2 p-3'
-          : 'flex-row justify-between items-center gap-4 px-8'
-      } border-b border-[#999999] ${isMobile ? 'min-h-[100px]' : 'h-20'}`}
+      className={`flex mb-2 p-3 ${
+        isMobile ? 'flex-col gap-2 p-3' : 'flex-row items-center gap-4 '
+      } border-b border-[#999999] ${
+        isMobile ? 'min-h-[100px]' : 'h-20 justify-between'
+      }`}
     >
-      <h1
-        className={`${
-          isMobile ? 'text-lg text-center' : 'text-xl'
-        } font-bold w-fit ${isMobile ? 'w-full' : 'min-w-max'}`}
-      >
-        {activeModel?.model || 'Select a model...'}
-      </h1>
+      <div>
+        <h1
+          className={`${
+            isMobile ? 'text-lg text-center' : 'text-xl'
+          } font-bold w-fit ${isMobile ? 'w-full' : 'min-w-max'}`}
+        >
+          {activeModel?.model || 'Select a model...'}
+        </h1>
 
-      {!tempApiKey && activeModel ? (
-        <ApiKeyInput provider={activeModel.provider} />
-      ) : (
-        <span className={`${isMobile ? 'text-center text-sm' : 'text-base'}`}>
-          Api key saved
-        </span>
-      )}
-      <button
-        onClick={() => setShowHistoryManager(true)}
-        className={`flex items-center gap-2 px-3 py-2 border cursor-pointer border-[#999999] rounded hover:bg-[#555555] hover:text-white transition-all duration-200] keyboard-navigation ${
-          isMobile ? 'w-full justify-center' : ''
-        }`}
-        aria-label='Open chat history manager'
-      >
-        <History size={16} />
-        {isMobile ? 'History' : 'Chat History'}
-      </button>
-      {activeModel?.model && <ToolsList model={activeModel.model} />}
-
+        {!tempApiKey && activeModel ? (
+          <ApiKeyInput provider={activeModel.provider} />
+        ) : (
+          <span className={`${isMobile ? 'text-center text-sm' : 'text-base'}`}>
+            Api key saved
+          </span>
+        )}
+      </div>
+      <div className='flex gap-4 h-10'>
+        <button
+          onClick={() => setShowHistoryManager(true)}
+          className={`flex items-center gap-2 p-2 border cursor-pointer border-[#999999] rounded hover:bg-[#555555] hover:text-white transition-all duration-200] keyboard-navigation ${
+            isMobile ? 'w-full justify-center' : 'justify-self-end'
+          }`}
+          aria-label='Open chat history manager'
+        >
+          <History />
+        </button>
+        <Tools model={activeModel} />
+      </div>
       <ChatHistoryManager
         isOpen={showHistoryManager}
         onClose={() => setShowHistoryManager(false)}

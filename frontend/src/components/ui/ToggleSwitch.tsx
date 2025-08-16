@@ -30,7 +30,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
 
   // Size variants
   const sizeClasses = {
-    'x-small': 'w-10 h-5',
+    'x-small': 'w-8 h-4',
     small: 'w-12 h-6',
     medium: 'w-14 h-7',
     large: 'w-16 h-8',
@@ -61,7 +61,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
           ${circleClasses[size]}
           inline-block rounded-full bg-white shadow transform transition-transform duration-200 ease-in-out
           ${isOn ? 'translate-x-5' : 'translate-x-1'}
-          // ${size === 'x-small' && (isOn ? 'translate-x-4' : 'translate-x-1')}
+          ${size === 'x-small' && (isOn ? 'translate-x-4' : 'translate-x-1')}
           
           ${size === 'small' && (isOn ? 'translate-x-4' : 'translate-x-1')}
           ${size === 'large' && (isOn ? 'translate-x-6' : 'translate-x-1')}

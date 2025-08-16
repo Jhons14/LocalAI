@@ -7,6 +7,7 @@ import {
   useCallback,
 } from 'react';
 import { Menu } from 'lucide-react';
+
 import { SidebarItem } from './SidebarItem';
 import OpenAILogo from '../../assets/OpenAILogo.svg?react';
 import OllamaLogo from '../../assets/OllamaLogo.svg?react';
@@ -14,7 +15,7 @@ import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
 import { ModelListSkeleton } from '@/components/ui/SkeletonLoader';
 import { useToast } from '@/hooks/useToast';
 import { useChatApi } from '@/hooks/useChatApi';
-import { v4 as uuid } from 'uuid';
+import { errorLogger } from '@/utils';
 
 type NavType = {
   name: string;
@@ -30,11 +31,10 @@ type SubItemType = {
 };
 
 export const Sidebar = memo(function Sidebar() {
-  const [isBarOpen, setIsBarOpen] = useState(false);
   const [isItemOpen, setIsItemOpen] = useState(false);
   const [ollamaSubItems, setOllamaSubItems] = useState<Array<SubItemType>>([]);
   const [ollamaSubItemsLoading, setOllamaSubItemsLoading] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState<number>();
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [selectedSubitemIndex, setSelectedSubitemIndex] = useState<number>();
   const [error, setError] = useState<string | null>(null);
   const { rechargeModel } = useChatHistoryContext();
@@ -137,8 +137,11 @@ export const Sidebar = memo(function Sidebar() {
 
   const renderOllamaSubItems = useCallback(() => {
     if (error) {
+      console.error(error);
       return (
-        <div className='text-sm text-red-500 text-center px-2'>{error}</div>
+        <div className='text-sm text-red-500 text-center px-2'>
+          Fail fetching ollama models
+        </div>
       );
     }
 
@@ -204,29 +207,37 @@ export const Sidebar = memo(function Sidebar() {
     handleClick,
   ]);
 
+  const [render, setRender] = useState(false);
+
+  // Mount when opening; keep mounted while closing so fade-out can play
+  useEffect(() => {
+    if (isItemOpen) setRender(true);
+  }, [isItemOpen]);
+  const handleTransitionEnd = () => {
+    if (!isItemOpen) setRender(false); // unmount *after* fade/slide finishes
+  };
+
   return (
     <div
       className={`h-screen border-r border-r-[#999999] bg-[#333333] text-white transition-all duration-400 flex flex-col `}
     >
       <button
-        onClick={() => setIsBarOpen(!isBarOpen)}
+        onClick={() => {
+          setIsItemOpen(!isItemOpen);
+        }}
         className='cursor-pointer p-4 border-b border-b-[#999999] focus:outline-none hover:bg-[#555555] transition-all duration-500'
       >
         <Menu />
       </button>
       <div className='flex h-full'>
         <nav
-          className={`${
-            !isBarOpen ? 'w-14' : 'w-28'
-          } h-full bg-[#333333] text-white transition-all duration-400 flex-1 `}
+          className={`w-14 h-full bg-[#333333] text-white transition-all duration-400 flex-1 `}
         >
           {navItems.map((item, index) => (
             <SidebarItem
               key={item.name}
               index={index}
               item={item}
-              isBarOpen={isBarOpen}
-              setIsBarOpen={setIsBarOpen}
               isItemOpen={isItemOpen}
               setIsItemOpen={setIsItemOpen}
               selectedIndex={selectedIndex}
@@ -236,22 +247,37 @@ export const Sidebar = memo(function Sidebar() {
         </nav>
 
         <nav
-          className={`transition-all duration-500 ${
-            !isItemOpen
-              ? 'w-0'
-              : 'flex flex-col border-l-[#999999] border-l w-32 content-center h-full animate-fade-in '
-          } `}
+          onTransitionEnd={handleTransitionEnd}
+          className={[
+            // layout
+            'flex flex-col h-full border-l border-l-[#999999] overflow-hidden',
+            // animate width + opacity for open/close
+            'transition-all duration-300 ease-out',
+            isItemOpen
+              ? 'w-32 opacity-100'
+              : 'w-0 opacity-0 pointer-events-none',
+          ].join(' ')}
         >
-          {/* <div
-            className={`${
-              !isItemOpen && 'hidden'
-            } h-full animate-fade-in flex flex-col`}
-          > */}
-          <h2 className='overflow-hidden border-b border-b-[#999999] text-center py-3 font-bold text-xl'>
-            {choosedNavItem?.name}
+          <h2 className='overflow-hidden border-b h-11 border-b-[#999999] text-center py-2 font-bold text-xl'>
+            <span
+              className={[
+                'block transition-opacity duration-200',
+                isItemOpen ? 'opacity-100' : 'opacity-0',
+              ].join(' ')}
+            >
+              {choosedNavItem?.name}
+            </span>
           </h2>
-          <ul className='overflow-hidden'>{renderOllamaSubItems()}</ul>
-          {/* </div> */}
+
+          {/* Fade/slide children too (optional) */}
+          <ul
+            className={[
+              'overflow-hidden transition-opacity duration-200',
+              isItemOpen ? 'opacity-100' : 'opacity-0',
+            ].join(' ')}
+          >
+            {renderOllamaSubItems()}
+          </ul>
         </nav>
       </div>
     </div>

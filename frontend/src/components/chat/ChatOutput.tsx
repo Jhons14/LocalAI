@@ -142,9 +142,6 @@ const AssistantMessageOutput = memo(function AssistantMessageOutput({
           }
         );
 
-        console.log('Content after think extraction:', processedContent);
-        console.log('Think blocks:', thinkBlocks);
-
         const dirty = await marked.parse(processedContent, {
           breaks: true,
           gfm: true,
@@ -160,13 +157,13 @@ const AssistantMessageOutput = memo(function AssistantMessageOutput({
             finalHTML = finalHTML.replace(
               new RegExp(`<p>${id}</p>|${id}`, 'g'),
               `
-            <div class="think-block bg-blue-50/80 border-l-4 border-blue-400 p-4 mb-4 rounded-r">
+            <div class="think-block bg-[#555555]/80 border-l-4 border-blue-400 p-4 mb-4 rounded-r">
               <details class="group">
-                <summary class="cursor-pointer font-semibold text-blue-800 hover:text-blue-900 list-none flex items-center gap-2">
+                <summary class="cursor-pointer font-semibold  hover:text-[#999999] list-none flex items-center gap-2">
                   <span class="transform transition-transform group-open:rotate-90">▶</span>
                   AI Thinking Process content
                 </summary>
-                <div class="text-sm text-blue-700 italic leading-relaxed whitespace-pre-line">
+                <div class="text-sm  italic leading-relaxed whitespace-pre-line">
                   ${content.trim()}
                 </div>
               </details>
