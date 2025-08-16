@@ -1,3 +1,6 @@
+# MCP Servers
+.serena/
+
 .env
 venv
 pnpm-lock.yaml

@@ -3,7 +3,7 @@ import { useApi } from './useApi';
 import type { SendMessageParams, ConfigureModelParams, AddToolToModelParams } from '@/types/chat';
 
 export function useChatApi() {
-  const { streamRequest, postRequest } = useApi();
+  const { streamRequest, postRequest, getRequest } = useApi();
 
   const sendChatMessage = useCallback(async (
     params: SendMessageParams,
@@ -15,6 +15,11 @@ export function useChatApi() {
       const { reader } = await streamRequest('/chat', {
         prompt: params.content,
         thread_id: params.thread_id,
+        model: params.model,
+        provider: params.provider,
+        apiKey: params.apiKey,
+        toolkits: params.toolkits,
+        enable_memory: params.enable_memory,
       });
 
       const decoder = new TextDecoder();
@@ -34,29 +39,16 @@ export function useChatApi() {
     }
   }, [streamRequest]);
 
-  const configureModel = useCallback(async (params: ConfigureModelParams & { apiKey?: string }) => {
-    return postRequest('/configure', {
-      thread_id: params.thread_id,
-      model: params.model,
-      provider: params.provider,
-      apiKey: params.apiKey,
-    });
-  }, [postRequest]);
 
-  const addToolsToModel = useCallback(async (params: AddToolToModelParams & { thread_id?: string }) => {
-    return postRequest('/addTools', {
-      thread_id: params.thread_id,
-    });
-  }, [postRequest]);
+
+
 
   const getOllamaModels = useCallback(async (): Promise<string[]> => {
-    return postRequest('/getModels', {});
+    return getRequest('/models?provider=ollama');
   }, [postRequest]);
 
   return {
     sendChatMessage,
-    configureModel,
-    addToolsToModel,
     getOllamaModels,
   };
 }
