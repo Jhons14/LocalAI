@@ -17,42 +17,35 @@ type NavItemType = {
 export function SidebarItem({
   item,
   index,
-  isBarOpen,
-  setIsBarOpen,
+  isItemOpen,
   setIsItemOpen,
   selectedIndex,
   setSelectedIndex,
 }: {
   item: NavItemType;
   index: number;
-  isBarOpen: boolean;
-  setIsBarOpen: (isBarOpen: boolean) => void;
   isItemOpen: boolean;
-  setIsItemOpen: (isBarOpen: boolean) => void;
+  setIsItemOpen: (isItemOpen: boolean) => void;
   selectedIndex?: number;
   setSelectedIndex: (index: number) => void;
 }) {
-  useEffect(() => {
-    if (!isBarOpen) {
-      setIsItemOpen(false);
-    }
-  }, [isBarOpen]);
-
   return (
     <button
       className={`${
         index === selectedIndex && 'bg-[#555555]'
-      } flex justify-center items-center gap-2 py-2 px-1 hover:bg-[#555555] w-full cursor-pointer transition-all duration-500`}
+      } flex justify-center items-center gap-2 py-4 px-1 hover:bg-[#555555] w-full cursor-pointer transition-all duration-500`}
       type='button'
       onClick={() => {
-        setIsBarOpen(true);
-        setIsItemOpen(true);
+        if (index === selectedIndex) {
+          setIsItemOpen(!isItemOpen);
+
+          return;
+        }
         setSelectedIndex(index);
+        setIsItemOpen(true);
       }}
     >
       <div>{item.icon}</div>
-
-      {isBarOpen && <span className='animate-fade-in'>{item.name}</span>}
     </button>
   );
 }

@@ -67,13 +67,12 @@ export {
 } from './storage';
 
 // Validation utilities
-export type { ValidationRule, ValidationResult } from './validation';
-export { validateRequired, validateEmail, validateApiKey, validateMessage } from './validation';
+export type { ValidationRules, ValidationResult } from './validation';
 
 // Logging utilities
 export { logger, apiLogger, chatLogger, storageLogger, uiLogger, errorLogger } from './logger';
 
-// Development tools
+// Development tools (commented out - not used)
 export { 
   PerformanceMonitor, 
   MemoryMonitor, 

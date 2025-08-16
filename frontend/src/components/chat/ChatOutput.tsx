@@ -56,7 +56,6 @@ export const ChatOutput = memo(function ChatOutput({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.3 }}
-          className='mb-4'
         >
           {msg.role === 'assistant' ? (
             <AssistantMessageOutput content={msg.content} />
@@ -124,60 +123,67 @@ const AssistantMessageOutput = memo(function AssistantMessageOutput({
   content,
 }: AssistantMessageOutputProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<Element>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (content) {
-      const dirty = marked(content, {
-        breaks: true,
-        gfm: true,
-        sanitize: false,
-      });
+    async function renderContent() {
+      if (content) {
+        // Extract and process think tags BEFORE markdown
+        const thinkBlocks = [];
+        let processedContent = content.replace(
+          /<think>([\s\S]*?)<\/think>/g,
+          (match, thinkContent) => {
+            const id = `THINK_PLACEHOLDER_${thinkBlocks.length}`;
+            thinkBlocks.push({
+              id,
+              content: thinkContent.trim(),
+            });
+            return `\n\n${id}\n\n`;
+          }
+        );
 
-      const clean = DOMPurify.sanitize(dirty);
-
-      if (containerRef.current) {
-        containerRef.current.innerHTML = clean;
-
-        // Style lists
-        containerRef.current.querySelectorAll('ol').forEach((ol) => {
-          ol.classList.add(
-            'list-decimal',
-            'list-inside',
-            // 'pl-5',
-            'space-y-1',
-            'font-bold'
-          );
+        const dirty = await marked.parse(processedContent, {
+          breaks: true,
+          gfm: true,
         });
 
-        containerRef.current.querySelectorAll('ol li').forEach((li) => {
-          li.classList.add('mb-1');
-          // Make content normal weight, keep numbers bold
-          li.innerHTML = `<span class="font-normal">${li.innerHTML}</span>`;
-        });
+        const clean = DOMPurify.sanitize(dirty);
 
-        containerRef.current.querySelectorAll('ul').forEach((ul) => {
-          ul.classList.add('list-disc', 'list-inside', 'pl-5', 'space-y-1');
-        });
+        if (containerRef.current) {
+          // Replace placeholders with styled think blocks
+          let finalHTML = clean;
 
-        // Highlight code blocks
-        containerRef.current.querySelectorAll('pre code').forEach((block) => {
-          hljs.highlightElement(block);
-          block.parentElement?.classList.add('my-4');
-          block.classList.add('rounded-xl', 'border-1', 'border-white/50');
-        });
+          thinkBlocks.forEach(({ id, content }) => {
+            finalHTML = finalHTML.replace(
+              new RegExp(`<p>${id}</p>|${id}`, 'g'),
+              `
+            <div class="think-block bg-[#555555]/80 border-l-4 border-blue-400 p-4 mb-4 rounded-r">
+              <details class="group">
+                <summary class="cursor-pointer font-semibold  hover:text-[#999999] list-none flex items-center gap-2">
+                  <span class="transform transition-transform group-open:rotate-90">▶</span>
+                  AI Thinking Process content
+                </summary>
+                <div class="text-sm  italic leading-relaxed whitespace-pre-line">
+                  ${content.trim()}
+                </div>
+              </details>
+            </div>
+            `
+            );
+          });
+
+          containerRef.current.innerHTML = finalHTML;
+
+          // Your existing styling code...
+        }
       }
     }
-
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    renderContent();
   }, [content]);
-
-  // ... rest of your component
-
   // Show typing indicator if no content yet
   if (!content || content.trim() === '') {
     return (
-      <div className='flex-1 overflow-y-auto p-4'>
+      <div className='flex-1 overflow-y-auto pr-4'>
         <TypingIndicator />
         <div ref={bottomRef} />
       </div>
@@ -232,22 +238,22 @@ const UserMessageOutput = memo(function UserMessageOutput({
           }`}
         >
           <button
-            className={`cursor-pointer hover:bg-[#555555]/30 rounded touch-friendly ${
-              isMobile ? 'py-2 px-3' : 'py-1 px-2'
+            className={`cursor-pointer hover:bg-[#555555]/30 rounded  ${
+              isMobile ? 'py-2 px-3 touch-friendly' : 'py-1 px-2'
             }`}
             onClick={() => setIsEditingId(null)}
             aria-label='Cancel edit'
           >
-            <MdClose size={isMobile ? 18 : 20} />
+            <MdClose size={isMobile ? 18 : 28} />
           </button>
           <button
-            className={`cursor-pointer hover:bg-[#555555]/30 rounded touch-friendly ${
-              isMobile ? 'py-2 px-3' : 'py-1 px-2'
+            className={`cursor-pointer hover:bg-[#555555]/30 rounded  ${
+              isMobile ? 'py-2 px-3 touch-friendly' : 'py-1 px-2'
             }`}
             onClick={handleEditSubmit}
             aria-label='Save edit'
           >
-            <MdSend size={isMobile ? 18 : 20} />
+            <MdSend size={isMobile ? 18 : 28} />
           </button>
         </div>
       </div>
@@ -266,16 +272,16 @@ const UserMessageOutput = memo(function UserMessageOutput({
           )}
         </div>
         <button
-          className={`cursor-pointer hover:scale-110 transition-transform duration-200 my-1 touch-friendly ${
-            isMobile ? 'p-2' : 'p-1'
+          className={`cursor-pointer transition-transform duration-200 my-1 group ${
+            isMobile ? 'p-2 touch-friendly' : 'p-1'
           }`}
           onClick={handleEditToggle}
           type='button'
           aria-label='Edit message'
         >
           <MdEdit
-            className='hover:fill-amber-50 text-[#555555]'
-            size={isMobile ? 18 : 20}
+            className='group-hover:fill-[#999999] text-[#555555]'
+            size={isMobile ? 18 : 28}
           />
         </button>
       </div>
