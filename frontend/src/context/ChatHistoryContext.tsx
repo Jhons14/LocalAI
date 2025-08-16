@@ -1,77 +1,37 @@
-import { createContext, useState, useEffect, useRef } from 'react';
+import { createContext, useState, useEffect, useRef, useCallback } from 'react';
 import { v4 as uuid } from 'uuid';
+import { useChatApi } from '@/hooks/useChatApi';
+import {
+  usePersistentChatHistory,
+  usePersistentActiveModel,
+  useStorageMaintenance,
+} from '@/hooks/usePersistentState';
+import type {
+  ChatMessage,
+  ChatContextValue,
+  SendMessageParams,
+  ConfigureModelParams,
+  ModelName,
+  ModelProvider,
+} from '@/types/chat';
 
-type ChatMessageType = {
-  id: string;
-  role: 'user' | 'assistant';
-  content?: string; // Cambiado a string[] para almacenar los chunks
-  status?: 'complete' | 'streaming' | 'error';
-  relatedTo?: string; // Para enlazar respuestas con preguntas
-  edited?: boolean;
-  createdAt: number;
-};
-
-type ActiveModelType = {
-  thread_id?: string;
-  model: 'qwen2.5:3b' | 'gpt-4.1-nano' | '';
-  provider: 'ollama' | 'openai' | '';
-  apiKey?: string;
-};
-
-export type ChatHistoryContextType = {
-  messages: ChatMessageType[];
-  sendMessage: ({
-    content,
-    thread_id,
-  }: {
-    content: string;
-    thread_id?: string;
-  }) => void;
-  edit: (userMessageId: string, newContent: string, thread_id: string) => void;
-  clear: () => void;
-  activeModel: ActiveModelType | undefined;
-  setActiveModel: React.Dispatch<
-    React.SetStateAction<ActiveModelType | undefined>
-  >;
-  configureModel: ({
-    model,
-    provider,
-    connectModel,
-  }: {
-    model: ActiveModelType['model'];
-    provider: ActiveModelType['provider'];
-    connectModel?: boolean;
-  }) => Promise<void>;
-
-  tempApiKey: string;
-  setTempApiKey: (tempApiKey: string) => void;
-  isModelConnected: boolean;
-  setIsModelConnected: (isModelConnected: boolean) => void;
-  thread_id?: string; // Añadido para manejar el thread_id
-  rechargeModel: (
-    model: ActiveModelType['model'],
-    provider: ActiveModelType['provider']
-  ) => void;
-};
-
-export const ChatHistoryContext = createContext<
-  ChatHistoryContextType | undefined
->(undefined);
+export const ChatHistoryContext = createContext<ChatContextValue | undefined>(
+  undefined
+);
 
 export function ChatHistoryContextProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
+  const { sendChatMessage, configureModel: apiConfigureModel } = useChatApi();
+  const { saveChatHistory, loadChatHistory } = usePersistentChatHistory();
+  const { activeModel, setActiveModel } = usePersistentActiveModel();
+  const { checkStorageUsage } = useStorageMaintenance();
 
-  const [messages, setMessages] = useState<ChatMessageType[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isModelConnected, setIsModelConnected] = useState<boolean>(false);
   const [tempApiKey, setTempApiKey] = useState<string>('');
-
-  const [activeModel, setActiveModel] = useState<ActiveModelType | undefined>(
-    undefined
-  );
 
   useEffect(() => {
     // configureModel({
@@ -80,320 +40,274 @@ export function ChatHistoryContextProvider({
     // });
   }, []);
 
-  const controllerRef = useRef<AbortController | null>(null);
-
   const chatManager = useRef<
-    Record<string, { thread_id: string; messages: ChatMessageType[] }>
+    Record<string, { thread_id?: string; messages: ChatMessage[] }>
   >({}); // Almacena el historial de mensajes
 
+  // Load messages when active model changes
   useEffect(() => {
-    if (activeModel) {
-      const storedMessages = chatManager.current[activeModel.model]?.messages;
-      if (storedMessages) {
-        setMessages(storedMessages); // Cargar el historial de mensajes del modelo activo
+    if (activeModel?.thread_id) {
+      // Load from persistent storage first
+      const persistedMessages = loadChatHistory(activeModel.thread_id);
+
+      if (persistedMessages.length > 0) {
+        setMessages(persistedMessages);
+        // Also update in-memory cache
+        chatManager.current[activeModel.model] = {
+          thread_id: activeModel.thread_id,
+          messages: persistedMessages,
+        };
       } else {
-        setMessages([]); // Limpiar los mensajes si no hay historial
+        // Check in-memory cache
+        const storedMessages = chatManager.current[activeModel.model]?.messages;
+        if (storedMessages) {
+          setMessages(storedMessages);
+        } else {
+          setMessages([]);
+        }
       }
+    } else {
+      setMessages([]);
     }
-  }, [activeModel]);
+  }, [activeModel, loadChatHistory]);
 
+  // Save messages to persistent storage when they change
   useEffect(() => {
-    if (!activeModel || !activeModel.model) return;
-    if (!chatManager.current[activeModel.model]) return;
+    if (!activeModel || !activeModel.model || !activeModel.thread_id) return;
+    if (messages.length === 0) return;
 
+    // Update in-memory cache
     chatManager.current[activeModel.model] = {
       ...chatManager.current[activeModel.model],
       messages: [...messages],
-    }; // Actualizar el historial de mensajes en el chatManager
-  }, [messages]); // Dependencia añadida para cargar mensajes al cambiar de modelo
-
-  const rechargeModel = (
-    model: ActiveModelType['model'],
-    provider: ActiveModelType['provider']
-  ) => {
-    if (model in chatManager.current) {
-      setActiveModel({
-        model: model,
-        provider: provider,
-        thread_id:
-          chatManager?.current[model]?.thread_id ||
-          activeModel?.thread_id ||
-          '',
-      }); // Actualizar el modelo activo y el thread_id
-      setMessages(chatManager.current[model].messages); // Cargar el historial de mensajes del modelo activo
-
-      setIsModelConnected(true); // Marcar el modelo como conectado
-      return;
-    }
-
-    setActiveModel({ model, provider, thread_id: uuid() }); // Actualizar el modelo activo y el x
-    setIsModelConnected(false); // Marcar el modelo como conectado
-  };
-
-  const configureModel = async ({
-    model,
-    provider,
-    connectModel,
-  }: {
-    model: ActiveModelType['model'];
-    provider: ActiveModelType['provider'];
-    connectModel?: boolean;
-  }) => {
-    if (!model || !provider) {
-      throw new Error('Please select a model and provider');
-    }
-
-    if (connectModel === false) return; // Si la ordene s no conectar el modelo, no hacer nada
-
-    controllerRef.current?.abort(); // Cancelar cualquier stream anterior
-    const controller = new AbortController();
-    controllerRef.current = controller;
-
-    const thread_id = activeModel?.thread_id || uuid(); // Generar un nuevo thread_id
-
-    setIsModelConnected(false); // Resetear el estado de conexión
-
-    if (provider === 'openai' && tempApiKey === '') {
-      alert('Please save your API key first');
-      return;
-    }
-
-    const res = await fetch(`${BACKEND_URL}/configure`, {
-      method: 'POST',
-      body: JSON.stringify({ thread_id, model, provider, apiKey: tempApiKey }),
-      headers: { 'Content-Type': 'application/json' },
-      // signal: controller.signal,
-    });
-
-    if (!res.ok) {
-      switch (res.status) {
-        case 503:
-          alert('Service is not available, please try again later');
-        case 400:
-          const responseText = await res.json().then((data) => data.detail);
-          throw new Error(responseText);
-      }
-      return;
-    }
-    chatManager.current[model] = {
-      thread_id,
-      messages: [], // Reiniciar el historial de mensajes al cambiar de modelo
-    }; // Actualizar el historial de mensajes en el chatManager
-
-    setIsModelConnected(true);
-  };
-
-  // Función para enviar un mensaje al modelo
-  const sendMessage = async ({
-    content,
-    thread_id,
-  }: {
-    thread_id?: string;
-    content: string;
-  }) => {
-    if (!thread_id) {
-      throw new Error('Please select a model');
-    }
-
-    const id = uuid();
-    const userMessage: ChatMessageType = {
-      id,
-      role: 'user',
-      content,
-      createdAt: Date.now(),
     };
 
-    const assistantMessage: ChatMessageType = {
-      id: uuid(),
-      role: 'assistant',
-      content: '',
-      relatedTo: id,
-      createdAt: Date.now(),
-      status: 'streaming',
-    };
+    // Save to persistent storage
+    saveChatHistory(
+      activeModel.thread_id,
+      messages,
+      activeModel.model,
+      activeModel.provider
+    );
 
-    setMessages((prev) => [...prev, userMessage, assistantMessage]);
+    // Check storage usage periodically
+    if (messages.length % 10 === 0) {
+      // Check every 10 messages
+      checkStorageUsage();
+    }
+  }, [messages, activeModel, saveChatHistory, checkStorageUsage]);
 
-    controllerRef.current?.abort(); // Cancelar cualquier stream anterior
-    const controller = new AbortController();
-    controllerRef.current = controller;
+  const rechargeModel = useCallback(
+    (model: ModelName, provider: ModelProvider) => {
+      if (model in chatManager.current) {
+        setActiveModel({
+          model: model,
+          provider: provider,
+          thread_id:
+            chatManager?.current[model]?.thread_id ||
+            activeModel?.thread_id ||
+            '',
+        }); // Actualizar el modelo activo y el thread_id
+        if (chatManager.current[model])
+          setMessages(chatManager.current[model].messages); // Cargar el historial de mensajes del modelo activo
 
-    try {
-      const res = await fetch(BACKEND_URL + '/chat', {
-        method: 'POST',
-        body: JSON.stringify({ prompt: content, thread_id: thread_id }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        // signal: controller.signal,
-      });
-
-      if (!res.ok) {
-        switch (res.status) {
-          case 503:
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantMessage.id
-                  ? {
-                      ...msg,
-                      status: 'error',
-                      content:
-                        'Service is not avalaible, please try again later',
-                    }
-                  : msg
-              )
-            );
-          case 400:
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantMessage.id
-                  ? {
-                      ...msg,
-                      status: 'error',
-                      content:
-                        'Invalid request, please connect to the model first',
-                    }
-                  : msg
-              )
-            );
-        }
-
+        setIsModelConnected(true); // Marcar el modelo como conectado
         return;
       }
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
 
-      if (!reader) throw new Error('No reader available');
+      setActiveModel({ model, provider, thread_id: uuid() }); // Actualizar el modelo activo y el x
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      setIsModelConnected(false);
+    },
+    []
+  );
 
-        const chunk = decoder.decode(value, { stream: true });
-
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessage.id
-              ? { ...msg, content: msg.content + chunk }
-              : msg
-          )
-        );
+  const configureModel = useCallback(
+    async ({ model, provider, connectModel }: ConfigureModelParams) => {
+      if (!model || !provider) {
+        throw new Error('Please select a model and provider');
       }
 
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessage.id ? { ...msg, status: 'complete' } : msg
-        )
-      );
-    } catch (err) {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessage.id
-            ? { ...msg, status: 'error', content: '[error]' }
-            : msg
-        )
-      );
-    }
-  };
+      if (connectModel === false) return;
 
-  const edit = async (
-    userMessageId: string,
-    newContent: string,
-    thread_id: string
-  ) => {
-    const userMsg = messages.find((msg) => msg.id === userMessageId);
-    const assistantMessage = messages.find(
-      (msg) => msg.relatedTo === userMessageId
-    );
+      const thread_id = activeModel?.thread_id || uuid();
+      setIsModelConnected(false);
 
-    if (!userMsg) return;
-    const id = uuid();
-    const newUserMessage: ChatMessageType = {
-      id,
-      role: 'user',
-      content: newContent,
-      createdAt: Date.now(),
-      edited: true,
-    };
-    const newAssistantMessage: ChatMessageType = {
-      id: uuid(),
-      role: 'assistant',
-      content: '',
-      relatedTo: id,
-      createdAt: Date.now(),
-      status: 'streaming',
-    };
-    setMessages((prev) =>
-      prev.map((msg) => {
-        if (msg.id === userMessageId) return newUserMessage;
-        if (msg.id === assistantMessage?.id) return newAssistantMessage;
-        return msg;
-      })
-    );
+      if (provider === 'openai' && tempApiKey === '') {
+        alert('Please save your API key first');
+        return;
+      }
 
-    controllerRef.current?.abort(); // Cancelar cualquier stream anterior
-    const controller = new AbortController();
-    controllerRef.current = controller;
-    try {
-      const res = await fetch(BACKEND_URL + '/chat', {
-        method: 'POST',
-        body: JSON.stringify({ prompt: newContent, thread_id: thread_id }),
-        headers: { 'Content-Type': 'application/json' },
-        // signal: controller.signal,
-      });
-      if (!res.ok) {
-        if (res.status === 503) {
+      try {
+        await apiConfigureModel({
+          model,
+          provider,
+          thread_id,
+          apiKey: tempApiKey,
+        });
+
+        chatManager.current[model] = {
+          thread_id,
+          messages: [],
+        };
+
+        setIsModelConnected(true);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Configuration failed';
+        alert(errorMessage);
+        throw error;
+      }
+    },
+    [apiConfigureModel, activeModel?.thread_id, tempApiKey]
+  );
+
+  // Función para enviar un mensaje al modelo
+  const sendMessage = useCallback(
+    async ({ content, thread_id }: SendMessageParams) => {
+      if (!thread_id) {
+        throw new Error('Please select a model');
+      }
+
+      const id = uuid();
+      const userMessage: ChatMessage = {
+        id,
+        role: 'user',
+        content,
+        createdAt: Date.now(),
+      };
+
+      const assistantMessage: ChatMessage = {
+        id: uuid(),
+        role: 'assistant',
+        content: '',
+        relatedTo: id,
+        createdAt: Date.now(),
+        status: 'streaming',
+      };
+
+      setMessages((prev) => [...prev, userMessage, assistantMessage]);
+
+      await sendChatMessage(
+        { content, thread_id },
+        // onChunk
+        (chunk: string) => {
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === newAssistantMessage.id
-                ? {
-                    ...msg,
-                    status: 'error',
-                    content: 'Service is not avalaible, please try again later',
-                  }
+              msg.id === assistantMessage.id
+                ? { ...msg, content: (msg.content || '') + chunk }
+                : msg
+            )
+          );
+        },
+        // onError
+        (error: string) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessage.id
+                ? { ...msg, status: 'error' as const, content: error }
+                : msg
+            )
+          );
+        },
+        // onComplete
+        () => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessage.id
+                ? { ...msg, status: 'complete' as const }
                 : msg
             )
           );
         }
-        return;
-      }
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) throw new Error('No reader available');
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === newAssistantMessage.id
-              ? { ...msg, content: msg.content + chunk }
-              : msg
-          )
-        );
-      }
-
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === newAssistantMessage.id
-            ? { ...msg, status: 'complete' }
-            : msg
-        )
       );
-    } catch (err) {
+    },
+    [sendChatMessage]
+  );
+
+  const edit = useCallback(
+    async (userMessageId: string, newContent: string, thread_id: string) => {
+      const userMsg = messages.find((msg) => msg.id === userMessageId);
+      const assistantMessage = messages.find(
+        (msg) => msg.relatedTo === userMessageId
+      );
+
+      if (!userMsg) return;
+
+      const id = uuid();
+      const newUserMessage: ChatMessage = {
+        id,
+        role: 'user',
+        content: newContent,
+        createdAt: Date.now(),
+        edited: true,
+      };
+      const newAssistantMessage: ChatMessage = {
+        id: uuid(),
+        role: 'assistant',
+        content: '',
+        relatedTo: id,
+        createdAt: Date.now(),
+        status: 'streaming',
+      };
+
       setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === newAssistantMessage.id
-            ? { ...msg, status: 'error', content: '[error]' }
-            : msg
-        )
+        prev.map((msg) => {
+          if (msg.id === userMessageId) return newUserMessage;
+          if (msg.id === assistantMessage?.id) return newAssistantMessage;
+          return msg;
+        })
+      );
+
+      await sendChatMessage(
+        { content: newContent, thread_id },
+        // onChunk
+        (chunk: string) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === newAssistantMessage.id
+                ? { ...msg, content: (msg.content || '') + chunk }
+                : msg
+            )
+          );
+        },
+        // onError
+        (error: string) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === newAssistantMessage.id
+                ? { ...msg, status: 'error' as const, content: error }
+                : msg
+            )
+          );
+        },
+        // onComplete
+        () => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === newAssistantMessage.id
+                ? { ...msg, status: 'complete' as const }
+                : msg
+            )
+          );
+        }
+      );
+    },
+    [messages, sendChatMessage]
+  );
+
+  const clear = useCallback(() => {
+    setMessages([]);
+    // Also clear from persistent storage if we have an active model
+    if (activeModel?.thread_id) {
+      saveChatHistory(
+        activeModel.thread_id,
+        [],
+        activeModel.model,
+        activeModel.provider
       );
     }
-  };
-  const clear = () => setMessages([]);
+  }, [activeModel, saveChatHistory]);
 
   return (
     <ChatHistoryContext.Provider

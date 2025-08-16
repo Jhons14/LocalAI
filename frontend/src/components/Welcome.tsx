@@ -1,5 +1,5 @@
-import { Chat } from './Chat.tsx';
-import { Sidebar } from '@/components/Sidebar';
+import { Chat } from './chat/Chat';
+import { Sidebar } from '@/components/layout/Sidebar';
 import { ChatHistoryContextProvider } from '@/context/ChatHistoryContext';
 
 export function Welcome() {
