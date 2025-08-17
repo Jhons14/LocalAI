@@ -125,11 +125,10 @@ export function ChatHistoryContextProvider({
       toolkits = [],
       enable_memory = true,
     }: SendMessageParams) => {
-      console.log(api_key);
-
       if (!thread_id) {
         throw new Error('Please select a model');
       }
+      console.log(api_key);
 
       const id = uuid();
       const userMessage: ChatMessage = {
@@ -192,7 +191,7 @@ export function ChatHistoryContextProvider({
         }
       );
     },
-    [sendChatMessage, activeModel?.toolkits]
+    [sendChatMessage, activeModel?.toolkits, tempApiKey]
   );
 
   const edit = useCallback(

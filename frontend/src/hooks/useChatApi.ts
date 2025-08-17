@@ -17,6 +17,8 @@ export function useChatApi() {
       onComplete: () => void
     ) => {
       try {
+        console.log('Sending chat message:', params.api_key);
+
         const { reader } = await streamRequest('/chat', {
           prompt: params.content,
           thread_id: params.thread_id,

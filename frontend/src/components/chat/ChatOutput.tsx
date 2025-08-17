@@ -173,8 +173,47 @@ const AssistantMessageOutput = memo(function AssistantMessageOutput({
           });
 
           containerRef.current.innerHTML = finalHTML;
+          containerRef.current.querySelectorAll('ol li').forEach((li) => {
+            // Make content normal weight, keep numbers bold
+            li.innerHTML = `<span class="font-normal">${li.innerHTML}</span>`;
+          });
+          containerRef.current.querySelectorAll('ol').forEach((ol) => {
+            ol.classList.add('list-decimal', 'pl-5', 'space-y-1', 'font-bold');
+          });
+          containerRef.current.querySelectorAll('ul').forEach((ul) => {
+            ul.classList.add('list-disc', 'pl-5', 'space-y-1');
+          });
 
-          // Your existing styling code...
+          containerRef.current.querySelectorAll('a:not(li a)').forEach((a) => {
+            a.classList.add(
+              'text-blue-300',
+              'hover:text-blue-500',
+              'hover:underline',
+              'focus:text-blue-700',
+              'block',
+              'mb-4',
+              'break-all', // Rompe palabras largas en cualquier punto
+              'overflow-wrap' // O usa 'break-words' para ser más conservador
+            );
+            a.target = '_blank';
+          });
+          containerRef.current.querySelectorAll('li a').forEach((ul) => {
+            ul.classList.add(
+              'text-blue-300',
+              'hover:text-blue-500',
+              'hover:underline',
+              'focus:text-blue-700',
+              'inline', // inline en lugar de block
+              'mb-1', // menos margen
+              'break-all',
+              'overflow-wrap'
+            );
+          });
+          containerRef.current.querySelectorAll('pre code').forEach((block) => {
+            hljs.highlightElement(block as HTMLElement);
+            block.parentElement?.classList.add('my-4');
+            block.classList.add('rounded-xl', 'border-1', 'border-white/50');
+          });
         }
       }
     }
@@ -191,10 +230,10 @@ const AssistantMessageOutput = memo(function AssistantMessageOutput({
   }
 
   return (
-    <div className='flex-1 overflow-y-auto'>
+    <div className='flex-1'>
       <div
         ref={containerRef}
-        className={`flex-1 flex-col text-sm leading-relaxed mr-12 py-2 rounded-2xl overflow-y-auto`}
+        className={`flex flex-col text-sm leading-relaxed mr-12 py-2 rounded-2xl overflow-y-auto gap-4`}
       />
       <div ref={bottomRef} />
     </div>

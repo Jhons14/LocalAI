@@ -362,7 +362,7 @@ class ModelFactory:
                 raise ValueError("API key required for OpenAI")
             return ChatOpenAI(
                 model=model_name,
-                temperature=temperature,
+                # temperature=temperature,
                 timeout=config.DEFAULT_TIMEOUT,
                 max_retries=2,
                 api_key=SecretStr(api_key),

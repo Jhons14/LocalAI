@@ -34,13 +34,8 @@ export const DEFAULT_PROVIDERS: Record<Provider, ModelConfig[]> = {
   ollama: [], // Will be populated dynamically
   openai: [
     {
-      title: 'GPT-4',
-      model: 'gpt-4',
-      provider: 'openai',
-    },
-    {
-      title: 'GPT-3.5 Turbo',
-      model: 'gpt-3.5-turbo',
+      title: 'GPT-5 Nano',
+      model: 'gpt-5-nano',
       provider: 'openai',
     },
     {
