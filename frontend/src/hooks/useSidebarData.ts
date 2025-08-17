@@ -2,43 +2,66 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useChatApi } from './useChatApi';
 import { useToast } from './useToast';
 import { errorLogger } from '@/utils';
-import type { 
-  NavigationItems, 
-  NavigationItem, 
-  ModelConfig, 
+import type {
+  NavigationItems,
+  ModelConfig,
   UseSidebarDataResult,
-  ModelsApiResponse,
-  Provider 
+  Provider,
 } from '@/types/sidebar';
+import { getProviderIcon } from '@/utils/providerIcons';
 import { DEFAULT_PROVIDERS, ERROR_MESSAGES } from '@/constants/sidebar';
 
 export const useSidebarData = (): UseSidebarDataResult => {
   const [navigationItems, setNavigationItems] = useState<NavigationItems>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const { getOllamaModels } = useChatApi();
   const { error: showError } = useToast();
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const createNavigationItems = useCallback((ollamaModels: ModelConfig[] = []): NavigationItems => {
-    return [
-      {
-        name: 'Ollama',
-        icon: null, // Will be set in the component
-        subItems: ollamaModels,
-        isLoading: false,
-        error: null,
-      },
-      {
-        name: 'OpenAI',
-        icon: null, // Will be set in the component
-        subItems: DEFAULT_PROVIDERS.openai,
-        isLoading: false,
-        error: null,
-      },
-    ];
-  }, []);
+  const cloudNavItems = [
+    {
+      name: 'OpenAI',
+      icon: getProviderIcon('openai'), // Will be set in the component
+      subItems: DEFAULT_PROVIDERS.openai,
+      isLoading: false,
+      error: null,
+    },
+    {
+      name: 'Anthropic',
+      icon: getProviderIcon('anthropic'), // Will be set in the component
+      subItems: DEFAULT_PROVIDERS.anthropic,
+      isLoading: false,
+      error: null,
+    },
+    {
+      name: 'Google',
+      icon: getProviderIcon('google'), // Will be set in the component
+      subItems: DEFAULT_PROVIDERS.google,
+      isLoading: false,
+      error: null,
+    },
+  ];
+
+  const createNavigationItems = useCallback(
+    (ollamaModels: ModelConfig[] = []): NavigationItems => {
+      return [
+        ...cloudNavItems,
+        {
+          name: 'Ollama',
+          icon: getProviderIcon('ollama'),
+          subItems: ollamaModels,
+          isLoading: false,
+          error: null,
+        },
+      ];
+    },
+    []
+  );
+
+  if (navigationItems.length === 0)
+    setNavigationItems(createNavigationItems([]));
 
   const fetchOllamaModels = useCallback(async (): Promise<ModelConfig[]> => {
     try {
@@ -51,23 +74,25 @@ export const useSidebarData = (): UseSidebarDataResult => {
       abortControllerRef.current = new AbortController();
 
       const response = await getOllamaModels();
-      
-      if (!response) {
+
+      if (!response['ollama']) {
         throw new Error(ERROR_MESSAGES.OLLAMA_FETCH);
       }
 
-      const ollamaModels: ModelConfig[] = response['ollama'].map((model: string) => ({
-        title: model,
-        model: model,
-        provider: 'ollama' as Provider,
-      }));
+      const ollamaModels: ModelConfig[] = response['ollama'].map(
+        (model: string) => ({
+          title: model,
+          model: model,
+          provider: 'ollama' as Provider,
+        })
+      );
 
       return ollamaModels;
     } catch (err: any) {
       if (err.name === 'AbortError') {
         throw err; // Re-throw abort errors to be handled by caller
       }
-      
+
       errorLogger.error('Error fetching Ollama models:', err);
       const errorMessage = err.message || ERROR_MESSAGES.OLLAMA_CONNECTION;
       showError('Ollama Connection Error', errorMessage);
@@ -82,19 +107,29 @@ export const useSidebarData = (): UseSidebarDataResult => {
     try {
       const ollamaModels = await fetchOllamaModels();
       const items = createNavigationItems(ollamaModels);
+
       setNavigationItems(items);
     } catch (err: any) {
       if (err.name !== 'AbortError') {
         const errorMessage = err.message || ERROR_MESSAGES.MODEL_LOAD;
+
         setError(errorMessage);
-        
+
         // Set navigation items with error state for Ollama
         const itemsWithError = createNavigationItems([]);
-        itemsWithError[0] = {
-          ...itemsWithError[0],
-          error: errorMessage,
-        };
-        setNavigationItems(itemsWithError);
+        console.log(itemsWithError);
+        const navItemsWithOllamaError = itemsWithError.map((item) => {
+          if (item.name === 'Ollama') {
+            return {
+              ...item,
+              error: errorMessage,
+            };
+          } else {
+            return item;
+          }
+        });
+
+        setNavigationItems(navItemsWithOllamaError);
       }
     } finally {
       setIsLoading(false);

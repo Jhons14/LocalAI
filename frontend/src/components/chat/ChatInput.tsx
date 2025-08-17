@@ -53,8 +53,6 @@ export const ChatInput = memo(function ChatInput({
 
         clearValidation('message');
       } catch (error) {
-        console.log('Send Failed', 'Failed to send message. Please try again.');
-
         showError('Send Failed', 'Failed to send message. Please try again.');
       } finally {
         setIsValidating(false);

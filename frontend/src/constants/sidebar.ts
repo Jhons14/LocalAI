@@ -1,21 +1,5 @@
 import type { Provider, ModelConfig } from '@/types/sidebar';
 
-// Animation and timing constants
-export const SIDEBAR_ANIMATIONS = {
-  TRANSITION_DURATION: 300,
-  FADE_DURATION: 200,
-  HOVER_TRANSITION: 500,
-  TOGGLE_DURATION: 400,
-} as const;
-
-// Layout constants
-export const SIDEBAR_LAYOUT = {
-  COLLAPSED_WIDTH: 56, // 14 * 4 (w-14 in Tailwind)
-  EXPANDED_WIDTH: 128, // 32 * 4 (w-32 in Tailwind)
-  HEADER_HEIGHT: 44, // h-11 in Tailwind
-  MAX_VIRTUAL_SCROLL_HEIGHT: 384, // max-h-96 in Tailwind
-} as const;
-
 // Performance constants
 export const PERFORMANCE = {
   VIRTUAL_SCROLL_THRESHOLD: 20,
@@ -26,14 +10,19 @@ export const PERFORMANCE = {
 // CSS classes
 export const SIDEBAR_STYLES = {
   BASE: 'h-screen border-r border-r-[#999999] bg-[#333333] text-white transition-all duration-400 flex flex-col',
-  TOGGLE_BUTTON: 'cursor-pointer p-4 border-b border-b-[#999999] focus:outline-none hover:bg-[#555555] transition-all duration-500',
-  NAV_CONTAINER: 'w-14 h-full bg-[#333333] text-white transition-all duration-400 flex-1',
-  PANEL_BASE: 'flex flex-col h-full border-l border-l-[#999999] overflow-hidden transition-all duration-300 ease-out',
-  PANEL_OPEN: 'w-32 opacity-100',
+  TOGGLE_BUTTON:
+    'cursor-pointer p-4 border-b border-b-[#999999] focus:outline-none hover:bg-[#555555] transition-all duration-500',
+  NAV_CONTAINER:
+    'w-14 h-full bg-[#333333] text-white transition-all duration-400 flex-1',
+  PANEL_BASE:
+    'flex flex-col h-full border-l border-l-[#999999] overflow-hidden transition-all duration-300 ease-out',
+  PANEL_OPEN: 'w-44 opacity-100',
   PANEL_CLOSED: 'w-0 opacity-0 pointer-events-none',
-  ITEM_BUTTON: 'flex justify-center items-center gap-2 py-4 px-1 hover:bg-[#555555] w-full cursor-pointer transition-all duration-500',
+  ITEM_BUTTON:
+    'flex justify-center items-center gap-2 py-4 px-1 hover:bg-[#555555] w-full cursor-pointer transition-all duration-500',
   ITEM_SELECTED: 'bg-[#555555]',
-  MODEL_BUTTON: 'flex items-center justify-center cursor-pointer w-full py-2 px-2 hover:bg-[#555555] transition-all duration-500',
+  MODEL_BUTTON:
+    'flex items-center justify-center cursor-pointer w-full py-2 px-2 hover:bg-[#555555] transition-all duration-500',
   MODEL_SELECTED: 'bg-[#555555]',
   ERROR_TEXT: 'text-sm text-red-500 text-center p-2',
   SCROLL_CONTAINER: 'overflow-y-auto max-h-96',
@@ -115,12 +104,6 @@ export const ACCESSIBILITY = {
     ARROW_UP: 'ArrowUp',
     TAB: 'Tab',
   },
-} as const;
-
-// API endpoints
-export const API_ENDPOINTS = {
-  MODELS: '/models',
-  OLLAMA_MODELS: '/models?provider=ollama',
 } as const;
 
 // Default state
