@@ -8,10 +8,10 @@ import { ChatHistoryManager } from '@/components/chat/ChatHistoryManager';
 import { Tools } from '../ui/Tools';
 
 export const TopNavBar = memo(function TopNavBar() {
-  const { activeModel, isModelConnected, tempApiKey, setTempApiKey } =
-    useChatHistoryContext();
+  const { activeModel, tempApiKey } = useChatHistoryContext();
   const { isMobile } = useMobileFirst();
   const [showHistoryManager, setShowHistoryManager] = useState<boolean>(false);
+  console.log(activeModel);
 
   return (
     <div
@@ -63,7 +63,7 @@ const ApiKeyInput = memo(function ApiKeyInput({
 }: {
   provider: string;
 }) {
-  if (provider !== 'openai') return <div></div>;
+  if (provider === 'ollama') return <div></div>;
   const [show, setShow] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [loading, setLoading] = useState(false);

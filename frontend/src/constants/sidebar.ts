@@ -43,6 +43,11 @@ export const DEFAULT_PROVIDERS: Record<Provider, ModelConfig[]> = {
       model: 'gpt-3.5-turbo',
       provider: 'openai',
     },
+    {
+      title: 'GPT-4.1 Nano',
+      model: 'gpt-4.1-nano',
+      provider: 'openai',
+    },
   ],
   anthropic: [
     {

@@ -10,7 +10,6 @@ import type {
   ChatMessage,
   ChatContextValue,
   SendMessageParams,
-  ConfigureModelParams,
   ModelName,
   ModelProvider,
 } from '@/types/chat';
@@ -122,10 +121,12 @@ export function ChatHistoryContextProvider({
       thread_id,
       model,
       provider,
-      apiKey,
+      api_key,
       toolkits = [],
       enable_memory = true,
     }: SendMessageParams) => {
+      console.log(api_key);
+
       if (!thread_id) {
         throw new Error('Please select a model');
       }
@@ -157,6 +158,7 @@ export function ChatHistoryContextProvider({
           provider,
           toolkits,
           enable_memory,
+          api_key,
         },
         // onChunk
         (chunk: string) => {

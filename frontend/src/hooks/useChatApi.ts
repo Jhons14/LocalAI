@@ -22,7 +22,7 @@ export function useChatApi() {
           thread_id: params.thread_id,
           model: params.model,
           provider: params.provider,
-          apiKey: params.apiKey,
+          api_key: params.api_key,
           toolkits: params.toolkits,
           enable_memory: params.enable_memory,
         });

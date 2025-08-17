@@ -13,7 +13,7 @@ export const SidebarNavigation = memo(function SidebarNavigation({
   return (
     <nav
       className={SIDEBAR_STYLES.NAV_CONTAINER}
-      role="navigation"
+      role='navigation'
       aria-label={ACCESSIBILITY.LABELS.PROVIDER_LIST}
     >
       {items.map((item, index) => (

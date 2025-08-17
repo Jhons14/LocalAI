@@ -1,8 +1,8 @@
 export type MessageRole = 'user' | 'assistant';
 export type MessageStatus = 'complete' | 'streaming' | 'error';
 export type ModelProvider = 'ollama' | 'openai';
-export type ModelName = 'qwen2.5:3b' | 'gpt-4.1-nano' | 'qwen3:1.7b' ;
-export type ToolName = 'Gmail' | 'Asana' ;
+export type ModelName = 'qwen2.5:3b' | 'gpt-4.1-nano' | 'qwen3:1.7b';
+export type ToolName = 'Gmail' | 'Asana';
 
 export interface ChatMessage {
   id: string;
@@ -17,9 +17,9 @@ export interface ChatMessage {
 
 export interface ActiveModel {
   thread_id: string;
-  model: ModelName ;
+  model: ModelName;
   provider: ModelProvider;
-  apiKey?: string;
+  apiKey?: string | null;
   toolkits: string[];
 }
 
@@ -28,7 +28,7 @@ export interface SendMessageParams {
   thread_id: string;
   model: ModelName;
   provider: ModelProvider;
-  apiKey?: string;
+  api_key?: string | undefined;
   toolkits: string[];
   enable_memory?: boolean;
 }

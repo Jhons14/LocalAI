@@ -117,7 +117,6 @@ export const useSidebarData = (): UseSidebarDataResult => {
 
         // Set navigation items with error state for Ollama
         const itemsWithError = createNavigationItems([]);
-        console.log(itemsWithError);
         const navItemsWithOllamaError = itemsWithError.map((item) => {
           if (item.name === 'Ollama') {
             return {

@@ -21,6 +21,7 @@ export const Sidebar = memo(function Sidebar({ className }: SidebarProps) {
   } = useSidebarState();
 
   const selectedItem = navigationItems[selectedProviderIndex] || null;
+  console.log(selectedModelIndex);
 
   const containerClasses = className
     ? `${SIDEBAR_STYLES.BASE} ${className}`

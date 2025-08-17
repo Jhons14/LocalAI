@@ -2,11 +2,11 @@ import { memo } from 'react';
 import type { ModelItemProps } from '@/types/sidebar';
 import { SIDEBAR_STYLES } from '@/constants/sidebar';
 
-export const ModelItem = memo(function ModelItem({ 
-  model, 
-  index, 
-  isSelected, 
-  onClick 
+export const ModelItem = memo(function ModelItem({
+  model,
+  index,
+  isSelected,
+  onClick,
 }: ModelItemProps) {
   const handleClick = () => {
     onClick(index, model);
@@ -24,17 +24,15 @@ export const ModelItem = memo(function ModelItem({
       className={`${SIDEBAR_STYLES.MODEL_BUTTON} ${
         isSelected ? SIDEBAR_STYLES.MODEL_SELECTED : ''
       }`}
-      type="button"
+      type='button'
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       aria-selected={isSelected}
-      role="option"
+      role='option'
       tabIndex={isSelected ? 0 : -1}
       title={`${model.title} (${model.provider})`}
     >
-      <span className="truncate text-sm">
-        {model.title}
-      </span>
+      <span className='truncate text-sm'>{model.title}</span>
     </button>
   );
 });
