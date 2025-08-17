@@ -1,7 +1,7 @@
 export type MessageRole = 'user' | 'assistant';
 export type MessageStatus = 'complete' | 'streaming' | 'error';
-export type ModelProvider = 'ollama' | 'openai';
-export type ModelName = 'qwen2.5:3b' | 'gpt-4.1-nano' | 'qwen3:1.7b';
+export type ModelProvider = 'ollama' | 'openai' | 'anthropic' | 'google';
+export type ModelName = string; // Dynamic model names from API
 export type ToolName = 'Gmail' | 'Asana';
 
 export interface ChatMessage {

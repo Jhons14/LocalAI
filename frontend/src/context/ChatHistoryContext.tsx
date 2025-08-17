@@ -99,6 +99,8 @@ export function ChatHistoryContextProvider({
             chatManager?.current[model]?.thread_id ||
             activeModel?.thread_id ||
             '',
+          // Preserve existing toolkits if switching to a model that has been used before
+          toolkits: activeModel?.toolkits || [],
         }); // Actualizar el modelo activo y el thread_id
         if (chatManager.current[model])
           setMessages(chatManager.current[model].messages); // Cargar el historial de mensajes del modelo activo
@@ -107,11 +109,17 @@ export function ChatHistoryContextProvider({
         return;
       }
 
-      setActiveModel({ model, provider, thread_id: uuid() }); // Actualizar el modelo activo y el x
+      setActiveModel({ 
+        model, 
+        provider, 
+        thread_id: uuid(),
+        // Initialize with empty toolkits for new models
+        toolkits: [],
+      }); // Actualizar el modelo activo y el x
 
       setIsModelConnected(false);
     },
-    []
+    [activeModel, setActiveModel]
   );
 
   // Función para enviar un mensaje al modelo

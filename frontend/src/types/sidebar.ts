@@ -37,6 +37,7 @@ export interface SidebarActions {
   selectModel: (index: number, model: ModelConfig) => void;
   setError: (error: string | null) => void;
   reset: () => void;
+  syncWithActiveModel: () => void;
 }
 
 // Component prop interfaces
