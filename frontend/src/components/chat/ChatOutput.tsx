@@ -216,6 +216,7 @@ const AssistantMessageOutput = memo(function AssistantMessageOutput({
           });
         }
       }
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
     renderContent();
   }, [content]);
