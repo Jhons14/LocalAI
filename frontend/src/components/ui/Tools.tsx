@@ -25,48 +25,108 @@ function useToggleOutside() {
   return { isOpen, toggle, ref };
 }
 
-const TOOLS = {
-  Gmail: false,
-  Asana: false,
-};
+// Available tools configuration
+const AVAILABLE_TOOLS: ToolName[] = ['Gmail', 'Asana'];
 
-export function Tools({ model }: { model: ActiveModel | undefined }) {
-  const tools = Object.keys(TOOLS);
+// Tools state management hook
+function useToolsState(activeModel: ActiveModel | undefined) {
+  const [toolsState, setToolsState] = useState<Record<ToolName, boolean>>(() => {
+    // Initialize with default false values
+    return AVAILABLE_TOOLS.reduce((acc, tool) => {
+      acc[tool] = false;
+      return acc;
+    }, {} as Record<ToolName, boolean>);
+  });
 
-  const { isOpen, toggle, ref } = useToggleOutside();
   const { setActiveModel } = useChatHistoryContext();
-  if (!model) return null;
 
-  const handleTools = (tool: ToolName, value: boolean) => {
-    TOOLS[tool] = value;
-    if (!model) return;
-
-    const toolkits: ToolName[] = [];
-    for (const [key, value] of Object.entries(TOOLS)) {
-      if (value) {
-        toolkits.push(key as ToolName);
-      }
+  // Synchronize tools state with activeModel.toolkits
+  useEffect(() => {
+    if (!activeModel) {
+      // Reset all tools when no active model
+      setToolsState(prev => {
+        const newState = { ...prev };
+        AVAILABLE_TOOLS.forEach(tool => {
+          newState[tool] = false;
+        });
+        return newState;
+      });
+      return;
     }
 
-    setActiveModel({ ...model, toolkits });
+    // Update tools state based on activeModel.toolkits
+    setToolsState(prev => {
+      const newState = { ...prev };
+      AVAILABLE_TOOLS.forEach(tool => {
+        newState[tool] = activeModel.toolkits.includes(tool);
+      });
+      return newState;
+    });
+  }, [activeModel?.toolkits, activeModel?.model, activeModel?.provider]);
+
+  const toggleTool = (tool: ToolName, value: boolean) => {
+    if (!activeModel) return;
+
+    // Update local state
+    setToolsState(prev => ({
+      ...prev,
+      [tool]: value,
+    }));
+
+    // Calculate new toolkits array
+    const newToolkits: string[] = [];
+    AVAILABLE_TOOLS.forEach(t => {
+      const isEnabled = t === tool ? value : toolsState[t];
+      if (isEnabled) {
+        newToolkits.push(t);
+      }
+    });
+
+    // Update active model with new toolkits
+    setActiveModel({
+      ...activeModel,
+      toolkits: newToolkits,
+    });
   };
+
+  return {
+    toolsState,
+    toggleTool,
+  };
+}
+
+interface ToolsProps {
+  model: ActiveModel | undefined;
+}
+
+export function Tools({ model }: ToolsProps) {
+  const { isOpen, toggle, ref } = useToggleOutside();
+  const { toolsState, toggleTool } = useToolsState(model);
+
+  if (!model) return null;
 
   const renderTools = () => {
     if (!isOpen) return null;
+    
     return (
       <ul className='absolute flex flex-col -left-20 bg-[#333333] text-center w-max border border-[#999999] rounded-xl shadow-lg mt-2 p-1'>
-        {tools.map((tool) => (
+        {AVAILABLE_TOOLS.map((tool) => (
           <li
             key={tool}
-            className='flex justify-between items-center gap-2 px-2 '
+            className='flex justify-between items-center gap-2 px-2'
           >
-            <label>{tool}</label>
+            <label 
+              htmlFor={`tool-${tool}`}
+              className="cursor-pointer select-none"
+            >
+              {tool}
+            </label>
             <ToggleSwitch
+              id={`tool-${tool}`}
               size='x-small'
-              initialValue={TOOLS[tool as ToolName]}
-              onChange={(value) => {
-                handleTools(tool as ToolName, value);
-              }}
+              value={toolsState[tool]} // Use controlled value instead of initialValue
+              onChange={(value) => toggleTool(tool, value)}
+              aria-label={`Toggle ${tool} tool`}
             />
           </li>
         ))}
@@ -81,6 +141,7 @@ export function Tools({ model }: { model: ActiveModel | undefined }) {
         onClick={toggle}
         aria-label='Tools'
         aria-expanded={isOpen}
+        type="button"
       >
         <Hammer />
       </button>

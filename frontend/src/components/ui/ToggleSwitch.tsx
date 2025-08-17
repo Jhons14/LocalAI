@@ -4,24 +4,37 @@ type ToggleSwitchSize = 'x-small' | 'small' | 'medium' | 'large';
 
 interface ToggleSwitchProps {
   initialValue?: boolean;
+  value?: boolean; // Controlled value
   onChange?: (value: boolean) => void;
   disabled?: boolean;
   size?: ToggleSwitchSize;
+  id?: string;
+  'aria-label'?: string;
 }
 
 export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
   initialValue = false,
+  value,
   onChange,
   disabled = false,
   size = 'medium', // 'small', 'medium', 'large'
+  id,
+  'aria-label': ariaLabel,
 }) => {
-  const [isOn, setIsOn] = useState(initialValue);
+  const [internalState, setInternalState] = useState(initialValue);
+  
+  // Use controlled value if provided, otherwise use internal state
+  const isOn = value !== undefined ? value : internalState;
 
   const handleToggle = () => {
     if (disabled) return;
 
     const newValue = !isOn;
-    setIsOn(newValue);
+    
+    // Only update internal state if not controlled
+    if (value === undefined) {
+      setInternalState(newValue);
+    }
 
     if (onChange) {
       onChange(newValue);
@@ -45,6 +58,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
   return (
     <button
       type='button'
+      id={id}
       onClick={handleToggle}
       disabled={disabled}
       className={`
@@ -55,6 +69,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
       `}
       role='switch'
       aria-checked={isOn}
+      aria-label={ariaLabel}
     >
       <span
         className={`
