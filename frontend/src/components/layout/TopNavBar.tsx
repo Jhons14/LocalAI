@@ -21,7 +21,7 @@ export const TopNavBar = memo(function TopNavBar() {
         isMobile ? 'min-h-[100px]' : 'h-20 justify-between'
       }`}
     >
-      <div>
+      <div className='flex items-center gap-6 ml-4'>
         <h1
           className={`${
             isMobile ? 'text-lg text-center' : 'text-xl'

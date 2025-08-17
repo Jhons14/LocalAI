@@ -53,6 +53,8 @@ export const ChatInput = memo(function ChatInput({
 
         clearValidation('message');
       } catch (error) {
+        console.log('Send Failed', 'Failed to send message. Please try again.');
+
         showError('Send Failed', 'Failed to send message. Please try again.');
       } finally {
         setIsValidating(false);
@@ -83,7 +85,11 @@ export const ChatInput = memo(function ChatInput({
   );
 
   return (
-    <div className={`border-t border-[#999999] ${isMobile ? 'p-3' : 'p-4'}`}>
+    <div
+      className={`border-t border-[#999999] ${isMobile ? 'p-3' : 'p-4'}`}
+      role='region'
+      aria-label='Message input'
+    >
       <form
         className={`flex items-end bg-[#333333] border border-[#999999] rounded-xl ${
           isMobile ? 'p-1' : 'p-2'

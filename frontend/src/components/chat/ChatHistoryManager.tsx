@@ -204,7 +204,7 @@ export const ChatHistoryManager = memo(function ChatHistoryManager({
                   <button
                     onClick={() => handleDeleteThread(thread.id)}
                     disabled={loading}
-                    className='text-red-500 hover:text-red-700 p-2 keyboard-navigation'
+                    className='text-red-500 hover:text-red-700 p-2 keyboard-navigation cursor-pointer'
                     aria-label={`Delete conversation with ${thread.model}`}
                   >
                     <Trash2 size={16} />

@@ -139,8 +139,8 @@ export const Sidebar = memo(function Sidebar() {
     if (error) {
       console.error(error);
       return (
-        <div className='text-sm text-red-500 text-center px-2'>
-          Fail fetching ollama models
+        <div className='text-sm text-red-500 text-center p-2'>
+          Error fetching ollama models
         </div>
       );
     }

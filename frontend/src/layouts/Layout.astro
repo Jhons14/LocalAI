@@ -18,6 +18,10 @@ import '../styles/global.css';
 <style>
   * {
     box-sizing: border-box;
+  }
+  
+  /* Apply white text color to main app elements, but not toast notifications */
+  body, main, header, nav, aside, section, article, div:not([class*="toast"]) {
     color: white;
   }
   html,

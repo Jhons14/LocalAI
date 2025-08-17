@@ -194,7 +194,7 @@ const AssistantMessageOutput = memo(function AssistantMessageOutput({
     <div className='flex-1 overflow-y-auto'>
       <div
         ref={containerRef}
-        className={`flex-1 flex-col text-sm leading-relaxed px-4 py-2 rounded-2xl overflow-y-auto`}
+        className={`flex-1 flex-col text-sm leading-relaxed mr-12 py-2 rounded-2xl overflow-y-auto`}
       />
       <div ref={bottomRef} />
     </div>

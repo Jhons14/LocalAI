@@ -58,7 +58,7 @@ export function Tools({ model }: { model: ActiveModel | undefined }) {
         {tools.map((tool) => (
           <li
             key={tool}
-            className='flex justify-between items-center gap-4 px-2 '
+            className='flex justify-between items-center gap-2 px-2 '
           >
             <label>{tool}</label>
             <ToggleSwitch
