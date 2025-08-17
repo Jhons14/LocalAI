@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useChatHistoryContext } from './useChatHistoryContext';
-import { useSidebarData } from './useSidebarData';
+import { useStateSynchronization } from './useStateSynchronization';
 import type {
   SidebarState,
   SidebarActions,
@@ -8,26 +8,33 @@ import type {
   ModelConfig,
 } from '@/types/sidebar';
 import { DEFAULT_SIDEBAR_STATE } from '@/constants/sidebar';
-import { getModelIndices, validateModel } from '@/utils/modelMapping';
+import { getModelIndices } from '@/utils/modelMapping';
 
 export const useSidebarState = (): UseSidebarStateResult => {
   const [state, setState] = useState<SidebarState>(DEFAULT_SIDEBAR_STATE);
-  const { rechargeModel, activeModel } = useChatHistoryContext();
-  const { navigationItems, isLoading } = useSidebarData();
+  const { rechargeModel } = useChatHistoryContext();
+  const { 
+    activeModel, 
+    navigationItems, 
+    isLoading, 
+    isInitialized,
+    syncSidebarWithActiveModel 
+  } = useStateSynchronization();
 
   // Synchronize sidebar state with active model when it changes
   useEffect(() => {
-    if (!activeModel || isLoading || !navigationItems.length) {
+    if (!isInitialized || !activeModel || isLoading || !navigationItems.length) {
       return;
     }
 
-    // Validate that the active model exists in navigation items
-    if (!validateModel(activeModel, navigationItems)) {
+    const syncResult = syncSidebarWithActiveModel(activeModel, navigationItems);
+    
+    if (!syncResult?.isValid) {
       console.warn('Active model not found in navigation items:', activeModel);
       return;
     }
 
-    const { providerIndex, modelIndex } = getModelIndices(activeModel, navigationItems);
+    const { providerIndex, modelIndex } = syncResult;
     
     setState(prev => {
       // Only update if the indices are different to avoid unnecessary re-renders
@@ -41,7 +48,7 @@ export const useSidebarState = (): UseSidebarStateResult => {
       }
       return prev;
     });
-  }, [activeModel, navigationItems, isLoading]);
+  }, [activeModel, navigationItems, isLoading, isInitialized, syncSidebarWithActiveModel]);
 
   const toggleSidebar = useCallback(() => {
     setState((prev) => ({ ...prev, isOpen: !prev.isOpen }));
