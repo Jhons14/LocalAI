@@ -49,6 +49,10 @@ export const ChatOutput = memo(function ChatOutput({
 
   const renderMessage = useCallback(
     (msg: ChatMessage, index: number) => {
+      const previousMsg = index > 0 ? visibleMessages[index - 1] : null;
+      const showModelChange = previousMsg && 
+        (previousMsg.model !== msg.model || previousMsg.provider !== msg.provider);
+      
       return (
         <motion.div
           key={msg.id}
@@ -57,15 +61,27 @@ export const ChatOutput = memo(function ChatOutput({
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.3 }}
         >
+          {showModelChange && (
+            <div className='flex justify-center my-4'>
+              <div className='bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium border border-blue-200'>
+                Switched to {msg.model} ({msg.provider})
+              </div>
+            </div>
+          )}
           {msg.role === 'assistant' ? (
-            <AssistantMessageOutput content={msg.content} />
+            <AssistantMessageOutput 
+              content={msg.content} 
+              status={msg.status}
+              model={msg.model}
+              provider={msg.provider}
+            />
           ) : (
             <UserMessageOutput msg={msg} thread_id={thread_id} />
           )}
         </motion.div>
       );
     },
-    [thread_id]
+    [thread_id, visibleMessages]
   );
 
   return (
@@ -121,6 +137,9 @@ export const ChatOutput = memo(function ChatOutput({
 
 const AssistantMessageOutput = memo(function AssistantMessageOutput({
   content,
+  status,
+  model,
+  provider,
 }: AssistantMessageOutputProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -230,11 +249,39 @@ const AssistantMessageOutput = memo(function AssistantMessageOutput({
     );
   }
 
+  // Status indicator for interrupted or error messages
+  const getStatusIndicator = () => {
+    if (status === 'interrupted') {
+      return (
+        <div className='bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs mb-2 border border-yellow-200'>
+          ⚠️ Message interrupted by model switch
+        </div>
+      );
+    }
+    if (status === 'error') {
+      return (
+        <div className='bg-red-100 text-red-800 px-2 py-1 rounded text-xs mb-2 border border-red-200'>
+          ❌ Error occurred
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className='flex-1'>
+      {getStatusIndicator()}
+      {model && provider && (
+        <div className='text-xs text-gray-500 mb-1 flex items-center gap-1'>
+          <span className='w-2 h-2 bg-green-500 rounded-full'></span>
+          {model} • {provider}
+        </div>
+      )}
       <div
         ref={containerRef}
-        className={`flex flex-col text-sm leading-relaxed mr-12 py-2 rounded-2xl overflow-y-auto gap-4`}
+        className={`flex flex-col text-sm leading-relaxed mr-12 py-2 rounded-2xl overflow-y-auto gap-4 ${
+          status === 'interrupted' ? 'opacity-75' : ''
+        }`}
       />
       <div ref={bottomRef} />
     </div>

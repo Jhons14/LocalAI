@@ -23,7 +23,7 @@ export function ChatHistoryContextProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { sendChatMessage } = useChatApi();
+  const { sendChatMessage, cancelCurrentRequest } = useChatApi();
   const { saveChatHistory, loadChatHistory } = usePersistentChatHistory();
   const { activeModel, setActiveModel } = usePersistentActiveModel();
   const { checkStorageUsage } = useStorageMaintenance();
@@ -31,6 +31,7 @@ export function ChatHistoryContextProvider({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isModelConnected, setIsModelConnected] = useState<boolean>(false);
   const [tempApiKey, setTempApiKey] = useState<string>('');
+  const [isStreaming, setIsStreaming] = useState<boolean>(false);
 
   const chatManager = useRef<
     Record<string, { thread_id?: string; messages: ChatMessage[] }>
@@ -91,6 +92,19 @@ export function ChatHistoryContextProvider({
 
   const rechargeModel = useCallback(
     (model: ModelName, provider: ModelProvider) => {
+      // Cancel any ongoing requests when switching models
+      if (isStreaming) {
+        cancelCurrentRequest();
+        setIsStreaming(false);
+        
+        // Mark any streaming messages as interrupted
+        setMessages(prev => prev.map(msg => 
+          msg.status === 'streaming' 
+            ? { ...msg, status: 'interrupted' as const, content: msg.content + '\n\n[Request interrupted by model switch]' }
+            : msg
+        ));
+      }
+
       if (model in chatManager.current) {
         setActiveModel({
           model: model,
@@ -119,7 +133,7 @@ export function ChatHistoryContextProvider({
 
       setIsModelConnected(false);
     },
-    [activeModel, setActiveModel]
+    [activeModel, setActiveModel, isStreaming, cancelCurrentRequest]
   );
 
   // Función para enviar un mensaje al modelo
@@ -143,6 +157,8 @@ export function ChatHistoryContextProvider({
         role: 'user',
         content,
         createdAt: Date.now(),
+        model,
+        provider,
       };
 
       const assistantMessage: ChatMessage = {
@@ -152,9 +168,12 @@ export function ChatHistoryContextProvider({
         relatedTo: id,
         createdAt: Date.now(),
         status: 'streaming',
+        model,
+        provider,
       };
 
       setMessages((prev) => [...prev, userMessage, assistantMessage]);
+      setIsStreaming(true);
 
       await sendChatMessage(
         {
@@ -168,16 +187,20 @@ export function ChatHistoryContextProvider({
         },
         // onChunk
         (chunk: string) => {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessage.id
-                ? { ...msg, content: (msg.content || '') + chunk }
-                : msg
-            )
-          );
+          // Only update if we're still on the same model and thread
+          if (activeModel?.model === model && activeModel?.thread_id === thread_id) {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessage.id
+                  ? { ...msg, content: (msg.content || '') + chunk }
+                  : msg
+              )
+            );
+          }
         },
         // onError
         (error: string) => {
+          setIsStreaming(false);
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMessage.id
@@ -188,6 +211,7 @@ export function ChatHistoryContextProvider({
         },
         // onComplete
         () => {
+          setIsStreaming(false);
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMessage.id
@@ -217,6 +241,8 @@ export function ChatHistoryContextProvider({
         content: newContent,
         createdAt: Date.now(),
         edited: true,
+        model: activeModel?.model,
+        provider: activeModel?.provider,
       };
       const newAssistantMessage: ChatMessage = {
         id: uuid(),
@@ -225,6 +251,8 @@ export function ChatHistoryContextProvider({
         relatedTo: id,
         createdAt: Date.now(),
         status: 'streaming',
+        model: activeModel?.model,
+        provider: activeModel?.provider,
       };
 
       setMessages((prev) =>
@@ -299,6 +327,7 @@ export function ChatHistoryContextProvider({
         isModelConnected,
         setIsModelConnected,
         rechargeModel,
+        isStreaming,
       }}
     >
       {children}

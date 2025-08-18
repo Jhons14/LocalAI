@@ -1,5 +1,5 @@
 export type MessageRole = 'user' | 'assistant';
-export type MessageStatus = 'complete' | 'streaming' | 'error';
+export type MessageStatus = 'complete' | 'streaming' | 'error' | 'interrupted';
 export type ModelProvider = 'ollama' | 'openai' | 'anthropic' | 'google';
 export type ModelName = string; // Dynamic model names from API
 export type ToolName = 'Gmail' | 'Asana';
@@ -13,6 +13,8 @@ export interface ChatMessage {
   edited?: boolean;
   createdAt: number;
   thread_id?: string;
+  model?: ModelName;
+  provider?: ModelProvider;
 }
 
 export interface ActiveModel {
@@ -54,4 +56,5 @@ export interface ChatContextValue {
   isModelConnected: boolean;
   setIsModelConnected: (isModelConnected: boolean) => void;
   rechargeModel: (model: string, provider: ModelProvider) => void;
+  isStreaming: boolean;
 }
