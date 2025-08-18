@@ -142,6 +142,8 @@ const AssistantMessageOutput = memo(function AssistantMessageOutput({
           }
         );
 
+        console.log('Content after think extraction:', processedContent);
+        console.log('Think blocks:', thinkBlocks);
         const dirty = await marked.parse(processedContent, {
           breaks: true,
           gfm: true,
@@ -171,8 +173,8 @@ const AssistantMessageOutput = memo(function AssistantMessageOutput({
             `
             );
           });
-
           containerRef.current.innerHTML = finalHTML;
+
           containerRef.current.querySelectorAll('ol li').forEach((li) => {
             // Make content normal weight, keep numbers bold
             li.innerHTML = `<span class="font-normal">${li.innerHTML}</span>`;
