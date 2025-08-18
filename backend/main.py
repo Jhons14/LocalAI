@@ -473,7 +473,6 @@ def create_tool_change_system_message(changes: dict, tool_manager: Optional[Tool
         message_parts.append("📋 No tools are currently available")
     
     message_parts.append("You can now use your updated tool configuration to assist with requests.")
-    print("\n".join(message_parts))
     return "\n".join(message_parts)
 
 def detect_tool_conflicts(toolkits: List[str]) -> List[str]:
