@@ -8,7 +8,7 @@ import { ChatHistoryManager } from '@/components/chat/ChatHistoryManager';
 import { Tools } from '../ui/Tools';
 
 export const TopNavBar = memo(function TopNavBar() {
-  const { activeModel, tempApiKey } = useChatHistoryContext();
+  const { activeModel, tempApiKey, clear } = useChatHistoryContext();
   const { isMobile } = useMobileFirst();
   const [showHistoryManager, setShowHistoryManager] = useState<boolean>(false);
 
@@ -51,6 +51,7 @@ export const TopNavBar = memo(function TopNavBar() {
       <ChatHistoryManager
         isOpen={showHistoryManager}
         onClose={() => setShowHistoryManager(false)}
+        onClearAll={clear}
       />
     </div>
   );
