@@ -1,4 +1,4 @@
-import { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback, useEffect } from 'react';
 import { Trash2, Download, Clock, MessageSquare } from 'lucide-react';
 import { usePersistence } from '@/hooks/usePersistentState';
 import { useMobileFirst } from '@/hooks/useResponsive';
@@ -11,11 +11,13 @@ import { X } from 'lucide-react';
 interface ChatHistoryManagerProps {
   isOpen: boolean;
   onClose: () => void;
+  onClearAll?: () => void;
 }
 
 export const ChatHistoryManager = memo(function ChatHistoryManager({
   isOpen,
   onClose,
+  onClearAll,
 }: ChatHistoryManagerProps) {
   const { isMobile } = useMobileFirst();
   const { success, error: showError } = useToast();
@@ -28,7 +30,7 @@ export const ChatHistoryManager = memo(function ChatHistoryManager({
   } = usePersistence();
 
   const [loading, setLoading] = useState(false);
-  const [threads, setThreads] = useState(() => getAllThreads());
+  const [threads, setThreads] = useState<ReturnType<typeof getAllThreads>>([]);
 
   // Close on Escape key
   useEscapeKey(() => {
@@ -38,6 +40,13 @@ export const ChatHistoryManager = memo(function ChatHistoryManager({
   const refreshThreads = useCallback(() => {
     setThreads(getAllThreads());
   }, [getAllThreads]);
+
+  // Refresh threads when the modal opens or when storage might have changed
+  useEffect(() => {
+    if (isOpen) {
+      refreshThreads();
+    }
+  }, [isOpen, refreshThreads]);
 
   const handleDeleteThread = useCallback(
     async (threadId: string) => {
@@ -49,7 +58,8 @@ export const ChatHistoryManager = memo(function ChatHistoryManager({
       try {
         const success_result = deleteChatThread(threadId);
         if (success_result) {
-          refreshThreads();
+          // Immediately update local state
+          setThreads(prev => prev.filter(thread => thread.id !== threadId));
         }
       } catch (error) {
         showError('Delete Failed', 'Failed to delete conversation');
@@ -57,7 +67,7 @@ export const ChatHistoryManager = memo(function ChatHistoryManager({
         setLoading(false);
       }
     },
-    [deleteChatThread, refreshThreads, showError]
+    [deleteChatThread, showError]
   );
 
   const handleClearAll = useCallback(async () => {
@@ -73,14 +83,17 @@ export const ChatHistoryManager = memo(function ChatHistoryManager({
     try {
       const success_result = clearAllHistory();
       if (success_result) {
-        refreshThreads();
+        // Immediately update local state
+        setThreads([]);
+        // Also clear the active conversation
+        onClearAll?.();
       }
     } catch (error) {
       showError('Clear Failed', 'Failed to clear chat history');
     } finally {
       setLoading(false);
     }
-  }, [clearAllHistory, refreshThreads, showError]);
+  }, [clearAllHistory, showError, onClearAll]);
 
   const handleExport = useCallback(() => {
     try {
@@ -204,7 +217,7 @@ export const ChatHistoryManager = memo(function ChatHistoryManager({
                   <button
                     onClick={() => handleDeleteThread(thread.id)}
                     disabled={loading}
-                    className='text-red-500 hover:text-red-700 p-2 keyboard-navigation'
+                    className='text-red-500 hover:text-red-700 p-2 keyboard-navigation cursor-pointer'
                     aria-label={`Delete conversation with ${thread.model}`}
                   >
                     <Trash2 size={16} />

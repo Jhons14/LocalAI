@@ -8,37 +8,35 @@ import { ChatHistoryManager } from '@/components/chat/ChatHistoryManager';
 import { Tools } from '../ui/Tools';
 
 export const TopNavBar = memo(function TopNavBar() {
-  const { activeModel, isModelConnected, tempApiKey, setTempApiKey } =
-    useChatHistoryContext();
+  const { activeModel, tempApiKey, clear } = useChatHistoryContext();
   const { isMobile } = useMobileFirst();
   const [showHistoryManager, setShowHistoryManager] = useState<boolean>(false);
 
   return (
     <div
-      className={`flex mb-2 p-3 ${
-        isMobile ? 'flex-col gap-2 p-3' : 'flex-row items-center gap-4 '
+      className={`grid grid-cols-3 mb-2 p-3 ${
+        isMobile ? 'flex-col gap-2 p-3' : 'flex-row items-center gap-4'
       } border-b border-[#999999] ${
         isMobile ? 'min-h-[100px]' : 'h-20 justify-between'
       }`}
     >
-      <div>
+      <div className='flex items-center gap-6 ml-4'>
         <h1
           className={`${
             isMobile ? 'text-lg text-center' : 'text-xl'
-          } font-bold w-fit ${isMobile ? 'w-full' : 'min-w-max'}`}
+          } font-bold w-fit  ${isMobile ? 'w-full' : 'min-w-max'}`}
         >
           {activeModel?.model || 'Select a model...'}
         </h1>
-
-        {!tempApiKey && activeModel ? (
-          <ApiKeyInput provider={activeModel.provider} />
-        ) : (
-          <span className={`${isMobile ? 'text-center text-sm' : 'text-base'}`}>
-            Api key saved
-          </span>
-        )}
       </div>
-      <div className='flex gap-4 h-10'>
+      {!tempApiKey && activeModel ? (
+        <ApiKeyInput provider={activeModel.provider} />
+      ) : (
+        <span className={`${isMobile ? 'text-center text-sm' : 'text-base'}`}>
+          Api key saved
+        </span>
+      )}
+      <div className='flex justify-end gap-4 h-10'>
         <button
           onClick={() => setShowHistoryManager(true)}
           className={`flex items-center gap-2 p-2 border cursor-pointer border-[#999999] rounded hover:bg-[#555555] hover:text-white transition-all duration-200] keyboard-navigation ${
@@ -53,6 +51,7 @@ export const TopNavBar = memo(function TopNavBar() {
       <ChatHistoryManager
         isOpen={showHistoryManager}
         onClose={() => setShowHistoryManager(false)}
+        onClearAll={clear}
       />
     </div>
   );
@@ -63,7 +62,7 @@ const ApiKeyInput = memo(function ApiKeyInput({
 }: {
   provider: string;
 }) {
-  if (provider !== 'openai') return <div></div>;
+  if (provider === 'ollama') return <div></div>;
   const [show, setShow] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [loading, setLoading] = useState(false);
@@ -118,12 +117,15 @@ const ApiKeyInput = memo(function ApiKeyInput({
   return (
     <div className='relative flex w-full items-center justify-center'>
       {!loading ? (
-        <div className='relative flex py-2 items-center w-full'>
+        <div className='relative flex p-2 items-center w-full'>
           <input
             type={show ? 'text' : 'password'}
             id='apiKey'
             name='apiKey'
-            placeholder={provider + ' API Key'}
+            placeholder={
+              provider.charAt(0).toUpperCase() + provider.slice(1) + ' API Key'
+            }
+            required={true}
             autoComplete='off'
             className={`w-full pr-10 px-4 py-2 border ${
               hasFieldError('apiKey') ? 'border-red-500' : 'border-[#999999]'
@@ -144,7 +146,7 @@ const ApiKeyInput = memo(function ApiKeyInput({
           <button
             type='button'
             onClick={() => setShow((prev) => !prev)}
-            className='cursor-pointer absolute right-3 text-gray-500 hover:text-blue-600'
+            className='cursor-pointer absolute right-5 text-gray-500 hover:text-blue-600'
           >
             {show ? (
               <EyeOff className='w-5 h-5' />

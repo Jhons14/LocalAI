@@ -10,7 +10,7 @@ import type { ChatInputProps } from '@/types/components';
 export const ChatInput = memo(function ChatInput({
   thread_id,
 }: ChatInputProps) {
-  const { sendMessage, activeModel } = useChatHistoryContext();
+  const { sendMessage, activeModel, tempApiKey } = useChatHistoryContext();
   const { isMobile } = useMobileFirst();
   const { getDescribedBy } = useAriaDescribedBy('chat-input');
   const { validateField, getFieldError, hasFieldError, clearValidation } =
@@ -43,12 +43,14 @@ export const ChatInput = memo(function ChatInput({
         // Use sanitized value if available
         const sanitizedMessage = validation.sanitizedValue || message;
         if (!activeModel) return;
+
         sendMessage({
           content: sanitizedMessage,
           thread_id: thread_id,
           model: activeModel.model,
           provider: activeModel.provider,
           toolkits: activeModel.toolkits,
+          api_key: tempApiKey,
         });
 
         clearValidation('message');
@@ -83,7 +85,11 @@ export const ChatInput = memo(function ChatInput({
   );
 
   return (
-    <div className={`border-t border-[#999999] ${isMobile ? 'p-3' : 'p-4'}`}>
+    <div
+      className={`border-t border-[#999999] ${isMobile ? 'p-3' : 'p-4'}`}
+      role='region'
+      aria-label='Message input'
+    >
       <form
         className={`flex items-end bg-[#333333] border border-[#999999] rounded-xl ${
           isMobile ? 'p-1' : 'p-2'

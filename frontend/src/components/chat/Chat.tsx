@@ -10,11 +10,11 @@ import { useSkipToContent, useAriaLive } from '@/hooks/useAccessibility';
 
 export function Chat() {
   const { activeModel } = useChatHistoryContext();
-  const { toasts, removeToast } = useToast();
+  const { toasts, removeToast, error: showError } = useToast();
   const { isMobile } = useMobileFirst();
   const { announceToScreenReader } = useAriaLive();
 
-  // useSkipToContent();
+  useSkipToContent();
 
   return (
     <ChatErrorBoundary>
@@ -31,13 +31,7 @@ export function Chat() {
           >
             <ChatOutput thread_id={activeModel?.thread_id} />
 
-            <div
-              className={`${isMobile ? 'p-2' : 'p-4'}`}
-              role='region'
-              aria-label='Message input'
-            >
-              <ChatInput thread_id={activeModel?.thread_id} />
-            </div>
+            <ChatInput thread_id={activeModel?.thread_id} />
           </main>
         )}
         <div role='region' aria-label='Notifications' aria-live='polite'>

@@ -20,21 +20,24 @@ export interface ToastProps {
 
 const ToastIcon = memo(function ToastIcon({ type }: { type: ToastType }) {
   const iconProps = { size: 20 };
-  
+
   switch (type) {
     case 'success':
-      return <CheckCircle {...iconProps} className="text-green-500" />;
+      return <CheckCircle {...iconProps} className='text-green-500' />;
     case 'error':
-      return <AlertCircle {...iconProps} className="text-red-500" />;
+      return <AlertCircle {...iconProps} className='text-red-500' />;
     case 'warning':
-      return <AlertTriangle {...iconProps} className="text-orange-500" />;
+      return <AlertTriangle {...iconProps} className='text-orange-500' />;
     case 'info':
     default:
-      return <Info {...iconProps} className="text-blue-500" />;
+      return <Info {...iconProps} className='text-blue-500' />;
   }
 });
 
-export const ToastComponent = memo(function ToastComponent({ toast, onClose }: ToastProps) {
+export const ToastComponent = memo(function ToastComponent({
+  toast,
+  onClose,
+}: ToastProps) {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
@@ -54,8 +57,9 @@ export const ToastComponent = memo(function ToastComponent({ toast, onClose }: T
   };
 
   const getToastStyles = () => {
-    const baseStyles = "bg-white border-l-4 shadow-lg rounded-lg p-4 max-w-sm w-full";
-    
+    const baseStyles =
+      'bg-white border-l-4 shadow-lg rounded-lg p-4 max-w-sm w-full text-gray-900';
+
     switch (toast.type) {
       case 'success':
         return `${baseStyles} border-green-500`;
@@ -76,25 +80,34 @@ export const ToastComponent = memo(function ToastComponent({ toast, onClose }: T
           initial={{ opacity: 0, x: 100, scale: 0.8 }}
           animate={{ opacity: 1, x: 0, scale: 1 }}
           exit={{ opacity: 0, x: 100, scale: 0.8 }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
           className={getToastStyles()}
         >
-          <div className="flex items-start">
-            <div className="flex-shrink-0 mr-3">
+          <div className='flex items-start'>
+            <div className='flex-shrink-0 mr-3'>
               <ToastIcon type={toast.type} />
             </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="text-sm font-semibold text-gray-900 mb-1">
+            <div className='flex-1 min-w-0'>
+              <h4
+                className='text-sm font-semibold text-gray-900 mb-1'
+                style={{ color: '#111827' }}
+              >
                 {toast.title}
               </h4>
               {toast.message && (
-                <p className="text-sm text-gray-600">{toast.message}</p>
+                <p
+                  className='text-sm text-gray-600'
+                  style={{ color: '#4B5563' }}
+                >
+                  {toast.message}
+                </p>
               )}
             </div>
             <button
               onClick={handleClose}
-              className="flex-shrink-0 ml-2 text-gray-400 hover:text-gray-600 transition-colors"
-              aria-label="Close notification"
+              className='flex-shrink-0 ml-2 text-gray-400 hover:text-gray-600 transition-colors'
+              style={{ color: '#9CA3AF' }}
+              aria-label='Close notification'
             >
               <X size={16} />
             </button>
@@ -105,15 +118,15 @@ export const ToastComponent = memo(function ToastComponent({ toast, onClose }: T
   );
 });
 
-export const ToastContainer = memo(function ToastContainer({ 
-  toasts, 
-  onClose 
-}: { 
-  toasts: Toast[]; 
-  onClose: (id: string) => void; 
+export const ToastContainer = memo(function ToastContainer({
+  toasts,
+  onClose,
+}: {
+  toasts: Toast[];
+  onClose: (id: string) => void;
 }) {
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2">
+    <div className='fixed top-4 right-4 z-50 space-y-2'>
       <AnimatePresence>
         {toasts.map((toast) => (
           <ToastComponent key={toast.id} toast={toast} onClose={onClose} />

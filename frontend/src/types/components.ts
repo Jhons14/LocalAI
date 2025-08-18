@@ -44,6 +44,9 @@ export interface UserMessageOutputProps {
 
 export interface AssistantMessageOutputProps {
   content?: string;
+  status?: 'complete' | 'streaming' | 'error' | 'interrupted';
+  model?: string;
+  provider?: string;
 }
 
 export interface ApiKeyInputProps {
