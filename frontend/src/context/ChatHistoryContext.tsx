@@ -39,22 +39,27 @@ export function ChatHistoryContextProvider({
 
   // Load messages when active model changes
   useEffect(() => {
-    if (activeModel?.thread_id) {
+    if (activeModel?.thread_id && activeModel?.model) {
       // Load from persistent storage first
       const persistedMessages = loadChatHistory(activeModel.thread_id);
 
       if (persistedMessages.length > 0) {
-        setMessages(persistedMessages);
-        // Also update in-memory cache
+        // Validate that loaded messages belong to the correct model
+        const validMessages = persistedMessages.filter(msg => 
+          !msg.model || msg.model === activeModel.model
+        );
+        
+        setMessages(validMessages);
+        // Update in-memory cache with validated messages
         chatManager.current[activeModel.model] = {
           thread_id: activeModel.thread_id,
-          messages: persistedMessages,
+          messages: validMessages,
         };
       } else {
         // Check in-memory cache
-        const storedMessages = chatManager.current[activeModel.model]?.messages;
-        if (storedMessages) {
-          setMessages(storedMessages);
+        const existingModelData = chatManager.current[activeModel.model];
+        if (existingModelData && existingModelData.thread_id === activeModel.thread_id) {
+          setMessages(existingModelData.messages);
         } else {
           setMessages([]);
         }
@@ -69,22 +74,30 @@ export function ChatHistoryContextProvider({
     if (!activeModel || !activeModel.model || !activeModel.thread_id) return;
     if (messages.length === 0) return;
 
-    // Update in-memory cache
+    // Validate messages belong to current model - filter out any cross-contamination
+    const validMessages = messages.filter(msg => 
+      !msg.model || msg.model === activeModel.model
+    );
+
+    // Only save if we have valid messages
+    if (validMessages.length === 0) return;
+
+    // Update in-memory cache with validated messages
     chatManager.current[activeModel.model] = {
-      ...chatManager.current[activeModel.model],
-      messages: [...messages],
+      thread_id: activeModel.thread_id,
+      messages: [...validMessages],
     };
 
     // Save to persistent storage
     saveChatHistory(
       activeModel.thread_id,
-      messages,
+      validMessages,
       activeModel.model,
       activeModel.provider
     );
 
     // Check storage usage periodically
-    if (messages.length % 10 === 0) {
+    if (validMessages.length % 10 === 0) {
       // Check every 10 messages
       checkStorageUsage();
     }
@@ -105,32 +118,39 @@ export function ChatHistoryContextProvider({
         ));
       }
 
-      if (model in chatManager.current) {
+      // Check if this model already exists in memory with valid thread_id
+      const existingModelData = chatManager.current[model];
+      
+      if (existingModelData && existingModelData.thread_id) {
+        // Model exists with valid thread_id, load its conversation
         setActiveModel({
           model: model,
           provider: provider,
-          thread_id:
-            chatManager?.current[model]?.thread_id ||
-            activeModel?.thread_id ||
-            '',
+          thread_id: existingModelData.thread_id,
           // Preserve existing toolkits if switching to a model that has been used before
           toolkits: activeModel?.toolkits || [],
-        }); // Actualizar el modelo activo y el thread_id
-        if (chatManager.current[model])
-          setMessages(chatManager.current[model].messages); // Cargar el historial de mensajes del modelo activo
-
-        setIsModelConnected(true); // Marcar el modelo como conectado
+        });
+        setMessages(existingModelData.messages);
+        setIsModelConnected(true);
         return;
       }
 
+      // New model or model without thread_id - create fresh conversation
+      const newThreadId = uuid();
       setActiveModel({
         model,
         provider,
-        thread_id: uuid(),
+        thread_id: newThreadId,
         // Initialize with empty toolkits for new models
         toolkits: [],
-      }); // Actualizar el modelo activo y el x
-
+      });
+      
+      // Initialize empty conversation for this model
+      chatManager.current[model] = {
+        thread_id: newThreadId,
+        messages: [],
+      };
+      setMessages([]);
       setIsModelConnected(false);
     },
     [activeModel, setActiveModel, isStreaming, cancelCurrentRequest]
