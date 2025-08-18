@@ -4,14 +4,13 @@ import {
   SidebarNavigation,
   SidebarPanel,
 } from '@/components/sidebar';
-import { useSidebarData } from '@/hooks/useSidebarData';
 import { useSidebarState } from '@/hooks/useSidebarState';
 import type { SidebarProps } from '@/types/sidebar';
 import { SIDEBAR_STYLES } from '@/constants/sidebar';
 
 export const Sidebar = memo(function Sidebar({ className }: SidebarProps) {
-  const { navigationItems } = useSidebarData();
   const {
+    navigationItems,
     isOpen,
     selectedProviderIndex,
     selectedModelIndex,

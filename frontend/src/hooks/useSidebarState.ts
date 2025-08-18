@@ -119,6 +119,7 @@ export const useSidebarState = (): UseSidebarStateResult => {
 
   return {
     ...state,
+    navigationItems,
     toggleSidebar,
     selectProvider,
     selectModel,

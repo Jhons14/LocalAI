@@ -98,7 +98,9 @@ export interface UseSidebarDataResult {
   refetch: () => Promise<void>;
 }
 
-export interface UseSidebarStateResult extends SidebarState, SidebarActions {}
+export interface UseSidebarStateResult extends SidebarState, SidebarActions {
+  navigationItems: NavigationItems;
+}
 
 // API response types
 export interface ModelsApiResponse {
