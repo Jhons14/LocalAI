@@ -109,9 +109,9 @@ export function ChatHistoryContextProvider({
         return;
       }
 
-      setActiveModel({ 
-        model, 
-        provider, 
+      setActiveModel({
+        model,
+        provider,
         thread_id: uuid(),
         // Initialize with empty toolkits for new models
         toolkits: [],
@@ -136,7 +136,6 @@ export function ChatHistoryContextProvider({
       if (!thread_id) {
         throw new Error('Please select a model');
       }
-      console.log(api_key);
 
       const id = uuid();
       const userMessage: ChatMessage = {

@@ -142,8 +142,6 @@ const AssistantMessageOutput = memo(function AssistantMessageOutput({
           }
         );
 
-        console.log('Content after think extraction:', processedContent);
-        console.log('Think blocks:', thinkBlocks);
         const dirty = await marked.parse(processedContent, {
           breaks: true,
           gfm: true,
