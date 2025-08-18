@@ -57,4 +57,6 @@ export interface ChatContextValue {
   setIsModelConnected: (isModelConnected: boolean) => void;
   rechargeModel: (model: string, provider: ModelProvider) => void;
   isStreaming: boolean;
+  userEmail: string;
+  setUserEmail: (email: string) => void;
 }

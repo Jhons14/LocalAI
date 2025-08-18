@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import type { ActiveModel, ToolName } from '@/types/chat';
 import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
-import { Hammer } from 'lucide-react';
+import { Hammer, Mail } from 'lucide-react';
 
 function useToggleOutside() {
   const [isOpen, setIsOpen] = useState(false);
@@ -95,6 +95,78 @@ function useToolsState(activeModel: ActiveModel | undefined) {
   };
 }
 
+// Email button component
+function EmailButton() {
+  const { userEmail, setUserEmail } = useChatHistoryContext();
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [tempEmail, setTempEmail] = useState(userEmail);
+
+  // Update tempEmail when userEmail changes
+  useEffect(() => {
+    setTempEmail(userEmail);
+  }, [userEmail]);
+
+  const handleEmailSubmit = () => {
+    if (tempEmail.trim()) {
+      setUserEmail(tempEmail.trim());
+      setIsEditingEmail(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setTempEmail(userEmail);
+    setIsEditingEmail(false);
+  };
+
+  if (isEditingEmail) {
+    return (
+      <div className="flex items-center gap-2 bg-[#333333] border border-[#999999] rounded-lg p-2">
+        <Mail size={16} />
+        <input
+          type="email"
+          value={tempEmail}
+          onChange={(e) => setTempEmail(e.target.value)}
+          placeholder="Enter your email"
+          className="bg-transparent text-white text-sm outline-none w-40"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleEmailSubmit();
+            if (e.key === 'Escape') handleCancel();
+          }}
+          autoFocus
+        />
+        <button
+          onClick={handleEmailSubmit}
+          className="text-green-500 hover:text-green-400 text-sm"
+        >
+          ✓
+        </button>
+        <button
+          onClick={handleCancel}
+          className="text-red-500 hover:text-red-400 text-sm"
+        >
+          ✕
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setIsEditingEmail(true)}
+      className="h-full cursor-pointer hover:bg-[#777777] transition-all duration-200 bg-[#555555] rounded-lg p-2 flex items-center gap-2"
+      aria-label="Set email"
+      title={userEmail || "Set your email"}
+    >
+      <Mail size={16} />
+      {userEmail && (
+        <span className="text-sm text-gray-300 max-w-24 truncate">
+          {userEmail}
+        </span>
+      )}
+    </button>
+  );
+}
+
 interface ToolsProps {
   model: ActiveModel | undefined;
 }
@@ -135,17 +207,20 @@ export function Tools({ model }: ToolsProps) {
   };
 
   return (
-    <div ref={ref} className='relative'>
-      <button
-        className='h-full cursor-pointer hover:bg-[#777777] transition-all duration-200 bg-[#555555] rounded-lg p-2'
-        onClick={toggle}
-        aria-label='Tools'
-        aria-expanded={isOpen}
-        type="button"
-      >
-        <Hammer />
-      </button>
-      {renderTools()}
+    <div className="flex items-center gap-2">
+      <EmailButton />
+      <div ref={ref} className='relative'>
+        <button
+          className='h-full cursor-pointer hover:bg-[#777777] transition-all duration-200 bg-[#555555] rounded-lg p-2'
+          onClick={toggle}
+          aria-label='Tools'
+          aria-expanded={isOpen}
+          type="button"
+        >
+          <Hammer />
+        </button>
+        {renderTools()}
+      </div>
     </div>
   );
 }

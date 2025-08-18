@@ -32,6 +32,7 @@ export function ChatHistoryContextProvider({
   const [isModelConnected, setIsModelConnected] = useState<boolean>(false);
   const [tempApiKey, setTempApiKey] = useState<string>('');
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
+  const [userEmail, setUserEmail] = useState<string>('');
 
   const chatManager = useRef<
     Record<string, { thread_id?: string; messages: ChatMessage[] }>
@@ -348,6 +349,8 @@ export function ChatHistoryContextProvider({
         setIsModelConnected,
         rechargeModel,
         isStreaming,
+        userEmail,
+        setUserEmail,
       }}
     >
       {children}
