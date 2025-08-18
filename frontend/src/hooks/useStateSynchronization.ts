@@ -4,7 +4,11 @@ import { useSidebarData } from './useSidebarData';
 import { useLoadingCoordinator } from './useLoadingCoordinator';
 import type { ActiveModel } from '@/types/chat';
 import type { NavigationItems } from '@/types/sidebar';
-import { getModelIndices, validateModel, getDefaultModel } from '@/utils/modelMapping';
+import {
+  getModelIndices,
+  validateModel,
+  getDefaultModel,
+} from '@/utils/modelMapping';
 
 /**
  * Central state synchronization hook that ensures all UI states
@@ -16,7 +20,7 @@ export function useStateSynchronization() {
   const loadingCoordinator = useLoadingCoordinator();
   const previousModelRef = useRef<ActiveModel | undefined>(activeModel);
   const isInitializedRef = useRef(false);
-  
+
   // Determine overall loading state
   const isLoading = sidebarLoading || loadingCoordinator.isLoading;
 
@@ -28,7 +32,7 @@ export function useStateSynchronization() {
       }
 
       const { providerIndex, modelIndex } = getModelIndices(model, navItems);
-      
+
       return {
         providerIndex,
         modelIndex,
@@ -40,9 +44,17 @@ export function useStateSynchronization() {
 
   // Coordinate loading phases
   useEffect(() => {
-    if (!isInitializedRef.current && !sidebarLoading && navigationItems.length === 0) {
+    if (
+      !isInitializedRef.current &&
+      !sidebarLoading &&
+      navigationItems.length === 0
+    ) {
       loadingCoordinator.startInitialization();
-    } else if (!sidebarLoading && navigationItems.length > 0 && !loadingCoordinator.canProceedFromPhase('loading-models')) {
+    } else if (
+      !sidebarLoading &&
+      navigationItems.length > 0 &&
+      !loadingCoordinator.canProceedFromPhase('loading-models')
+    ) {
       loadingCoordinator.startModelLoading();
     }
   }, [sidebarLoading, navigationItems.length, loadingCoordinator]);
@@ -80,7 +92,9 @@ export function useStateSynchronization() {
 
       // Validate existing active model
       if (!validateModel(activeModel, navigationItems)) {
-        console.warn('Active model not found in navigation items, setting default');
+        console.warn(
+          'Active model not found in navigation items, setting default'
+        );
         const defaultModel = getDefaultModel(navigationItems);
         if (defaultModel) {
           setActiveModel({
@@ -91,24 +105,31 @@ export function useStateSynchronization() {
           });
         }
       }
-      
+
       // Mark as ready after initialization
       setTimeout(() => loadingCoordinator.markReady(), 100);
     }
 
     // Track model changes for debugging
     if (previousModelRef.current !== activeModel) {
-      console.log('Active model changed:', {
-        from: previousModelRef.current,
-        to: activeModel,
-      });
       previousModelRef.current = activeModel;
     }
-  }, [activeModel, navigationItems, sidebarLoading, setActiveModel, loadingCoordinator]);
+  }, [
+    activeModel,
+    navigationItems,
+    sidebarLoading,
+    setActiveModel,
+    loadingCoordinator,
+  ]);
 
   // Validate model when navigation items change (e.g., Ollama models loaded)
   useEffect(() => {
-    if (!activeModel || isLoading || !navigationItems.length || !isInitializedRef.current) {
+    if (
+      !activeModel ||
+      isLoading ||
+      !navigationItems.length ||
+      !isInitializedRef.current
+    ) {
       return;
     }
 
@@ -149,8 +170,11 @@ export function useStateSynchronization() {
 
   // Get current synchronization state
   const getSyncState = useCallback(() => {
-    const sidebarSync = syncSidebarWithActiveModel(activeModel, navigationItems);
-    
+    const sidebarSync = syncSidebarWithActiveModel(
+      activeModel,
+      navigationItems
+    );
+
     return {
       activeModel,
       navigationItems,
@@ -167,14 +191,15 @@ export function useStateSynchronization() {
     navigationItems,
     isLoading,
     isInitialized: isInitializedRef.current,
-    
+
     // Sync utilities
     syncSidebarWithActiveModel,
     forceSyncStates,
     getSyncState,
-    
+
     // Validation utilities
-    validateActiveModel: (model: ActiveModel) => validateModel(model, navigationItems),
+    validateActiveModel: (model: ActiveModel) =>
+      validateModel(model, navigationItems),
     getDefaultModel: () => getDefaultModel(navigationItems),
   };
 }

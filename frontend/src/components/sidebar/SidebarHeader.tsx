@@ -9,10 +9,10 @@ export function SidebarHeader({ isOpen, onToggle }: SidebarHeaderProps) {
       className={SIDEBAR_STYLES.TOGGLE_BUTTON}
       aria-label={ACCESSIBILITY.LABELS.TOGGLE_SIDEBAR}
       aria-expanded={isOpen}
-      aria-controls="sidebar-panel"
-      type="button"
+      aria-controls='sidebar-panel'
+      type='button'
     >
-      <Menu aria-hidden="true" />
+      <Menu size='full' aria-hidden='true' />
     </button>
   );
 }

@@ -11,7 +11,7 @@ export const PERFORMANCE = {
 export const SIDEBAR_STYLES = {
   BASE: 'h-screen border-r border-r-[#999999] bg-[#333333] text-white transition-all duration-400 flex flex-col',
   TOGGLE_BUTTON:
-    'cursor-pointer p-4 border-b border-b-[#999999] focus:outline-none hover:bg-[#555555] transition-all duration-500',
+    'cursor-pointer p-3 h-14 border-b border-b-[#999999] focus:outline-none hover:bg-[#555555] transition-all duration-500',
   NAV_CONTAINER:
     'w-14 h-full bg-[#333333] text-white transition-all duration-400 flex-1',
   PANEL_BASE:
@@ -19,7 +19,7 @@ export const SIDEBAR_STYLES = {
   PANEL_OPEN: 'w-44 opacity-100',
   PANEL_CLOSED: 'w-0 opacity-0 pointer-events-none',
   ITEM_BUTTON:
-    'flex justify-center items-center gap-2 py-4 px-1 hover:bg-[#555555] w-full cursor-pointer transition-all duration-500',
+    'flex h-14 justify-center items-center gap-2 p-2 px-1 hover:bg-[#555555] w-full cursor-pointer transition-all duration-500',
   ITEM_SELECTED: 'bg-[#555555]',
   MODEL_BUTTON:
     'flex items-center justify-center cursor-pointer w-full py-2 px-2 hover:bg-[#555555] transition-all duration-500',

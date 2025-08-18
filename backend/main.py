@@ -207,38 +207,11 @@ class WorkflowManager:
         """Get usage statistics for a thread"""
         return self.usage_stats.get(thread_id, {})
     
-    def save_user_preferences(self, user_id: str, preferred_toolkits: List[str]):
-        """Save user's preferred toolkit configuration"""
-        preferences = self._load_preferences()
-        preferences[user_id] = {
-            "preferred_toolkits": preferred_toolkits,
-            "updated_at": datetime.now().isoformat()
-        }
-        self._save_preferences(preferences)
+
     
-    def get_user_preferences(self, user_id: str) -> List[str]:
-        """Get user's preferred toolkits"""
-        preferences = self._load_preferences()
-        user_prefs = preferences.get(user_id, {})
-        return user_prefs.get("preferred_toolkits", [])
+
     
-    def _load_preferences(self) -> Dict:
-        """Load preferences from file"""
-        try:
-            if config.PREFERENCES_FILE.exists():
-                with open(config.PREFERENCES_FILE, 'r') as f:
-                    return json.load(f)
-        except Exception as e:
-            logger.warning(f"Could not load preferences: {e}")
-        return {}
-    
-    def _save_preferences(self, preferences: Dict):
-        """Save preferences to file"""
-        try:
-            with open(config.PREFERENCES_FILE, 'w') as f:
-                json.dump(preferences, f, indent=2)
-        except Exception as e:
-            logger.error(f"Could not save preferences: {e}")
+
     
     def get_current_toolkits(self, thread_id: str) -> List[str]:
         """Get current toolkits from workflow configuration"""
@@ -803,8 +776,6 @@ async def chat(request: Request, chat_req: ChatRequest):
             
             # Use user preferences for toolkits if not specified
             user_id = config.USER_EMAIL or "default_user"
-            if getattr(chat_req, 'toolkits', None) is None:
-                chat_req.toolkits = workflow_manager.get_user_preferences(user_id)
             
             # Validate required parameters for non-Ollama providers
             if provider != ModelProvider.OLLAMA and not chat_req.api_key:
