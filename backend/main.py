@@ -51,7 +51,6 @@ class Config:
     MAX_THREAD_ID_LENGTH = int(os.getenv("MAX_THREAD_ID_LENGTH", "100"))
     ARCADE_API_KEY = os.getenv("ARCADE_API_KEY")
     DATABASE_URL = os.getenv("DATABASE_URL")
-    USER_EMAIL = os.getenv("EMAIL")
     CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:4322")
     
     # Rate limiting - ensure proper format
@@ -739,7 +738,7 @@ def create_routing_function(tool_manager: Optional[ToolManager], max_tool_calls:
 class ChatRequest(BaseModel):
     thread_id: str = Field(..., min_length=1, max_length=100)
     prompt: str = Field(..., min_length=1, max_length=10000)
-    
+    userEmail: str = Field(..., min_length=1, max_length=100)
     # Optional configuration parameters for first-time setup
     model: Optional[str] = Field(None, min_length=1, max_length=100)
     provider: Optional[ModelProvider] = None
@@ -775,7 +774,7 @@ async def chat(request: Request, chat_req: ChatRequest):
             model = chat_req.model or "llama3.2"  # Default Ollama model
             
             # Use user preferences for toolkits if not specified
-            user_id = config.USER_EMAIL or "default_user"
+            user_id = chat_req.userEmail or "default_user"
             
             # Validate required parameters for non-Ollama providers
             if provider != ModelProvider.OLLAMA and not chat_req.api_key:
@@ -894,7 +893,7 @@ async def chat(request: Request, chat_req: ChatRequest):
         runtime_config = {
             "configurable": {
                 "thread_id": chat_req.thread_id,
-                "user_id": config.USER_EMAIL or "default_user"
+                "user_id": chat_req.userEmail or "default_user"
             },
             "recursion_limit": config.MAX_RECURSION_DEPTH
         }

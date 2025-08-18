@@ -12,7 +12,7 @@ export function SidebarHeader({ isOpen, onToggle }: SidebarHeaderProps) {
       aria-controls='sidebar-panel'
       type='button'
     >
-      <Menu size='full' aria-hidden='true' />
+      <Menu className='w-8 h-8' aria-hidden='true' />
     </button>
   );
 }
