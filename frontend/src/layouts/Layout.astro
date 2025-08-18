@@ -7,7 +7,6 @@ import '../styles/global.css';
   <head>
     <meta charset='UTF-8' />
     <meta name='viewport' content='width=device-width' />
-    <link rel='icon' type='image/svg+xml' href='/favicon.svg' />
     <title>Local IA</title>
   </head>
   <body>
@@ -19,9 +18,16 @@ import '../styles/global.css';
   * {
     box-sizing: border-box;
   }
-  
+
   /* Apply white text color to main app elements, but not toast notifications */
-  body, main, header, nav, aside, section, article, div:not([class*="toast"]) {
+  body,
+  main,
+  header,
+  nav,
+  aside,
+  section,
+  article,
+  div:not([class*='toast']) {
     color: white;
   }
   html,

@@ -7,7 +7,7 @@ import type {
 } from '@/types/chat';
 
 export function useChatApi() {
-  const { streamRequest, postRequest, getRequest } = useApi();
+  const { streamRequest, postRequest, getRequest, abortPreviousRequest } = useApi();
 
   const sendChatMessage = useCallback(
     async (
@@ -17,8 +17,6 @@ export function useChatApi() {
       onComplete: () => void
     ) => {
       try {
-        console.log('Sending chat message:', params.api_key);
-
         const { reader } = await streamRequest('/chat', {
           prompt: params.content,
           thread_id: params.thread_id,
@@ -41,6 +39,12 @@ export function useChatApi() {
 
         onComplete();
       } catch (error) {
+        // Handle abort errors gracefully
+        if (error instanceof Error && error.name === 'AbortError') {
+          onError('Request was cancelled');
+          return;
+        }
+        
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error occurred';
         onError(errorMessage);
@@ -53,8 +57,13 @@ export function useChatApi() {
     return getRequest('/models?provider=ollama');
   }, [postRequest]);
 
+  const cancelCurrentRequest = useCallback(() => {
+    abortPreviousRequest();
+  }, [abortPreviousRequest]);
+
   return {
     sendChatMessage,
     getOllamaModels,
+    cancelCurrentRequest,
   };
 }

@@ -145,6 +145,7 @@ class WorkflowManager:
         self.usage_stats: Dict[str, Dict] = {}  # Simple usage tracking
     
     def get_workflow(self, thread_id: str) -> Optional[StateGraph]:
+        
         return self.workflows.get(thread_id)
     
     def set_workflow(self, thread_id: str, workflow: StateGraph, config: Dict):
@@ -430,7 +431,6 @@ def create_tool_change_system_message(changes: dict, tool_manager: Optional[Tool
     added_tools = changes.get("added_tools", [])
     removed_tools = changes.get("removed_tools", [])
     new_toolkits = changes.get("new_toolkits", [])
-    
     if not added_tools and not removed_tools:
         return ""
     
@@ -473,7 +473,7 @@ def create_tool_change_system_message(changes: dict, tool_manager: Optional[Tool
         message_parts.append("📋 No tools are currently available")
     
     message_parts.append("You can now use your updated tool configuration to assist with requests.")
-    
+    print("\n".join(message_parts))
     return "\n".join(message_parts)
 
 def detect_tool_conflicts(toolkits: List[str]) -> List[str]:
@@ -792,6 +792,7 @@ class ChatRequest(BaseModel):
 async def chat(request: Request, chat_req: ChatRequest):
     """Chat with a model, configuring it automatically on first request"""
     try:
+
         # Check if thread already exists
         if not workflow_manager.exists(chat_req.thread_id):
             # Auto-configure on first request
@@ -803,7 +804,7 @@ async def chat(request: Request, chat_req: ChatRequest):
             
             # Use user preferences for toolkits if not specified
             user_id = config.USER_EMAIL or "default_user"
-            if not chat_req.toolkits:
+            if getattr(chat_req, 'toolkits', None) is None:
                 chat_req.toolkits = workflow_manager.get_user_preferences(user_id)
             
             # Validate required parameters for non-Ollama providers
@@ -882,10 +883,10 @@ async def chat(request: Request, chat_req: ChatRequest):
             logger.info(f"Successfully auto-configured thread {chat_req.thread_id}")
         
         else:
-            # Thread already exists - check if tools need to be reconfigured
+            # Thread already exists - check if tools need to be reconfigured       
+
             current_toolkits = workflow_manager.get_current_toolkits(chat_req.thread_id)
             requested_toolkits = chat_req.toolkits or []
-            
             # Compare toolkits (order-independent comparison)
             if set(current_toolkits) != set(requested_toolkits):
                 logger.info(f"Reconfiguring tools for thread {chat_req.thread_id}: {current_toolkits} -> {requested_toolkits}")
@@ -915,6 +916,7 @@ async def chat(request: Request, chat_req: ChatRequest):
                     logger.error(f"Error reconfiguring tools: {str(e)}")
                     raise HTTPException(status_code=500, detail=f"Error reconfiguring tools: {str(e)}")
             else:
+                
                 logger.debug(f"No tool changes needed for thread {chat_req.thread_id}")
                 tool_change_message = ""  # No changes, no message
         

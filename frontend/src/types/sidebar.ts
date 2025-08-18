@@ -37,6 +37,7 @@ export interface SidebarActions {
   selectModel: (index: number, model: ModelConfig) => void;
   setError: (error: string | null) => void;
   reset: () => void;
+  syncWithActiveModel: () => void;
 }
 
 // Component prop interfaces
@@ -97,7 +98,9 @@ export interface UseSidebarDataResult {
   refetch: () => Promise<void>;
 }
 
-export interface UseSidebarStateResult extends SidebarState, SidebarActions {}
+export interface UseSidebarStateResult extends SidebarState, SidebarActions {
+  navigationItems: NavigationItems;
+}
 
 // API response types
 export interface ModelsApiResponse {
