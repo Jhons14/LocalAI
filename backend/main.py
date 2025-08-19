@@ -468,9 +468,9 @@ def detect_tool_conflicts(toolkits: List[str]) -> List[str]:
 
 # ==================== Message Serialization ====================
 def serialize_message(message) -> dict:
-    """Serialize any type of LangChain message"""
+    """Serialize any type of LangChain message with enhanced status and metadata handling"""
     if hasattr(message, 'type') or isinstance(message, BaseMessage):
-        return {
+        serialized = {
             "type": getattr(message, 'type', 'unknown'),
             "content": getattr(message, 'content', ''),
             "additional_kwargs": getattr(message, 'additional_kwargs', {}),
@@ -481,6 +481,69 @@ def serialize_message(message) -> dict:
             "tool_call_id": getattr(message, 'tool_call_id', None),
             "name": getattr(message, 'name', None),
         }
+        
+        # Capture artifact field for tool messages
+        if hasattr(message, 'artifact'):
+            serialized["artifact"] = getattr(message, 'artifact', None)
+            
+        # Extract status information from various possible locations
+        if serialized["type"] == "tool":
+            # Priority order for status determination:
+            # 1. Explicit non-default status attribute on message
+            # 2. Status in additional_kwargs
+            # 3. Success flag in additional_kwargs  
+            # 4. Status in response_metadata
+            # 5. Error in response_metadata
+            # 6. Content pattern analysis
+            # 7. Default to success
+            
+            status_found = False
+            
+            # Enhanced status handling for ToolMessages - check explicit status first
+            # BUT only if it's not the default 'success' value, because tools might
+            # have meaningful error information in other fields that overrides the default
+            if hasattr(message, 'status'):
+                explicit_status = getattr(message, 'status', 'success')
+                if explicit_status != 'success':
+                    # Only trust non-default status values
+                    serialized["status"] = explicit_status
+                    status_found = True
+                # If status is 'success' (default), continue checking other fields for error indicators
+            
+            # Check for status in additional_kwargs
+            if not status_found:
+                additional_kwargs = serialized.get("additional_kwargs", {})
+                if "status" in additional_kwargs:
+                    serialized["status"] = additional_kwargs["status"]
+                    status_found = True
+                elif "success" in additional_kwargs:
+                    serialized["status"] = "success" if additional_kwargs["success"] else "error"
+                    status_found = True
+            
+            # Check response_metadata for status indicators
+            if not status_found:
+                response_metadata = serialized.get("response_metadata", {})
+                if "status" in response_metadata:
+                    serialized["status"] = response_metadata["status"]
+                    status_found = True
+                elif "error" in response_metadata:
+                    serialized["status"] = "error"
+                    serialized["error_details"] = response_metadata["error"]
+                    status_found = True
+            
+            # Analyze content for error patterns if no explicit status found
+            if not status_found and serialized["content"]:
+                content_str = str(serialized["content"]).lower()
+                if any(error_pattern in content_str for error_pattern in 
+                       ["error:", "failed", "exception", "could not", "unable to"]):
+                    serialized["status"] = "error"
+                    status_found = True
+            
+            # Default to success if no status indicators found
+            if not status_found:
+                serialized["status"] = "success"
+        
+        return serialized
     return message
 
 # ==================== Workflow Components ====================
@@ -668,23 +731,52 @@ class WorkflowBuilder:
                 pass
             
             try:
+                # Log tool execution details
+                logger.info(f"Executing tools: {', '.join(tool_names) if tool_names else 'unknown'}")
+                logger.debug(f"Tool execution state: {state}")
                 
-                print(state)
                 result = await tool_node.ainvoke(state)
-                print(result)
-
-                # Track successful execution time
-                execution_time = time.time() - start_time
-                for tool_name in tool_names:
-                    # Note: We'd need thread_id here, but it's not easily accessible
-                    # This is a simplified version - in practice you'd pass thread_id through context
-                    pass
                 
+                # Enhanced logging of tool results with status information
+                execution_time = time.time() - start_time
+                logger.info(f"Tool execution completed in {execution_time:.2f}s")
+                
+                # Process and log tool responses with status information
                 if "messages" in result:
-                    serialized_messages = [
-                        serialize_message(msg) for msg in result["messages"]
-                    ]
+                    serialized_messages = []
+                    for i, msg in enumerate(result["messages"]):
+                        serialized_msg = serialize_message(msg)
+                        serialized_messages.append(serialized_msg)
+                        
+                        # Log detailed tool response information
+                        tool_name = serialized_msg.get("name", "unknown")
+                        status = serialized_msg.get("status", "unknown")
+                        content_preview = str(serialized_msg.get("content", ""))[:100]
+                        
+                        logger.info(f"Tool '{tool_name}' response {i+1}: status={status}, content_preview='{content_preview}'")
+                        
+                        # Log additional diagnostic information for tool responses
+                        if serialized_msg.get("type") == "tool":
+                            if "error_details" in serialized_msg:
+                                logger.warning(f"Tool '{tool_name}' error details: {serialized_msg['error_details']}")
+                            
+                            # Log artifacts if present
+                            if serialized_msg.get("artifact"):
+                                logger.debug(f"Tool '{tool_name}' has artifact data")
+                            
+                            # Log additional metadata
+                            additional_kwargs = serialized_msg.get("additional_kwargs", {})
+                            response_metadata = serialized_msg.get("response_metadata", {})
+                            if additional_kwargs:
+                                logger.debug(f"Tool '{tool_name}' additional_kwargs: {additional_kwargs}")
+                            if response_metadata:
+                                logger.debug(f"Tool '{tool_name}' response_metadata: {response_metadata}")
+                    
                     result["messages"] = serialized_messages
+                    logger.info(f"Processed {len(serialized_messages)} tool response messages")
+                else:
+                    logger.warning("Tool execution result contains no 'messages' field")
+                    logger.debug(f"Raw tool result: {result}")
                 
                 return result
                 
