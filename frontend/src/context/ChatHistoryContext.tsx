@@ -167,6 +167,7 @@ export function ChatHistoryContextProvider({
       api_key,
       toolkits = [],
       enable_memory = true,
+      email,
     }: SendMessageParams) => {
       if (!thread_id) {
         throw new Error('Please select a model');
@@ -205,6 +206,7 @@ export function ChatHistoryContextProvider({
           toolkits,
           enable_memory,
           api_key,
+          email,
         },
         // onChunk
         (chunk: string) => {
@@ -243,7 +245,7 @@ export function ChatHistoryContextProvider({
         }
       );
     },
-    [sendChatMessage, activeModel?.toolkits, tempApiKey]
+    [sendChatMessage, activeModel?.toolkits, tempApiKey, userEmail]
   );
 
   const edit = useCallback(
@@ -285,7 +287,16 @@ export function ChatHistoryContextProvider({
       );
 
       await sendChatMessage(
-        { content: newContent, thread_id },
+        { 
+          content: newContent, 
+          thread_id,
+          model: activeModel?.model,
+          provider: activeModel?.provider,
+          api_key: tempApiKey,
+          toolkits: activeModel?.toolkits || [],
+          enable_memory: true,
+          email: userEmail,
+        },
         // onChunk
         (chunk: string) => {
           setMessages((prev) =>
@@ -318,7 +329,7 @@ export function ChatHistoryContextProvider({
         }
       );
     },
-    [messages, sendChatMessage]
+    [messages, sendChatMessage, activeModel, tempApiKey, userEmail]
   );
 
   const clear = useCallback(() => {

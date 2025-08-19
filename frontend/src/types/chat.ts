@@ -33,6 +33,7 @@ export interface SendMessageParams {
   api_key?: string | undefined;
   toolkits: string[];
   enable_memory?: boolean;
+  email?: string;
 }
 
 export interface ConfigureModelParams {
