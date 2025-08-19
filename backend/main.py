@@ -738,8 +738,8 @@ def create_routing_function(tool_manager: Optional[ToolManager], max_tool_calls:
 class ChatRequest(BaseModel):
     thread_id: str = Field(..., min_length=1, max_length=100)
     prompt: str = Field(..., min_length=1, max_length=10000)
-    userEmail: str = Field(..., min_length=1, max_length=100)
     # Optional configuration parameters for first-time setup
+    userEmail: Optional[str] = Field(None, max_length=100)
     model: Optional[str] = Field(None, min_length=1, max_length=100)
     provider: Optional[ModelProvider] = None
     api_key: Optional[str] = Field(None, max_length=500)

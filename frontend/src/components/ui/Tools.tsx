@@ -3,6 +3,7 @@ import type { ActiveModel, ToolName } from '@/types/chat';
 import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { EmailModal } from '@/components/ui/EmailModal';
+import { useToast } from '@/hooks/useToast';
 import { Hammer, Mail } from 'lucide-react';
 
 function useToggleOutside() {
@@ -40,6 +41,9 @@ function useToolsState(activeModel: ActiveModel | undefined) {
       }, {} as Record<ToolName, boolean>);
     }
   );
+
+  // State for bounce-back animation
+  const [bouncingTools, setBouncingTools] = useState<Record<ToolName, boolean>>({});
 
   const { setActiveModel } = useChatHistoryContext();
 
@@ -92,9 +96,22 @@ function useToolsState(activeModel: ActiveModel | undefined) {
     });
   };
 
+  // Function to trigger bounce-back animation
+  const triggerBounceBack = (tool: ToolName) => {
+    // Set bouncing state to true (appears to turn on)
+    setBouncingTools(prev => ({ ...prev, [tool]: true }));
+    
+    // After a short delay, set it back to false (bounces back)
+    setTimeout(() => {
+      setBouncingTools(prev => ({ ...prev, [tool]: false }));
+    }, 150); // Half-way point of the animation
+  };
+
   return {
     toolsState,
     toggleTool,
+    triggerBounceBack,
+    bouncingTools,
   };
 }
 
@@ -118,7 +135,7 @@ function EmailButton() {
           </span>
         )}
       </button>
-      
+
       <EmailModal
         isOpen={showEmailModal}
         onClose={() => setShowEmailModal(false)}
@@ -133,7 +150,29 @@ interface ToolsProps {
 
 export function Tools({ model }: ToolsProps) {
   const { isOpen, toggle, ref } = useToggleOutside();
-  const { toolsState, toggleTool } = useToolsState(model);
+  const { toolsState, toggleTool, triggerBounceBack, bouncingTools } = useToolsState(model);
+  const { userEmail } = useChatHistoryContext();
+  const { warning } = useToast();
+
+  // Check if email is set for tools validation
+  const isEmailSet = Boolean(userEmail && userEmail.trim());
+
+  // Handle toggle changes with email validation
+  const handleToolToggle = (tool: ToolName, value: boolean) => {
+    if (!isEmailSet && value === true) {
+      // Trigger bounce-back animation and show warning
+      triggerBounceBack(tool);
+      setTimeout(() => {
+        warning(
+          'Email Required',
+          'Please set your email address before using tools. Click the email button to get started.'
+        );
+      }, 200); // Show warning after animation completes
+      return;
+    }
+    toggleTool(tool, value);
+  };
+
 
   if (!model) return null;
 
@@ -156,8 +195,8 @@ export function Tools({ model }: ToolsProps) {
             <ToggleSwitch
               id={`tool-${tool}`}
               size='x-small'
-              value={toolsState[tool]} // Use controlled value instead of initialValue
-              onChange={(value) => toggleTool(tool, value)}
+              value={toolsState[tool] || bouncingTools[tool]} // Show bounce animation
+              onChange={(value) => handleToolToggle(tool, value)}
               aria-label={`Toggle ${tool} tool`}
             />
           </li>
