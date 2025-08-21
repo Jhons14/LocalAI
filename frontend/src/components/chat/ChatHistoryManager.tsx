@@ -59,7 +59,7 @@ export const ChatHistoryManager = memo(function ChatHistoryManager({
         const success_result = deleteChatThread(threadId);
         if (success_result) {
           // Immediately update local state
-          setThreads(prev => prev.filter(thread => thread.id !== threadId));
+          setThreads((prev) => prev.filter((thread) => thread.id !== threadId));
         }
       } catch (error) {
         showError('Delete Failed', 'Failed to delete conversation');
@@ -115,7 +115,7 @@ export const ChatHistoryManager = memo(function ChatHistoryManager({
   return (
     <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 '>
       <div
-        className={`bg-white rounded-lg shadow-xl ${
+        className={`bg-white rounded-lg text-[#555555] shadow-xl ${
           isMobile ? 'w-full h-full' : 'w-full max-w-2xl max-h-[80vh]'
         } flex flex-col`}
       >
@@ -124,7 +124,7 @@ export const ChatHistoryManager = memo(function ChatHistoryManager({
           <h2 className='text-xl font-semibold'>Chat History</h2>
           <button
             onClick={onClose}
-            className='text-[#555555] cursor-pointer hover:text-gray-700 p-2 hover:scale-110 transition-transform keyboard-navigation'
+            className='cursor-pointer hover:text-gray-700 p-2 hover:scale-110 transition-transform keyboard-navigation'
             aria-label='Close chat history'
           >
             <X size={20} />

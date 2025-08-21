@@ -10,7 +10,7 @@ import type { ChatInputProps } from '@/types/components';
 export const ChatInput = memo(function ChatInput({
   thread_id,
 }: ChatInputProps) {
-  const { sendMessage, activeModel, tempApiKey } = useChatHistoryContext();
+  const { sendMessage, activeModel, tempApiKey, userEmail } = useChatHistoryContext();
   const { isMobile } = useMobileFirst();
   const { getDescribedBy } = useAriaDescribedBy('chat-input');
   const { validateField, getFieldError, hasFieldError, clearValidation } =
@@ -51,6 +51,7 @@ export const ChatInput = memo(function ChatInput({
           provider: activeModel.provider,
           toolkits: activeModel.toolkits,
           api_key: tempApiKey,
+          email: userEmail,
         });
 
         clearValidation('message');

@@ -11,7 +11,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from typing import Optional, Dict, List
 
-from langchain_arcade import ToolManager
+from langchain_arcade import ToolManager, ArcadeToolManager
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
@@ -38,6 +38,7 @@ import json
 import time
 from pathlib import Path
 from enum import Enum
+from prompts import prompt_loader
 
 load_dotenv()
 
@@ -51,7 +52,6 @@ class Config:
     MAX_THREAD_ID_LENGTH = int(os.getenv("MAX_THREAD_ID_LENGTH", "100"))
     ARCADE_API_KEY = os.getenv("ARCADE_API_KEY")
     DATABASE_URL = os.getenv("DATABASE_URL")
-    USER_EMAIL = os.getenv("EMAIL")
     CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:4322")
     
     # Rate limiting - ensure proper format
@@ -141,7 +141,7 @@ class WorkflowManager:
     def __init__(self):
         self.workflows: Dict[str, StateGraph] = {}
         self.configurations: Dict[str, Dict] = {}
-        self.tool_managers: Dict[str, ToolManager] = {}
+        self.tool_managers: Dict[str, ArcadeToolManager] = {}
         self.usage_stats: Dict[str, Dict] = {}  # Simple usage tracking
     
     def get_workflow(self, thread_id: str) -> Optional[StateGraph]:
@@ -155,10 +155,10 @@ class WorkflowManager:
     def get_config(self, thread_id: str) -> Optional[Dict]:
         return self.configurations.get(thread_id)
     
-    def get_tool_manager(self, thread_id: str) -> Optional[ToolManager]:
+    def get_tool_manager(self, thread_id: str) -> Optional[ArcadeToolManager]:
         return self.tool_managers.get(thread_id)
     
-    def set_tool_manager(self, thread_id: str, manager: ToolManager):
+    def set_tool_manager(self, thread_id: str, manager: ArcadeToolManager):
         self.tool_managers[thread_id] = manager
     
     def exists(self, thread_id: str) -> bool:
@@ -207,38 +207,11 @@ class WorkflowManager:
         """Get usage statistics for a thread"""
         return self.usage_stats.get(thread_id, {})
     
-    def save_user_preferences(self, user_id: str, preferred_toolkits: List[str]):
-        """Save user's preferred toolkit configuration"""
-        preferences = self._load_preferences()
-        preferences[user_id] = {
-            "preferred_toolkits": preferred_toolkits,
-            "updated_at": datetime.now().isoformat()
-        }
-        self._save_preferences(preferences)
+
     
-    def get_user_preferences(self, user_id: str) -> List[str]:
-        """Get user's preferred toolkits"""
-        preferences = self._load_preferences()
-        user_prefs = preferences.get(user_id, {})
-        return user_prefs.get("preferred_toolkits", [])
+
     
-    def _load_preferences(self) -> Dict:
-        """Load preferences from file"""
-        try:
-            if config.PREFERENCES_FILE.exists():
-                with open(config.PREFERENCES_FILE, 'r') as f:
-                    return json.load(f)
-        except Exception as e:
-            logger.warning(f"Could not load preferences: {e}")
-        return {}
-    
-    def _save_preferences(self, preferences: Dict):
-        """Save preferences to file"""
-        try:
-            with open(config.PREFERENCES_FILE, 'w') as f:
-                json.dump(preferences, f, indent=2)
-        except Exception as e:
-            logger.error(f"Could not save preferences: {e}")
+
     
     def get_current_toolkits(self, thread_id: str) -> List[str]:
         """Get current toolkits from workflow configuration"""
@@ -280,7 +253,7 @@ class WorkflowManager:
         tool_manager = None
         tools = []
         if new_toolkits:
-            tool_manager = ToolManager(api_key=config.ARCADE_API_KEY)
+            tool_manager = ArcadeToolManager(api_key=config.ARCADE_API_KEY)
             tool_manager.init_tools(toolkits=new_toolkits)
             tools = tool_manager.to_langchain(use_interrupts=True)
             self.set_tool_manager(thread_id, tool_manager)
@@ -426,7 +399,7 @@ def validate_thread_id(thread_id: str) -> str:
     
     return thread_id
 
-def create_tool_change_system_message(changes: dict, tool_manager: Optional[ToolManager] = None) -> str:
+def create_tool_change_system_message(changes: dict, tool_manager: Optional[ArcadeToolManager] = None) -> str:
     """Create a system message explaining tool configuration changes"""
     added_tools = changes.get("added_tools", [])
     removed_tools = changes.get("removed_tools", [])
@@ -495,9 +468,9 @@ def detect_tool_conflicts(toolkits: List[str]) -> List[str]:
 
 # ==================== Message Serialization ====================
 def serialize_message(message) -> dict:
-    """Serialize any type of LangChain message"""
+    """Serialize any type of LangChain message with enhanced status and metadata handling"""
     if hasattr(message, 'type') or isinstance(message, BaseMessage):
-        return {
+        serialized = {
             "type": getattr(message, 'type', 'unknown'),
             "content": getattr(message, 'content', ''),
             "additional_kwargs": getattr(message, 'additional_kwargs', {}),
@@ -508,6 +481,69 @@ def serialize_message(message) -> dict:
             "tool_call_id": getattr(message, 'tool_call_id', None),
             "name": getattr(message, 'name', None),
         }
+        
+        # Capture artifact field for tool messages
+        if hasattr(message, 'artifact'):
+            serialized["artifact"] = getattr(message, 'artifact', None)
+            
+        # Extract status information from various possible locations
+        if serialized["type"] == "tool":
+            # Priority order for status determination:
+            # 1. Explicit non-default status attribute on message
+            # 2. Status in additional_kwargs
+            # 3. Success flag in additional_kwargs  
+            # 4. Status in response_metadata
+            # 5. Error in response_metadata
+            # 6. Content pattern analysis
+            # 7. Default to success
+            
+            status_found = False
+            
+            # Enhanced status handling for ToolMessages - check explicit status first
+            # BUT only if it's not the default 'success' value, because tools might
+            # have meaningful error information in other fields that overrides the default
+            if hasattr(message, 'status'):
+                explicit_status = getattr(message, 'status', 'success')
+                if explicit_status != 'success':
+                    # Only trust non-default status values
+                    serialized["status"] = explicit_status
+                    status_found = True
+                # If status is 'success' (default), continue checking other fields for error indicators
+            
+            # Check for status in additional_kwargs
+            if not status_found:
+                additional_kwargs = serialized.get("additional_kwargs", {})
+                if "status" in additional_kwargs:
+                    serialized["status"] = additional_kwargs["status"]
+                    status_found = True
+                elif "success" in additional_kwargs:
+                    serialized["status"] = "success" if additional_kwargs["success"] else "error"
+                    status_found = True
+            
+            # Check response_metadata for status indicators
+            if not status_found:
+                response_metadata = serialized.get("response_metadata", {})
+                if "status" in response_metadata:
+                    serialized["status"] = response_metadata["status"]
+                    status_found = True
+                elif "error" in response_metadata:
+                    serialized["status"] = "error"
+                    serialized["error_details"] = response_metadata["error"]
+                    status_found = True
+            
+            # Analyze content for error patterns if no explicit status found
+            if not status_found and serialized["content"]:
+                content_str = str(serialized["content"]).lower()
+                if any(error_pattern in content_str for error_pattern in 
+                       ["error:", "failed", "exception", "could not", "unable to"]):
+                    serialized["status"] = "error"
+                    status_found = True
+            
+            # Default to success if no status indicators found
+            if not status_found:
+                serialized["status"] = "success"
+        
+        return serialized
     return message
 
 # ==================== Workflow Components ====================
@@ -515,7 +551,7 @@ class WorkflowBuilder:
     """Builder for creating workflow graphs"""
     
     @staticmethod
-    def create_agent_node(model, tool_manager: Optional[ToolManager] = None):
+    def create_agent_node(model, tool_manager: Optional[ArcadeToolManager] = None):
         """Create an agent node with streaming support"""
         
         async def call_agent(state: MessagesState, writer, config: RunnableConfig, *, store: BaseStore):
@@ -548,6 +584,8 @@ class WorkflowBuilder:
             
             # Build system message
             system_content = WorkflowBuilder._build_system_message(memories_str, tool_manager)
+            logger.info(f"System message length: {len(system_content)}")
+            logger.debug(f"System message content: {system_content[:500]}...")
             messages_with_system = WorkflowBuilder._ensure_system_message(messages, system_content)
             
             # Check for memory storage request
@@ -591,17 +629,70 @@ class WorkflowBuilder:
         return call_agent
     
     @staticmethod
-    def _build_system_message(memories_str: str, tool_manager: Optional[ToolManager]) -> str:
-        """Build system message with memories and tool instructions"""
-        base_msg = "You are a helpful AI assistant"
-        
-        if tool_manager:
-            base_msg += " with access to various tools. Always provide required parameters when using tools."
-        
-        if memories_str:
-            base_msg += f"\n\nUser memories:\n{memories_str}"
-        
-        return base_msg
+    def _extract_tool_schemas(tool_manager: ArcadeToolManager) -> str:
+        """Extract tool schemas and parameter requirements from tool manager"""
+        try:
+            # Get the tools from the manager
+            tools = tool_manager.to_langchain(use_interrupts=True)
+            logger.info(f"Found {len(tools)} tools from tool manager")
+            
+            if not tools:
+                logger.warning("No tools found from tool manager")
+                return ""
+            
+            tool_schemas = []
+            for i, tool in enumerate(tools):
+                tool_name = getattr(tool, 'name', 'Unknown')
+                tool_description = getattr(tool, 'description', 'No description available')
+                logger.info(f"Processing tool {i+1}/{len(tools)}: {tool_name}")
+                
+                # Try to get tool arguments schema
+                args_schema = getattr(tool, 'args_schema', None)
+                if args_schema:
+                    try:
+                        # Extract field information from pydantic schema
+                        schema_info = args_schema.model_json_schema()
+                        properties = schema_info.get('properties', {})
+                        required = schema_info.get('required', [])
+                        logger.info(f"Tool {tool_name} has {len(properties)} parameters, {len(required)} required")
+                        
+                        tool_info = f"\n{tool_name}:"
+                        tool_info += f"\n- Description: {tool_description}"
+                        
+                        if properties:
+                            tool_info += "\n- Parameters:"
+                            for field_name, field_info in properties.items():
+                                param_type = field_info.get('type', 'unknown')
+                                param_desc = field_info.get('description', 'No description')
+                                is_required = field_name in required
+                                status = "(REQUIRED)" if is_required else "(optional)"
+                                tool_info += f"\n  • {field_name} {status}: {param_desc} (type: {param_type})"
+                        
+                        tool_schemas.append(tool_info)
+                    except Exception as e:
+                        logger.warning(f"Failed to extract schema for {tool_name}: {e}")
+                        # Fallback for tools without proper schema
+                        tool_schemas.append(f"\n{tool_name}:\n- Description: {tool_description}\n- Parameters: Could not extract schema")
+                else:
+                    logger.warning(f"Tool {tool_name} has no args_schema")
+                    tool_schemas.append(f"\n{tool_name}:\n- Description: {tool_description}\n- Parameters: No schema available")
+                        
+            result = "\n".join(tool_schemas) if tool_schemas else ""
+            logger.info(f"Generated schema string length: {len(result)}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Could not extract tool schemas: {e}", exc_info=True)
+            return ""
+    
+    @staticmethod
+    def _build_system_message(memories_str: str, tool_manager: Optional[ArcadeToolManager]) -> str:
+        """Build system message with memories and detailed tool instructions"""
+        return prompt_loader.build_system_message(
+            memories_str=memories_str, 
+            tool_manager=tool_manager, 
+            extract_schemas_func=WorkflowBuilder._extract_tool_schemas
+        )
     
     @staticmethod
     def _ensure_system_message(messages: list, system_content: str) -> list:
@@ -640,20 +731,52 @@ class WorkflowBuilder:
                 pass
             
             try:
+                # Log tool execution details
+                logger.info(f"Executing tools: {', '.join(tool_names) if tool_names else 'unknown'}")
+                logger.debug(f"Tool execution state: {state}")
+                
                 result = await tool_node.ainvoke(state)
                 
-                # Track successful execution time
+                # Enhanced logging of tool results with status information
                 execution_time = time.time() - start_time
-                for tool_name in tool_names:
-                    # Note: We'd need thread_id here, but it's not easily accessible
-                    # This is a simplified version - in practice you'd pass thread_id through context
-                    pass
+                logger.info(f"Tool execution completed in {execution_time:.2f}s")
                 
+                # Process and log tool responses with status information
                 if "messages" in result:
-                    serialized_messages = [
-                        serialize_message(msg) for msg in result["messages"]
-                    ]
+                    serialized_messages = []
+                    for i, msg in enumerate(result["messages"]):
+                        serialized_msg = serialize_message(msg)
+                        serialized_messages.append(serialized_msg)
+                        
+                        # Log detailed tool response information
+                        tool_name = serialized_msg.get("name", "unknown")
+                        status = serialized_msg.get("status", "unknown")
+                        content_preview = str(serialized_msg.get("content", ""))[:100]
+                        
+                        logger.info(f"Tool '{tool_name}' response {i+1}: status={status}, content_preview='{content_preview}'")
+                        
+                        # Log additional diagnostic information for tool responses
+                        if serialized_msg.get("type") == "tool":
+                            if "error_details" in serialized_msg:
+                                logger.warning(f"Tool '{tool_name}' error details: {serialized_msg['error_details']}")
+                            
+                            # Log artifacts if present
+                            if serialized_msg.get("artifact"):
+                                logger.debug(f"Tool '{tool_name}' has artifact data")
+                            
+                            # Log additional metadata
+                            additional_kwargs = serialized_msg.get("additional_kwargs", {})
+                            response_metadata = serialized_msg.get("response_metadata", {})
+                            if additional_kwargs:
+                                logger.debug(f"Tool '{tool_name}' additional_kwargs: {additional_kwargs}")
+                            if response_metadata:
+                                logger.debug(f"Tool '{tool_name}' response_metadata: {response_metadata}")
+                    
                     result["messages"] = serialized_messages
+                    logger.info(f"Processed {len(serialized_messages)} tool response messages")
+                else:
+                    logger.warning("Tool execution result contains no 'messages' field")
+                    logger.debug(f"Raw tool result: {result}")
                 
                 return result
                 
@@ -685,7 +808,7 @@ class WorkflowBuilder:
         return wrapped_tool_node
     
     @staticmethod
-    def create_authorization_node(tool_manager: ToolManager):
+    def create_authorization_node(tool_manager: ArcadeToolManager):
         """Create an authorization node for tools requiring auth"""
         
         async def authorize(state: MessagesState, config: RunnableConfig, *, store: BaseStore):
@@ -722,7 +845,7 @@ class WorkflowBuilder:
         return authorize
 
 # ==================== Routing Logic ====================
-def create_routing_function(tool_manager: Optional[ToolManager], max_tool_calls: int = 5):
+def create_routing_function(tool_manager: Optional[ArcadeToolManager], max_tool_calls: int = 5):
     """Create a routing function with anti-infinite loop protection"""
     
     def should_continue(state: MessagesState):
@@ -766,8 +889,8 @@ def create_routing_function(tool_manager: Optional[ToolManager], max_tool_calls:
 class ChatRequest(BaseModel):
     thread_id: str = Field(..., min_length=1, max_length=100)
     prompt: str = Field(..., min_length=1, max_length=10000)
-    
     # Optional configuration parameters for first-time setup
+    userEmail: Optional[str] = Field(None, max_length=100)
     model: Optional[str] = Field(None, min_length=1, max_length=100)
     provider: Optional[ModelProvider] = None
     api_key: Optional[str] = Field(None, max_length=500)
@@ -802,9 +925,6 @@ async def chat(request: Request, chat_req: ChatRequest):
             model = chat_req.model or "llama3.2"  # Default Ollama model
             
             # Use user preferences for toolkits if not specified
-            user_id = config.USER_EMAIL or "default_user"
-            if getattr(chat_req, 'toolkits', None) is None:
-                chat_req.toolkits = workflow_manager.get_user_preferences(user_id)
             
             # Validate required parameters for non-Ollama providers
             if provider != ModelProvider.OLLAMA and not chat_req.api_key:
@@ -826,13 +946,29 @@ async def chat(request: Request, chat_req: ChatRequest):
             tool_manager = None
             tools = []
             if chat_req.toolkits:
-                tool_manager = ToolManager(api_key=config.ARCADE_API_KEY)
+                tool_manager = ArcadeToolManager(api_key=config.ARCADE_API_KEY)
                 tool_manager.init_tools(toolkits=chat_req.toolkits)
                 tools = tool_manager.to_langchain(use_interrupts=True)
+                
+                # Debug tool binding - focus on Gmail tools
+                logger.info(f"Binding {len(tools)} tools to model for thread {chat_req.thread_id}")
+                gmail_tools = []
+                for i, tool in enumerate(tools):
+                    tool_name = getattr(tool, 'name', 'Unknown')
+                    tool_desc = getattr(tool, 'description', 'No description')
+                    logger.info(f"Tool {i+1}/{len(tools)}: {tool_name} - {tool_desc[:100]}")
+                    if 'gmail' in tool_name.lower() or 'email' in tool_name.lower():
+                        gmail_tools.append(tool_name)
+                
+                logger.info(f"Gmail-related tools found: {gmail_tools}")
+                if not any('send' in name.lower() for name in gmail_tools):
+                    logger.warning("No Gmail Send tool found in available tools!")
+                
                 workflow_manager.set_tool_manager(chat_req.thread_id, tool_manager)
                 
                 # Bind tools to model
                 model_instance = model_instance.bind_tools(tools)
+                logger.info(f"Successfully bound {len(tools)} tools to model")
             
             # Build workflow
             workflow = StateGraph(state_schema=MessagesState)
@@ -875,11 +1011,7 @@ async def chat(request: Request, chat_req: ChatRequest):
                 }
             )
             
-            # Save user preferences if toolkits were configured
-            if chat_req.toolkits:
-                workflow_manager.save_user_preferences(user_id, chat_req.toolkits)
-            
-            logger.info(f"Successfully auto-configured thread {chat_req.thread_id}")
+
         
         else:
             # Thread already exists - check if tools need to be reconfigured       
@@ -923,7 +1055,7 @@ async def chat(request: Request, chat_req: ChatRequest):
         runtime_config = {
             "configurable": {
                 "thread_id": chat_req.thread_id,
-                "user_id": config.USER_EMAIL or "default_user"
+                "user_id": chat_req.userEmail or "default_user"
             },
             "recursion_limit": config.MAX_RECURSION_DEPTH
         }

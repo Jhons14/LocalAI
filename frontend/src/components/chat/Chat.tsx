@@ -14,7 +14,7 @@ export function Chat() {
   const { isMobile } = useMobileFirst();
   const { announceToScreenReader } = useAriaLive();
 
-  useSkipToContent();
+  // useSkipToContent();
 
   return (
     <ChatErrorBoundary>

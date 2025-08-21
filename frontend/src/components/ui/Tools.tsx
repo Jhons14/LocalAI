@@ -2,7 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import type { ActiveModel, ToolName } from '@/types/chat';
 import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
-import { Hammer } from 'lucide-react';
+import { EmailModal } from '@/components/ui/EmailModal';
+import { useToast } from '@/hooks/useToast';
+import { Hammer, Mail } from 'lucide-react';
 
 function useToggleOutside() {
   const [isOpen, setIsOpen] = useState(false);
@@ -30,13 +32,18 @@ const AVAILABLE_TOOLS: ToolName[] = ['Gmail', 'Asana'];
 
 // Tools state management hook
 function useToolsState(activeModel: ActiveModel | undefined) {
-  const [toolsState, setToolsState] = useState<Record<ToolName, boolean>>(() => {
-    // Initialize with default false values
-    return AVAILABLE_TOOLS.reduce((acc, tool) => {
-      acc[tool] = false;
-      return acc;
-    }, {} as Record<ToolName, boolean>);
-  });
+  const [toolsState, setToolsState] = useState<Record<ToolName, boolean>>(
+    () => {
+      // Initialize with default false values
+      return AVAILABLE_TOOLS.reduce((acc, tool) => {
+        acc[tool] = false;
+        return acc;
+      }, {} as Record<ToolName, boolean>);
+    }
+  );
+
+  // State for bounce-back animation
+  const [bouncingTools, setBouncingTools] = useState<Record<ToolName, boolean>>({});
 
   const { setActiveModel } = useChatHistoryContext();
 
@@ -44,9 +51,9 @@ function useToolsState(activeModel: ActiveModel | undefined) {
   useEffect(() => {
     if (!activeModel) {
       // Reset all tools when no active model
-      setToolsState(prev => {
+      setToolsState((prev) => {
         const newState = { ...prev };
-        AVAILABLE_TOOLS.forEach(tool => {
+        AVAILABLE_TOOLS.forEach((tool) => {
           newState[tool] = false;
         });
         return newState;
@@ -55,9 +62,9 @@ function useToolsState(activeModel: ActiveModel | undefined) {
     }
 
     // Update tools state based on activeModel.toolkits
-    setToolsState(prev => {
+    setToolsState((prev) => {
       const newState = { ...prev };
-      AVAILABLE_TOOLS.forEach(tool => {
+      AVAILABLE_TOOLS.forEach((tool) => {
         newState[tool] = activeModel.toolkits.includes(tool);
       });
       return newState;
@@ -68,14 +75,14 @@ function useToolsState(activeModel: ActiveModel | undefined) {
     if (!activeModel) return;
 
     // Update local state
-    setToolsState(prev => ({
+    setToolsState((prev) => ({
       ...prev,
       [tool]: value,
     }));
 
     // Calculate new toolkits array
     const newToolkits: string[] = [];
-    AVAILABLE_TOOLS.forEach(t => {
+    AVAILABLE_TOOLS.forEach((t) => {
       const isEnabled = t === tool ? value : toolsState[t];
       if (isEnabled) {
         newToolkits.push(t);
@@ -89,10 +96,52 @@ function useToolsState(activeModel: ActiveModel | undefined) {
     });
   };
 
+  // Function to trigger bounce-back animation
+  const triggerBounceBack = (tool: ToolName) => {
+    // Set bouncing state to true (appears to turn on)
+    setBouncingTools(prev => ({ ...prev, [tool]: true }));
+    
+    // After a short delay, set it back to false (bounces back)
+    setTimeout(() => {
+      setBouncingTools(prev => ({ ...prev, [tool]: false }));
+    }, 150); // Half-way point of the animation
+  };
+
   return {
     toolsState,
     toggleTool,
+    triggerBounceBack,
+    bouncingTools,
   };
+}
+
+// Email button component
+function EmailButton() {
+  const { userEmail } = useChatHistoryContext();
+  const [showEmailModal, setShowEmailModal] = useState(false);
+
+  return (
+    <>
+      <button
+        onClick={() => setShowEmailModal(true)}
+        className='h-full cursor-pointer hover:bg-[#777777] transition-all duration-200 bg-[#555555] rounded-lg p-2 flex items-center gap-2'
+        aria-label='Set email'
+        title={userEmail || 'Set your email'}
+      >
+        <Mail size={24} />
+        {userEmail && (
+          <span className='text-sm text-gray-300 max-w-24 truncate hidden sm:block'>
+            {userEmail}
+          </span>
+        )}
+      </button>
+
+      <EmailModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+      />
+    </>
+  );
 }
 
 interface ToolsProps {
@@ -101,13 +150,35 @@ interface ToolsProps {
 
 export function Tools({ model }: ToolsProps) {
   const { isOpen, toggle, ref } = useToggleOutside();
-  const { toolsState, toggleTool } = useToolsState(model);
+  const { toolsState, toggleTool, triggerBounceBack, bouncingTools } = useToolsState(model);
+  const { userEmail } = useChatHistoryContext();
+  const { warning } = useToast();
+
+  // Check if email is set for tools validation
+  const isEmailSet = Boolean(userEmail && userEmail.trim());
+
+  // Handle toggle changes with email validation
+  const handleToolToggle = (tool: ToolName, value: boolean) => {
+    if (!isEmailSet && value === true) {
+      // Trigger bounce-back animation and show warning
+      triggerBounceBack(tool);
+      setTimeout(() => {
+        warning(
+          'Email Required',
+          'Please set your email address before using tools. Click the email button to get started.'
+        );
+      }, 200); // Show warning after animation completes
+      return;
+    }
+    toggleTool(tool, value);
+  };
+
 
   if (!model) return null;
 
   const renderTools = () => {
     if (!isOpen) return null;
-    
+
     return (
       <ul className='absolute flex flex-col -left-20 bg-[#333333] text-center w-max border border-[#999999] rounded-xl shadow-lg mt-2 p-1'>
         {AVAILABLE_TOOLS.map((tool) => (
@@ -115,17 +186,17 @@ export function Tools({ model }: ToolsProps) {
             key={tool}
             className='flex justify-between items-center gap-2 px-2'
           >
-            <label 
+            <label
               htmlFor={`tool-${tool}`}
-              className="cursor-pointer select-none"
+              className='cursor-pointer select-none'
             >
               {tool}
             </label>
             <ToggleSwitch
               id={`tool-${tool}`}
               size='x-small'
-              value={toolsState[tool]} // Use controlled value instead of initialValue
-              onChange={(value) => toggleTool(tool, value)}
+              value={toolsState[tool] || bouncingTools[tool]} // Show bounce animation
+              onChange={(value) => handleToolToggle(tool, value)}
               aria-label={`Toggle ${tool} tool`}
             />
           </li>
@@ -135,17 +206,20 @@ export function Tools({ model }: ToolsProps) {
   };
 
   return (
-    <div ref={ref} className='relative'>
-      <button
-        className='h-full cursor-pointer hover:bg-[#777777] transition-all duration-200 bg-[#555555] rounded-lg p-2'
-        onClick={toggle}
-        aria-label='Tools'
-        aria-expanded={isOpen}
-        type="button"
-      >
-        <Hammer />
-      </button>
-      {renderTools()}
+    <div className='flex items-center gap-2'>
+      <EmailButton />
+      <div ref={ref} className='relative'>
+        <button
+          className='h-full cursor-pointer hover:bg-[#777777] transition-all duration-200 bg-[#555555] rounded-lg p-2'
+          onClick={toggle}
+          aria-label='Tools'
+          aria-expanded={isOpen}
+          type='button'
+        >
+          <Hammer />
+        </button>
+        {renderTools()}
+      </div>
     </div>
   );
 }

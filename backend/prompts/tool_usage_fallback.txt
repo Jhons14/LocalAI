@@ -1,0 +1,21 @@
+
+CRITICAL TOOL USAGE RULES:
+When using tools, you MUST extract and provide ALL required parameters from the user's message.
+
+TOOL PARAMETER REQUIREMENTS:
+
+Gmail_SendEmail:
+- recipient (required): Email address of the recipient
+- subject (required): Email subject line  
+- body (required): Email content/message
+
+USAGE GUIDELINES:
+1. Carefully read the user's request
+2. Extract ALL required parameters from their message
+3. Provide complete parameter values - never use empty objects {}
+4. If a parameter is missing, ask the user to provide it
+
+NEVER call tools with empty parameters. ALWAYS extract parameter values from the user's message.
+
+Example: User says "Send email to john@email.com with subject 'Hello' and body 'Hi there'"
+You MUST call: Gmail_SendEmail(recipient="john@email.com", subject="Hello", body="Hi there")

@@ -1,51 +1,61 @@
 import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
-import { Eye, EyeOff, History } from 'lucide-react';
-import { useState, memo, useCallback, useMemo } from 'react';
-import { useToast } from '@/hooks/useToast';
+import { Key, History } from 'lucide-react';
+import { useState, memo } from 'react';
 import { useMobileFirst } from '@/hooks/useResponsive';
-import { useValidation } from '@/hooks/useValidation';
 import { ChatHistoryManager } from '@/components/chat/ChatHistoryManager';
+import { ApiKeyModal } from '@/components/ui/ApiKeyModal';
 import { Tools } from '../ui/Tools';
 
 export const TopNavBar = memo(function TopNavBar() {
   const { activeModel, tempApiKey, clear } = useChatHistoryContext();
   const { isMobile } = useMobileFirst();
   const [showHistoryManager, setShowHistoryManager] = useState<boolean>(false);
+  const [showApiKeyModal, setShowApiKeyModal] = useState<boolean>(false);
 
   return (
     <div
-      className={`grid grid-cols-3 mb-2 p-3 ${
+      className={`flex items-center justify-between w-full mb-2 p-3 ${
         isMobile ? 'flex-col gap-2 p-3' : 'flex-row items-center gap-4'
       } border-b border-[#999999] ${
         isMobile ? 'min-h-[100px]' : 'h-20 justify-between'
       }`}
     >
-      <div className='flex items-center gap-6 ml-4'>
+      <div className={`flex items-center gap-6  ${!isMobile && 'ml-4'}`}>
         <h1
           className={`${
-            isMobile ? 'text-lg text-center' : 'text-xl'
+            isMobile ? 'text-lg text-left' : 'text-xl'
           } font-bold w-fit  ${isMobile ? 'w-full' : 'min-w-max'}`}
         >
           {activeModel?.model || 'Select a model...'}
         </h1>
       </div>
-      {!tempApiKey && activeModel ? (
-        <ApiKeyInput provider={activeModel.provider} />
-      ) : (
-        <span className={`${isMobile ? 'text-center text-sm' : 'text-base'}`}>
-          Api key saved
-        </span>
-      )}
-      <div className='flex justify-end gap-4 h-10'>
-        <button
-          onClick={() => setShowHistoryManager(true)}
-          className={`flex items-center gap-2 p-2 border cursor-pointer border-[#999999] rounded hover:bg-[#555555] hover:text-white transition-all duration-200] keyboard-navigation ${
-            isMobile ? 'w-full justify-center' : 'justify-self-end'
-          }`}
-          aria-label='Open chat history manager'
-        >
-          <History />
-        </button>
+      <div className={`flex justify-end gap-4 ${isMobile && 'flex-col'}`}>
+        <div className='flex items-center gap-2'>
+          {activeModel && activeModel.provider !== 'ollama' && (
+            <button
+              onClick={() => setShowApiKeyModal(true)}
+              className={`flex items-center ${
+                tempApiKey && ''
+              } gap-2 p-2 border cursor-pointer  ${
+                tempApiKey ? 'border-green-700' : 'border-[#999999]'
+              } rounded hover:bg-[#555555] hover:text-white transition-all duration-200 keyboard-navigation ${
+                isMobile ? 'w-full justify-center text-sm' : 'justify-center'
+              }`}
+              aria-label={`Set ${activeModel.provider} API key`}
+            >
+              <Key size={24} className={`${tempApiKey && 'text-green-700'}`} />
+            </button>
+          )}
+          <button
+            onClick={() => setShowHistoryManager(true)}
+            className={`flex items-center gap-2 p-2 border cursor-pointer border-[#999999] rounded hover:bg-[#555555] hover:text-white transition-all duration-200 keyboard-navigation ${
+              isMobile ? 'w-full justify-center' : 'justify-self-end'
+            }`}
+            aria-label='Open chat history manager'
+          >
+            <History />
+          </button>
+        </div>
         <Tools model={activeModel} />
       </div>
       <ChatHistoryManager
@@ -53,120 +63,12 @@ export const TopNavBar = memo(function TopNavBar() {
         onClose={() => setShowHistoryManager(false)}
         onClearAll={clear}
       />
-    </div>
-  );
-});
-
-const ApiKeyInput = memo(function ApiKeyInput({
-  provider,
-}: {
-  provider: string;
-}) {
-  if (provider === 'ollama') return <div></div>;
-  const [show, setShow] = useState(false);
-  const [apiKey, setApiKey] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { setTempApiKey } = useChatHistoryContext();
-  const { validateField, getFieldError, hasFieldError, clearValidation } =
-    useValidation();
-  const { error: showError, success: showSuccess } = useToast();
-
-  const saveKeys = useCallback(async () => {
-    setLoading(true);
-
-    // Validate the API key
-    const validation = validateField('apiKey', apiKey);
-
-    if (!validation.isValid) {
-      showError('Invalid API Key', validation.errors[0]);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      // Use sanitized value if available
-      const sanitizedApiKey = validation.sanitizedValue || apiKey;
-      setTempApiKey(sanitizedApiKey);
-      showSuccess('API Key Saved', 'Your API key has been securely saved.');
-      clearValidation('apiKey');
-    } catch (error) {
-      showError('Save Failed', 'Failed to save API key. Please try again.');
-    }
-
-    setLoading(false);
-  }, [
-    apiKey,
-    setTempApiKey,
-    validateField,
-    showError,
-    showSuccess,
-    clearValidation,
-  ]);
-
-  const handleKeyPress = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        saveKeys();
-        setApiKey('');
-        (e.currentTarget as HTMLInputElement).blur();
-      }
-    },
-    [saveKeys]
-  );
-
-  return (
-    <div className='relative flex w-full items-center justify-center'>
-      {!loading ? (
-        <div className='relative flex p-2 items-center w-full'>
-          <input
-            type={show ? 'text' : 'password'}
-            id='apiKey'
-            name='apiKey'
-            placeholder={
-              provider.charAt(0).toUpperCase() + provider.slice(1) + ' API Key'
-            }
-            required={true}
-            autoComplete='off'
-            className={`w-full pr-10 px-4 py-2 border ${
-              hasFieldError('apiKey') ? 'border-red-500' : 'border-[#999999]'
-            }  rounded-lg shadow-sm keyboard-navigation`}
-            value={apiKey}
-            onChange={(e) => {
-              setApiKey(e.target.value);
-              if (hasFieldError('apiKey')) {
-                clearValidation('apiKey');
-              }
-            }}
-            onKeyDown={handleKeyPress}
-            aria-invalid={hasFieldError('apiKey')}
-            aria-describedby={
-              hasFieldError('apiKey') ? 'apikey-error' : undefined
-            }
-          />
-          <button
-            type='button'
-            onClick={() => setShow((prev) => !prev)}
-            className='cursor-pointer absolute right-5 text-gray-500 hover:text-blue-600'
-          >
-            {show ? (
-              <EyeOff className='w-5 h-5' />
-            ) : (
-              <Eye className='w-5 h-5' />
-            )}
-          </button>
-        </div>
-      ) : (
-        <div className='loader'></div>
-      )}
-
-      {hasFieldError('apiKey') && (
-        <div
-          id='apikey-error'
-          className='flex w-40 self-end pb-4 text-red-500 shadow-xl text-sm'
-          role='alert'
-        >
-          {getFieldError('apiKey')}
-        </div>
+      {activeModel && (
+        <ApiKeyModal
+          isOpen={showApiKeyModal}
+          onClose={() => setShowApiKeyModal(false)}
+          provider={activeModel.provider}
+        />
       )}
     </div>
   );
