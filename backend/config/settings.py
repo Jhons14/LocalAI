@@ -4,7 +4,7 @@ Provides environment-specific configurations and validation.
 """
 
 import os
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 from pathlib import Path
@@ -37,8 +37,8 @@ class SecuritySettings(BaseSettings):
     """Security-related configuration settings."""
     
     secret_key: str = Field(
-        default="your-secret-key-change-in-production",
-        description="Secret key for JWT tokens"
+        default="dev-secret-key-change-me-in-production-please",
+        description="Secret key for JWT tokens - MUST be changed in production"
     )
     algorithm: str = Field(
         default="HS256",
@@ -61,6 +61,15 @@ class SecuritySettings(BaseSettings):
         description="Lockout duration in minutes"
     )
 
+    @field_validator('secret_key')
+    @classmethod
+    def validate_secret_key(cls, v):
+        if v in ["your-secret-key-change-in-production", "dev-secret-key-change-me-in-production-please"]:
+            raise ValueError("Secret key must be changed from default value for security")
+        if len(v) < 32:
+            raise ValueError("Secret key must be at least 32 characters for security")
+        return v
+    
     model_config = {"env_prefix": "SECURITY_"}
 
 
@@ -161,9 +170,9 @@ class AppSettings(BaseSettings):
     )
     
     # CORS settings
-    cors_origins: List[str] = Field(
-        default=["http://localhost:4321", "http://localhost:3000"],
-        description="Allowed CORS origins"
+    cors_origins: str = Field(
+        default="http://localhost:4321,http://localhost:3000,http://localhost:4322",
+        description="Allowed CORS origins (comma-separated)"
     )
     cors_credentials: bool = Field(
         default=True,
@@ -178,6 +187,38 @@ class AppSettings(BaseSettings):
     max_thread_id_length: int = Field(
         default=100,
         description="Maximum thread ID length"
+    )
+    
+    # Tool Management
+    arcade_api_key: Optional[str] = Field(
+        default=None,
+        description="Arcade API key for tool integration"
+    )
+    default_toolkits: List[str] = Field(
+        default=["Gmail", "Slack", "Calendar", "Drive"],
+        description="Default available toolkits"
+    )
+    max_tool_calls_per_turn: int = Field(
+        default=5,
+        description="Maximum tool calls per conversation turn"
+    )
+    max_recursion_depth: int = Field(
+        default=25,
+        description="Maximum recursion depth for tool calls"
+    )
+    
+    # Model defaults (moved from provider-specific to general)
+    default_temperature: float = Field(
+        default=0.7,
+        description="Default temperature for model responses"
+    )
+    default_max_tokens: int = Field(
+        default=4000,
+        description="Default maximum tokens per response"
+    )
+    default_timeout: int = Field(
+        default=30,
+        description="Default timeout for API calls in seconds"
     )
     
     # Logging settings
@@ -199,6 +240,10 @@ class AppSettings(BaseSettings):
         default=Path("data"),
         description="Data directory"
     )
+    preferences_file: Path = Field(
+        default=Path("user_preferences.json"),
+        description="User preferences file path"
+    )
     
     # Component settings
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
@@ -207,12 +252,12 @@ class AppSettings(BaseSettings):
     ollama: OllamaSettings = Field(default_factory=OllamaSettings)
     openai: OpenAISettings = Field(default_factory=OpenAISettings)
     
-    @field_validator('cors_origins', mode='before')
-    @classmethod
-    def parse_cors_origins(cls, v):
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """Get CORS origins as a list."""
+        if isinstance(self.cors_origins, str):
+            return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        return self.cors_origins
     
     @field_validator('environment')
     @classmethod
@@ -229,6 +274,30 @@ class AppSettings(BaseSettings):
         if v.upper() not in valid_levels:
             raise ValueError(f'Log level must be one of: {", ".join(valid_levels)}')
         return v.upper()
+    
+    @property
+    def tool_capabilities(self) -> Dict[str, str]:
+        """Tool capability descriptions."""
+        return {
+            "Gmail": "📧 Read, send, and manage emails",
+            "Slack": "💬 Send messages and communicate in channels", 
+            "Calendar": "📅 View and manage calendar events",
+            "Drive": "📁 Access and manage files and documents"
+        }
+    
+    @property
+    def tool_conflicts(self) -> Dict[str, Dict]:
+        """Tool conflict detection mapping."""
+        return {
+            "Gmail": {"conflicts_with": [], "note": ""},
+            "Slack": {"conflicts_with": [], "note": ""},
+            "Calendar": {"conflicts_with": [], "note": ""},
+            "Drive": {"conflicts_with": [], "note": ""},
+            # Example future tools that might conflict
+            "Outlook": {"conflicts_with": ["Gmail"], "note": "both provide email functionality"},
+            "Teams": {"conflicts_with": ["Slack"], "note": "both provide messaging functionality"},
+            "OneDrive": {"conflicts_with": ["Drive"], "note": "both provide file storage"}
+        }
     
     def ensure_directories(self):
         """Ensure required directories exist."""
@@ -252,11 +321,7 @@ class AppSettings(BaseSettings):
     }
 
 
-# Global settings instance
+# Global settings instance  
 def get_settings() -> AppSettings:
     """Get application settings instance."""
     return AppSettings()
-
-
-# Create settings instance
-settings = get_settings()
