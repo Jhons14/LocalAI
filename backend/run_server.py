@@ -47,7 +47,8 @@ def main():
     
     # Import and test new architecture
     try:
-        from config.settings import settings
+        from config.settings import get_settings
+        settings = get_settings()
         print(f"✅ Configuration loaded: {settings.app_name}")
         print(f"✅ Environment: {settings.environment}")
         print(f"✅ Database: {settings.database.url}")

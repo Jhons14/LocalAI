@@ -11,7 +11,9 @@ from fastapi import Request, Response, HTTPException
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
-from config.settings import settings
+from config.settings import get_settings
+
+settings = get_settings()
 
 logger = logging.getLogger(__name__)
 

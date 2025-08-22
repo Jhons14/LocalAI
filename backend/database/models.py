@@ -74,8 +74,8 @@ class APIKey(Base, TimestampMixin):
     
     # Indexes
     __table_args__ = (
-        Index("ix_api_keys_user_provider_model", "user_id", "provider", "model_name"),
-        Index("ix_api_keys_provider_active", "provider", "is_active"),
+        Index("idx_api_keys_user_provider_model", "user_id", "provider", "model_name"),
+        Index("idx_api_keys_provider_active", "provider", "is_active"),
     )
     
     def __repr__(self):
@@ -108,9 +108,9 @@ class ChatSession(Base, TimestampMixin):
     
     # Indexes
     __table_args__ = (
-        Index("ix_chat_sessions_user_active", "user_id", "is_active"),
-        Index("ix_chat_sessions_thread_id", "thread_id"),
-        Index("ix_chat_sessions_last_activity", "last_activity"),
+        Index("idx_chat_sessions_user_active", "user_id", "is_active"),
+        Index("idx_chat_sessions_thread_unique", "thread_id"),
+        Index("idx_chat_sessions_activity", "last_activity"),
     )
     
     def __repr__(self):
@@ -142,8 +142,8 @@ class ChatMessage(Base, TimestampMixin):
     
     # Indexes
     __table_args__ = (
-        Index("ix_chat_messages_session_created", "session_id", "created_at"),
-        Index("ix_chat_messages_role", "role"),
+        Index("idx_chat_messages_session_created", "session_id", "created_at"),
+        Index("idx_chat_messages_role", "role"),
     )
     
     def __repr__(self):

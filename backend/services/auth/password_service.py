@@ -3,7 +3,7 @@ Password hashing and validation service using bcrypt.
 """
 
 import bcrypt
-from typing import str
+# str is a built-in type, no import needed
 
 
 class PasswordService:

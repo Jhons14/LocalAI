@@ -22,8 +22,17 @@ from langchain_core.runnables import RunnableConfig
 
 from langgraph.graph import START, END, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from langgraph.store.postgres import AsyncPostgresStore
+
+# PostgreSQL imports - optional for development
+try:
+    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+    from langgraph.store.postgres import AsyncPostgresStore
+    POSTGRES_AVAILABLE = True
+except ImportError:
+    AsyncPostgresSaver = None
+    AsyncPostgresStore = None
+    POSTGRES_AVAILABLE = False
+
 from langgraph.store.base import BaseStore
 
 from pydantic import BaseModel, field_validator, Field, SecretStr
@@ -149,6 +158,25 @@ from routers.auth import router as auth_router
 from routers.admin import router as admin_router
 app.include_router(auth_router)
 app.include_router(admin_router)
+
+# Import authentication dependencies
+from services.security import get_current_active_user, get_admin_user, get_optional_user
+from database.models import User
+from database.base import get_db, Base, engine
+from sqlalchemy.orm import Session
+from fastapi import Depends
+
+# Initialize database tables on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database tables on application startup"""
+    try:
+        # Create all tables
+        Base.metadata.create_all(bind=engine)
+        logger.info("✅ Database tables initialized successfully")
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize database tables: {e}")
+        # Don't fail startup - just log the error
 
 # ==================== Storage Classes ====================
 class WorkflowManager:
@@ -927,7 +955,12 @@ class ChatRequest(BaseModel):
 
 @app.post("/chat")
 @limiter.limit("30/minute")
-async def chat(request: Request, chat_req: ChatRequest):
+async def chat(
+    request: Request, 
+    chat_req: ChatRequest, 
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
     """Chat with a model, configuring it automatically on first request"""
     try:
 
@@ -1123,7 +1156,7 @@ async def generate_response(thread_id: str, input_messages: list, runtime_config
         config.DATABASE_URL
     )
 
-    if use_memory:
+    if use_memory and POSTGRES_AVAILABLE:
         try:
             # Use async context managers for PostgreSQL components
             async with (AsyncPostgresStore.from_conn_string(config.DATABASE_URL) as store,
@@ -1173,7 +1206,10 @@ async def generate_response(thread_id: str, input_messages: list, runtime_config
         yield f"[ERROR] {str(e)}"
 
 @app.get("/threads/{thread_id}/status")
-async def get_thread_status(thread_id: str):
+async def get_thread_status(
+    thread_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
     """Get the status and configuration of a thread"""
     if not workflow_manager.exists(thread_id):
         raise HTTPException(status_code=404, detail="Thread not found")
@@ -1190,7 +1226,11 @@ async def get_thread_status(thread_id: str):
 
 @app.delete("/threads/{thread_id}")
 @limiter.limit("5/minute")
-async def delete_thread(request: Request, thread_id: str):
+async def delete_thread(
+    request: Request, 
+    thread_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
     """Delete a thread and its configuration"""
     if not workflow_manager.exists(thread_id):
         raise HTTPException(status_code=404, detail="Thread not found")
@@ -1200,7 +1240,11 @@ async def delete_thread(request: Request, thread_id: str):
 
 @app.get("/models")
 @limiter.limit("20/minute")
-async def list_models(request: Request, provider: Optional[ModelProvider] = None):
+async def list_models(
+    request: Request, 
+    provider: Optional[ModelProvider] = None,
+    current_user: Optional[User] = Depends(get_optional_user)
+):
     """List available models by provider"""
     models = {}
     
@@ -1239,7 +1283,7 @@ async def list_models(request: Request, provider: Optional[ModelProvider] = None
     return models
 
 @app.get("/toolkits")
-async def list_toolkits():
+async def list_toolkits(current_user: Optional[User] = Depends(get_optional_user)):
     """List available tool toolkits with capabilities"""
     toolkits = []
     for toolkit in config.DEFAULT_TOOLKITS:
