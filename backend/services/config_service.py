@@ -5,7 +5,6 @@ Provides secure storage and retrieval of configuration data.
 
 import json
 import logging
-from pathlib import Path
 from typing import Dict, Optional, List
 from cryptography.fernet import Fernet
 from config.settings import AppSettings
