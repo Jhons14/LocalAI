@@ -128,10 +128,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add authentication middleware
+from middleware.auth import AuthenticationMiddleware
+from services.security.rate_limiting_middleware import EnhancedRateLimitMiddleware
+from config.settings import get_settings
+settings = get_settings()
+app.add_middleware(AuthenticationMiddleware, settings=settings)
+
+# Add enhanced rate limiting middleware
+enhanced_rate_limiter = EnhancedRateLimitMiddleware(app, settings)
+app.add_middleware(EnhancedRateLimitMiddleware, settings=settings)
+
 app.add_middleware(
     TrustedHostMiddleware, 
     allowed_hosts=["localhost", "127.0.0.1", "*"]
 )
+
+# Import and add routers
+from routers.auth import router as auth_router
+from routers.admin import router as admin_router
+app.include_router(auth_router)
+app.include_router(admin_router)
 
 # ==================== Storage Classes ====================
 class WorkflowManager:

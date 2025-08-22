@@ -2,7 +2,7 @@
 JWT token management service for authentication.
 """
 
-import jwt
+from jose import jwt
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from config.settings import AppSettings
@@ -97,7 +97,7 @@ class JWTService:
         except jwt.ExpiredSignatureError:
             # Token has expired
             return None
-        except jwt.InvalidTokenError:
+        except jwt.JWTError:
             # Token is invalid
             return None
         except Exception:
