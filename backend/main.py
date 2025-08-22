@@ -21,7 +21,6 @@ from langchain_core.messages import HumanMessage, AIMessage, BaseMessage, System
 from langchain_core.runnables import RunnableConfig
 
 from langgraph.graph import START, END, MessagesState, StateGraph
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.store.postgres import AsyncPostgresStore
@@ -1103,7 +1102,7 @@ async def generate_response(thread_id: str, input_messages: list, runtime_config
     # Check if we should use memory/persistence
     use_memory = (
         workflow_config is not None and
-        workflow_config.get("enable_memory", False) and
+        workflow_config.get("enable_memory", True) and
         config.DATABASE_URL
     )
 
