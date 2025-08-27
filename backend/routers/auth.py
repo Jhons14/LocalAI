@@ -123,6 +123,8 @@ async def login_user(
     Returns authentication tokens upon successful login.
     Account will be locked after 5 failed attempts.
     """
+    
+
     success, message, user_response = auth_service.authenticate_user(
         db=db,
         email=login_data.email,

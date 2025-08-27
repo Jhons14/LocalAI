@@ -33,6 +33,8 @@ except ImportError:
     AsyncPostgresStore = None
     POSTGRES_AVAILABLE = False
 
+print(f"Using memory -------------------------------------------------- {POSTGRES_AVAILABLE}")
+
 from langgraph.store.base import BaseStore
 
 from pydantic import BaseModel, field_validator, Field, SecretStr
@@ -1107,7 +1109,6 @@ async def generate_response(thread_id: str, input_messages: list, runtime_config
         workflow_config.get("enable_memory", True) and
         settings.database.url
     )
-
     if use_memory and POSTGRES_AVAILABLE:
         try:
             # Use async context managers for PostgreSQL components

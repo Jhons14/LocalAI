@@ -1,11 +1,108 @@
 # MCP Servers
 .serena/
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment Variables & Secrets
 .env
-venv
-pnpm-lock.yaml
-back/__pycache__
+.env.*
+!.env.example
+*.key
 */config/keys.json
+*.pem
+*.p12
+*.pfx
+
+# Database Files
+*.db
+*.sqlite
+*.sqlite3
+backend/data/*.db
+backend/app.db
+backend/data/dev.db
+
+# Logs & Debugging
+*.log
+logs/
+backend/logs/
+backend/*.log
+backend/app.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# IDE & Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node.js (keep existing)
+pnpm-lock.yaml
+node_modules/
+
+# Project Specific
+backend/user_preferences.json
+backend/inspect_db.py
+backend/view_data.py
+*.tmp
+temp/
+tmp/
+
+# Docker
+.dockerignore
+
+# Jupyter Notebooks
+.ipynb_checkpoints
 
 # Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,astro,node
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,astro,node

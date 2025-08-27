@@ -2,16 +2,17 @@
  * Authentication API service functions
  */
 
-import type { 
-  LoginRequest, 
-  RegisterRequest, 
-  AuthResponse, 
-  RefreshTokenRequest, 
+import type {
+  LoginRequest,
+  RegisterRequest,
+  AuthResponse,
+  RefreshTokenRequest,
   RefreshTokenResponse,
-  User 
+  User,
 } from '../types/auth';
 
-const API_BASE_URL = import.meta.env.PUBLIC_BACKEND_URL || 'http://localhost:8003';
+const API_BASE_URL =
+  import.meta.env.PUBLIC_BACKEND_URL || 'http://localhost:8003';
 
 export class AuthApiError extends Error {
   constructor(message: string, public status?: number) {
@@ -23,7 +24,9 @@ export class AuthApiError extends Error {
 /**
  * Login user with email and password
  */
-export async function loginUser(credentials: LoginRequest): Promise<AuthResponse> {
+export async function loginUser(
+  credentials: LoginRequest
+): Promise<AuthResponse> {
   try {
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
@@ -51,7 +54,9 @@ export async function loginUser(credentials: LoginRequest): Promise<AuthResponse
 /**
  * Register new user
  */
-export async function registerUser(userData: RegisterRequest): Promise<AuthResponse> {
+export async function registerUser(
+  userData: RegisterRequest
+): Promise<AuthResponse> {
   try {
     const response = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
@@ -63,7 +68,10 @@ export async function registerUser(userData: RegisterRequest): Promise<AuthRespo
 
     if (!response.ok) {
       const errorData = await response.text();
-      throw new AuthApiError(`Registration failed: ${errorData}`, response.status);
+      throw new AuthApiError(
+        `Registration failed: ${errorData}`,
+        response.status
+      );
     }
 
     const data: AuthResponse = await response.json();
@@ -72,14 +80,18 @@ export async function registerUser(userData: RegisterRequest): Promise<AuthRespo
     if (error instanceof AuthApiError) {
       throw error;
     }
-    throw new AuthApiError(`Network error during registration: ${error.message}`);
+    throw new AuthApiError(
+      `Network error during registration: ${error.message}`
+    );
   }
 }
 
 /**
  * Refresh access token using refresh token
  */
-export async function refreshAccessToken(refreshTokenData: RefreshTokenRequest): Promise<RefreshTokenResponse> {
+export async function refreshAccessToken(
+  refreshTokenData: RefreshTokenRequest
+): Promise<RefreshTokenResponse> {
   try {
     const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: 'POST',
@@ -91,7 +103,10 @@ export async function refreshAccessToken(refreshTokenData: RefreshTokenRequest):
 
     if (!response.ok) {
       const errorData = await response.text();
-      throw new AuthApiError(`Token refresh failed: ${errorData}`, response.status);
+      throw new AuthApiError(
+        `Token refresh failed: ${errorData}`,
+        response.status
+      );
     }
 
     const data: RefreshTokenResponse = await response.json();
@@ -100,7 +115,9 @@ export async function refreshAccessToken(refreshTokenData: RefreshTokenRequest):
     if (error instanceof AuthApiError) {
       throw error;
     }
-    throw new AuthApiError(`Network error during token refresh: ${error.message}`);
+    throw new AuthApiError(
+      `Network error during token refresh: ${error.message}`
+    );
   }
 }
 
@@ -112,7 +129,7 @@ export async function logoutUser(accessToken: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/auth/logout`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
     });
@@ -123,7 +140,10 @@ export async function logoutUser(accessToken: string): Promise<void> {
     }
   } catch (error) {
     // Even if network fails, we'll clear local tokens
-    console.warn('Network error during logout, but clearing local tokens:', error.message);
+    console.warn(
+      'Network error during logout, but clearing local tokens:',
+      error.message
+    );
   }
 }
 
@@ -135,14 +155,17 @@ export async function getCurrentUser(accessToken: string): Promise<User> {
     const response = await fetch(`${API_BASE_URL}/auth/me`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
     });
 
     if (!response.ok) {
       const errorData = await response.text();
-      throw new AuthApiError(`Failed to get user info: ${errorData}`, response.status);
+      throw new AuthApiError(
+        `Failed to get user info: ${errorData}`,
+        response.status
+      );
     }
 
     const data: User = await response.json();
