@@ -888,7 +888,6 @@ class ChatRequest(BaseModel):
     thread_id: str = Field(..., min_length=1, max_length=100)
     prompt: str = Field(..., min_length=1, max_length=10000)
     # Optional configuration parameters for first-time setup
-    userEmail: Optional[str] = Field(None, max_length=100)
     model: Optional[str] = Field(None, min_length=1, max_length=100)
     provider: Optional[ModelProvider] = None
     api_key: Optional[str] = Field(None, max_length=500)
@@ -912,8 +911,7 @@ class ChatRequest(BaseModel):
 async def chat(
     request: Request, 
     chat_req: ChatRequest, 
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Chat with a model, configuring it automatically on first request"""
     try:
@@ -1058,7 +1056,7 @@ async def chat(
         runtime_config = {
             "configurable": {
                 "thread_id": chat_req.thread_id,
-                "user_id": chat_req.userEmail or "default_user"
+                "user_id": current_user.email or f"user_{current_user.id}"
             },
             "recursion_limit": settings.max_recursion_depth
         }

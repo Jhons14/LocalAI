@@ -33,7 +33,6 @@ export interface SendMessageParams {
   api_key?: string | undefined;
   toolkits: string[];
   enable_memory?: boolean;
-  email?: string;
 }
 
 export interface ConfigureModelParams {
@@ -58,6 +57,4 @@ export interface ChatContextValue {
   setIsModelConnected: (isModelConnected: boolean) => void;
   rechargeModel: (model: string, provider: ModelProvider) => void;
   isStreaming: boolean;
-  userEmail: string;
-  setUserEmail: (email: string) => void;
 }

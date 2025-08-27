@@ -1,6 +1,7 @@
 import { useRef, useCallback } from 'react';
 import { apiLogger } from '@/utils/logger';
 import { captureApiError, captureNetworkError } from '@/utils/errorMonitoring';
+import { useAuthenticatedApi } from './useAuthenticatedApi';
 
 interface ApiError {
   status: number;
@@ -15,6 +16,7 @@ interface StreamResponse {
 export function useApi() {
   const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
   const controllerRef = useRef<AbortController | null>(null);
+  const { makeAuthenticatedRequest, isAuthenticated } = useAuthenticatedApi();
 
   const abortPreviousRequest = useCallback(() => {
     controllerRef.current?.abort();
@@ -60,13 +62,26 @@ export function useApi() {
   const makeRequest = useCallback(
     async (endpoint: string, options: RequestInit = {}): Promise<Response> => {
       try {
-        const response = await fetch(`${BACKEND_URL}${endpoint}`, {
-          headers: {
-            'Content-Type': 'application/json',
-            ...options.headers,
-          },
-          ...options,
-        });
+        let response: Response;
+        
+        // Use authenticated request if user is authenticated
+        if (isAuthenticated) {
+          response = await makeAuthenticatedRequest(`${BACKEND_URL}${endpoint}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              ...options.headers,
+            },
+            ...options,
+          });
+        } else {
+          response = await fetch(`${BACKEND_URL}${endpoint}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              ...options.headers,
+            },
+            ...options,
+          });
+        }
 
         if (!response.ok) {
           const errorMessage = handleApiError(
@@ -99,7 +114,7 @@ export function useApi() {
         throw new ApiError(0, 'Network error occurred');
       }
     },
-    [BACKEND_URL, handleApiError]
+    [BACKEND_URL, handleApiError, isAuthenticated, makeAuthenticatedRequest]
   );
 
   const streamRequest = useCallback(

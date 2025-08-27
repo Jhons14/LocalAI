@@ -25,7 +25,6 @@ export function useChatApi() {
           api_key: params.api_key,
           toolkits: params.toolkits,
           enable_memory: params.enable_memory,
-          userEmail: params.email,
         });
 
         const decoder = new TextDecoder();

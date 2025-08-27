@@ -204,6 +204,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Context value
   const contextValue: AuthContextType = {
     user: state.user,
+    accessToken: state.accessToken,
     isAuthenticated: state.isAuthenticated,
     isLoading: state.isLoading,
     login,
