@@ -49,16 +49,16 @@ export function LoginForm({ onSuccess, onSwitchToSignUp }: LoginFormProps) {
   };
 
   return (
-    <div className="login-form">
+    <div className="w-full">
       <form onSubmit={handleSubmit}>
         {error && (
-          <div className="error-message">
+          <div className="bg-red-50 border border-red-300 text-red-800 p-3 rounded mb-4 text-sm">
             {error}
           </div>
         )}
 
-        <div className="form-group">
-          <label htmlFor="email" className="form-label">
+        <div className="mb-4">
+          <label htmlFor="email" className="block mb-2 font-medium text-black">
             Email
           </label>
           <input
@@ -67,15 +67,15 @@ export function LoginForm({ onSuccess, onSwitchToSignUp }: LoginFormProps) {
             name="email"
             value={formData.email}
             onChange={handleInputChange}
-            className="form-input"
+            className="w-full p-3 border border-gray-300 rounded text-base text-black transition-colors duration-200 box-border focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
             placeholder="Enter your email"
             required
             disabled={isLoading}
           />
         </div>
 
-        <div className="form-group">
-          <label htmlFor="password" className="form-label">
+        <div className="mb-4">
+          <label htmlFor="password" className="block mb-2 font-medium text-black">
             Password
           </label>
           <input
@@ -84,29 +84,29 @@ export function LoginForm({ onSuccess, onSwitchToSignUp }: LoginFormProps) {
             name="password"
             value={formData.password}
             onChange={handleInputChange}
-            className="form-input"
+            className="w-full p-3 border border-gray-300 rounded text-base text-black transition-colors duration-200 box-border focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
             placeholder="Enter your password"
             required
             disabled={isLoading}
           />
         </div>
 
-        <div className="form-actions">
+        <div className="mt-6 mb-4">
           <button
             type="submit"
-            className="btn btn-primary btn-full"
+            className="w-full p-3 border-none rounded text-base font-medium cursor-pointer transition-colors duration-200 bg-blue-600 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isLoading}
           >
             {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </div>
 
-        <div className="form-footer">
-          <p className="signup-prompt">
+        <div className="border-t border-gray-200 pt-4 text-center">
+          <p className="m-0 text-black text-sm">
             Don't have an account?{' '}
             <button
               type="button"
-              className="link-button"
+              className="bg-transparent border-none text-blue-600 cursor-pointer underline text-inherit p-0 hover:text-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
               onClick={onSwitchToSignUp}
               disabled={isLoading}
             >
@@ -115,118 +115,6 @@ export function LoginForm({ onSuccess, onSwitchToSignUp }: LoginFormProps) {
           </p>
         </div>
       </form>
-
-      <style jsx>{`
-        .login-form {
-          width: 100%;
-        }
-
-        .error-message {
-          background: #fee;
-          border: 1px solid #fcc;
-          color: #c33;
-          padding: 0.75rem;
-          border-radius: 4px;
-          margin-bottom: 1rem;
-          font-size: 0.875rem;
-        }
-
-        .form-group {
-          margin-bottom: 1rem;
-        }
-
-        .form-label {
-          display: block;
-          margin-bottom: 0.5rem;
-          font-weight: 500;
-          color: #555;
-        }
-
-        .form-input {
-          width: 100%;
-          padding: 0.75rem;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          font-size: 1rem;
-          transition: border-color 0.2s;
-          box-sizing: border-box;
-        }
-
-        .form-input:focus {
-          outline: none;
-          border-color: #007bff;
-          box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-        }
-
-        .form-input:disabled {
-          background-color: #f5f5f5;
-          cursor: not-allowed;
-        }
-
-        .form-actions {
-          margin-top: 1.5rem;
-          margin-bottom: 1rem;
-        }
-
-        .btn {
-          padding: 0.75rem 1rem;
-          border: none;
-          border-radius: 4px;
-          font-size: 1rem;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
-
-        .btn-full {
-          width: 100%;
-        }
-
-        .btn:disabled {
-          cursor: not-allowed;
-          opacity: 0.6;
-        }
-
-        .btn-primary {
-          background-color: #007bff;
-          color: white;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-          background-color: #0056b3;
-        }
-
-        .form-footer {
-          border-top: 1px solid #eee;
-          padding-top: 1rem;
-          text-align: center;
-        }
-
-        .signup-prompt {
-          margin: 0;
-          color: #666;
-          font-size: 0.9rem;
-        }
-
-        .link-button {
-          background: none;
-          border: none;
-          color: #007bff;
-          cursor: pointer;
-          text-decoration: underline;
-          font-size: inherit;
-          padding: 0;
-        }
-
-        .link-button:hover:not(:disabled) {
-          color: #0056b3;
-        }
-
-        .link-button:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-      `}</style>
     </div>
   );
 }

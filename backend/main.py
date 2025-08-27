@@ -88,7 +88,11 @@ app.add_middleware(
 
 # Add authentication middleware
 from middleware.auth import AuthenticationMiddleware
+from middleware.input_sanitization import InputSanitizationMiddleware
 from services.security.rate_limiting_middleware import EnhancedRateLimitMiddleware
+
+# Add input sanitization middleware (should be first for security)
+app.add_middleware(InputSanitizationMiddleware, settings=settings)
 
 app.add_middleware(AuthenticationMiddleware, settings=settings)
 

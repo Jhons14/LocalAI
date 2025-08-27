@@ -102,16 +102,16 @@ export function SignUpForm({ onSuccess, onSwitchToLogin }: SignUpFormProps) {
   };
 
   return (
-    <div className="signup-form">
+    <div className="w-full">
       <form onSubmit={handleSubmit}>
         {error && (
-          <div className="error-message">
+          <div className="bg-red-50 border border-red-300 text-red-800 p-3 rounded mb-4 text-sm">
             {error}
           </div>
         )}
 
-        <div className="form-group">
-          <label htmlFor="signup-username" className="form-label">
+        <div className="mb-4">
+          <label htmlFor="signup-username" className="block mb-2 font-medium text-black">
             Username
           </label>
           <input
@@ -120,15 +120,15 @@ export function SignUpForm({ onSuccess, onSwitchToLogin }: SignUpFormProps) {
             name="username"
             value={formData.username}
             onChange={handleInputChange}
-            className="form-input"
+            className="w-full p-3 border border-gray-300 rounded text-base text-black transition-colors duration-200 box-border focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
             placeholder="Choose a username"
             required
             disabled={isLoading}
           />
         </div>
 
-        <div className="form-group">
-          <label htmlFor="signup-email" className="form-label">
+        <div className="mb-4">
+          <label htmlFor="signup-email" className="block mb-2 font-medium text-black">
             Email
           </label>
           <input
@@ -137,15 +137,15 @@ export function SignUpForm({ onSuccess, onSwitchToLogin }: SignUpFormProps) {
             name="email"
             value={formData.email}
             onChange={handleInputChange}
-            className="form-input"
+            className="w-full p-3 border border-gray-300 rounded text-base text-black transition-colors duration-200 box-border focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
             placeholder="Enter your email"
             required
             disabled={isLoading}
           />
         </div>
 
-        <div className="form-group">
-          <label htmlFor="signup-password" className="form-label">
+        <div className="mb-4">
+          <label htmlFor="signup-password" className="block mb-2 font-medium text-black">
             Password
           </label>
           <input
@@ -154,18 +154,18 @@ export function SignUpForm({ onSuccess, onSwitchToLogin }: SignUpFormProps) {
             name="password"
             value={formData.password}
             onChange={handleInputChange}
-            className="form-input"
+            className="w-full p-3 border border-gray-300 rounded text-base text-black transition-colors duration-200 box-border focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
             placeholder="Create a password"
             required
             disabled={isLoading}
           />
-          <div className="password-help">
+          <div className="text-xs text-black mt-1">
             Must be at least 8 characters with uppercase, lowercase, and number
           </div>
         </div>
 
-        <div className="form-group">
-          <label htmlFor="signup-confirm-password" className="form-label">
+        <div className="mb-4">
+          <label htmlFor="signup-confirm-password" className="block mb-2 font-medium text-black">
             Confirm Password
           </label>
           <input
@@ -174,29 +174,29 @@ export function SignUpForm({ onSuccess, onSwitchToLogin }: SignUpFormProps) {
             name="confirmPassword"
             value={formData.confirmPassword}
             onChange={handleInputChange}
-            className="form-input"
+            className="w-full p-3 border border-gray-300 rounded text-base text-black transition-colors duration-200 box-border focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
             placeholder="Confirm your password"
             required
             disabled={isLoading}
           />
         </div>
 
-        <div className="form-actions">
+        <div className="mt-6 mb-4">
           <button
             type="submit"
-            className="btn btn-primary btn-full"
+            className="w-full p-3 border-none rounded text-base font-medium cursor-pointer transition-colors duration-200 bg-green-600 text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isLoading}
           >
             {isLoading ? 'Creating Account...' : 'Create Account'}
           </button>
         </div>
 
-        <div className="form-footer">
-          <p className="login-prompt">
+        <div className="border-t border-gray-200 pt-4 text-center">
+          <p className="m-0 text-black text-sm">
             Already have an account?{' '}
             <button
               type="button"
-              className="link-button"
+              className="bg-transparent border-none text-blue-600 cursor-pointer underline text-inherit p-0 hover:text-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
               onClick={onSwitchToLogin}
               disabled={isLoading}
             >
@@ -205,124 +205,6 @@ export function SignUpForm({ onSuccess, onSwitchToLogin }: SignUpFormProps) {
           </p>
         </div>
       </form>
-
-      <style jsx>{`
-        .signup-form {
-          width: 100%;
-        }
-
-        .error-message {
-          background: #fee;
-          border: 1px solid #fcc;
-          color: #c33;
-          padding: 0.75rem;
-          border-radius: 4px;
-          margin-bottom: 1rem;
-          font-size: 0.875rem;
-        }
-
-        .form-group {
-          margin-bottom: 1rem;
-        }
-
-        .form-label {
-          display: block;
-          margin-bottom: 0.5rem;
-          font-weight: 500;
-          color: #555;
-        }
-
-        .form-input {
-          width: 100%;
-          padding: 0.75rem;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          font-size: 1rem;
-          transition: border-color 0.2s;
-          box-sizing: border-box;
-        }
-
-        .form-input:focus {
-          outline: none;
-          border-color: #007bff;
-          box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-        }
-
-        .form-input:disabled {
-          background-color: #f5f5f5;
-          cursor: not-allowed;
-        }
-
-        .password-help {
-          font-size: 0.75rem;
-          color: #666;
-          margin-top: 0.25rem;
-        }
-
-        .form-actions {
-          margin-top: 1.5rem;
-          margin-bottom: 1rem;
-        }
-
-        .btn {
-          padding: 0.75rem 1rem;
-          border: none;
-          border-radius: 4px;
-          font-size: 1rem;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
-
-        .btn-full {
-          width: 100%;
-        }
-
-        .btn:disabled {
-          cursor: not-allowed;
-          opacity: 0.6;
-        }
-
-        .btn-primary {
-          background-color: #28a745;
-          color: white;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-          background-color: #218838;
-        }
-
-        .form-footer {
-          border-top: 1px solid #eee;
-          padding-top: 1rem;
-          text-align: center;
-        }
-
-        .login-prompt {
-          margin: 0;
-          color: #666;
-          font-size: 0.9rem;
-        }
-
-        .link-button {
-          background: none;
-          border: none;
-          color: #007bff;
-          cursor: pointer;
-          text-decoration: underline;
-          font-size: inherit;
-          padding: 0;
-        }
-
-        .link-button:hover:not(:disabled) {
-          color: #0056b3;
-        }
-
-        .link-button:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-      `}</style>
     </div>
   );
 }

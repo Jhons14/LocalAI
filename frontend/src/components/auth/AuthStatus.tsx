@@ -44,30 +44,34 @@ export function AuthStatus() {
 
   return (
     <>
-      <div className="auth-status">
+      <div className='p-4 border-b border-gray-200'>
         {isAuthenticated && user ? (
-          <div className="auth-user-info">
-            <div className="user-details">
-              <span className="user-greeting">Welcome, {user.username}!</span>
-              <span className="user-email">{user.email}</span>
+          <div className='flex justify-between items-center flex-wrap gap-3 md:flex-row flex-col md:items-center items-start'>
+            <div className='flex flex-col gap-1'>
+              <span className='font-semibold  text-sm'>
+                Welcome, {user.username}!
+              </span>
+              <span className='text-sm '>{user.email}</span>
               {user.is_admin && (
-                <span className="admin-badge">Admin</span>
+                <span className='bg-red-600 text-white px-2 py-0.5 rounded-full text-xs font-medium self-start'>
+                  Admin
+                </span>
               )}
             </div>
             <button
               onClick={handleLogout}
-              className="logout-btn"
+              className='bg-red-600 text-white border-none px-4 py-2 rounded text-sm font-medium cursor-pointer transition-colors duration-200 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed'
               disabled={isLoading}
             >
               {isLoading ? 'Signing out...' : 'Sign Out'}
             </button>
           </div>
         ) : (
-          <div className="auth-login-prompt">
-            <span className="login-text">Not signed in</span>
+          <div className='flex justify-between items-center gap-3 md:flex-row flex-col md:items-center items-start'>
+            <span className=' text-sm'>Not signed in</span>
             <button
               onClick={() => openModal('login')}
-              className="login-btn"
+              className='bg-blue-600 text-white border-none px-4 py-2 rounded text-sm font-medium cursor-pointer transition-colors duration-200 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed'
               disabled={isLoading}
             >
               Sign In
@@ -80,7 +84,7 @@ export function AuthStatus() {
       <Modal
         isOpen={activeModal === 'login'}
         onClose={closeModal}
-        title="Sign In"
+        title='Sign In'
       >
         <LoginForm
           onSuccess={handleLoginSuccess}
@@ -92,121 +96,13 @@ export function AuthStatus() {
       <Modal
         isOpen={activeModal === 'signup'}
         onClose={closeModal}
-        title="Create Account"
+        title='Create Account'
       >
         <SignUpForm
           onSuccess={handleSignUpSuccess}
           onSwitchToLogin={switchToLogin}
         />
       </Modal>
-
-      <style jsx>{`
-        .auth-status {
-          padding: 1rem;
-          border-bottom: 1px solid #eee;
-        }
-
-        .auth-user-info {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 0.75rem;
-        }
-
-        .user-details {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-
-        .user-greeting {
-          font-weight: 600;
-          color: #333;
-          font-size: 0.95rem;
-        }
-
-        .user-email {
-          font-size: 0.85rem;
-          color: #666;
-        }
-
-        .admin-badge {
-          background: #dc3545;
-          color: white;
-          padding: 0.125rem 0.375rem;
-          border-radius: 10px;
-          font-size: 0.7rem;
-          font-weight: 500;
-          align-self: flex-start;
-        }
-
-        .logout-btn {
-          background: #dc3545;
-          color: white;
-          border: none;
-          padding: 0.5rem 1rem;
-          border-radius: 4px;
-          font-size: 0.875rem;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
-
-        .logout-btn:hover:not(:disabled) {
-          background: #c82333;
-        }
-
-        .logout-btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .auth-login-prompt {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .login-text {
-          color: #666;
-          font-size: 0.9rem;
-        }
-
-        .login-btn {
-          background: #007bff;
-          color: white;
-          border: none;
-          padding: 0.5rem 1rem;
-          border-radius: 4px;
-          font-size: 0.875rem;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
-
-        .login-btn:hover:not(:disabled) {
-          background: #0056b3;
-        }
-
-        .login-btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        @media (max-width: 768px) {
-          .auth-user-info {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-
-          .auth-login-prompt {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-        }
-      `}</style>
     </>
   );
 }

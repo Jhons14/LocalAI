@@ -35,110 +35,22 @@ export function Modal({ isOpen, onClose, children, title }: ModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[1000] p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto relative md:p-0 p-2" onClick={(e) => e.stopPropagation()}>
         {title && (
-          <div className="modal-header">
-            <h2 className="modal-title">{title}</h2>
-            <button 
-              className="modal-close-btn"
+          <div className="flex justify-between items-center px-6 pt-6 pb-0 mb-4">
+            <h2 className="text-black text-2xl font-semibold m-0">{title}</h2>
+            <button
+              className="bg-transparent border-none text-2xl text-gray-600 cursor-pointer p-0 w-8 h-8 flex justify-center items-center rounded transition-all duration-200 hover:bg-gray-100 hover:text-black"
               onClick={onClose}
-              aria-label="Close modal"
+              aria-label='Close modal'
             >
               ×
             </button>
           </div>
         )}
-        <div className="modal-body">
-          {children}
-        </div>
+        <div className="px-6 pb-6">{children}</div>
       </div>
-
-      <style jsx>{`
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: rgba(0, 0, 0, 0.5);
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          z-index: 1000;
-          padding: 1rem;
-        }
-
-        .modal-content {
-          background: white;
-          border-radius: 8px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-          width: 100%;
-          max-width: 500px;
-          max-height: 90vh;
-          overflow-y: auto;
-          position: relative;
-        }
-
-        .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1.5rem 1.5rem 0;
-          margin-bottom: 1rem;
-        }
-
-        .modal-title {
-          color: #333;
-          font-size: 1.5rem;
-          font-weight: 600;
-          margin: 0;
-        }
-
-        .modal-close-btn {
-          background: none;
-          border: none;
-          font-size: 2rem;
-          color: #666;
-          cursor: pointer;
-          padding: 0;
-          width: 32px;
-          height: 32px;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          border-radius: 4px;
-          transition: all 0.2s;
-        }
-
-        .modal-close-btn:hover {
-          background-color: #f5f5f5;
-          color: #333;
-        }
-
-        .modal-body {
-          padding: 0 1.5rem 1.5rem;
-        }
-
-        @media (max-width: 768px) {
-          .modal-overlay {
-            padding: 0.5rem;
-          }
-          
-          .modal-content {
-            max-width: none;
-            margin: 0;
-          }
-          
-          .modal-header {
-            padding: 1rem 1rem 0;
-          }
-          
-          .modal-body {
-            padding: 0 1rem 1rem;
-          }
-        }
-      `}</style>
     </div>
   );
 }

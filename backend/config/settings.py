@@ -4,6 +4,7 @@ Provides environment-specific configurations and validation.
 """
 
 import os
+import re
 from typing import List, Optional, Dict
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
@@ -64,11 +65,7 @@ class SecuritySettings(BaseSettings):
     @field_validator('secret_key')
     @classmethod
     def validate_secret_key(cls, v):
-        # Allow development keys in non-production environments
-        development_keys = ["your-secret-key-change-in-production", "dev-secret-key-change-me-in-production-please"]
-        
-        # Get environment from the values being validated (if available)
-        # For now, just check the length requirement
+        """Validate secret key meets basic security requirements."""
         if len(v) < 32:
             raise ValueError("Secret key must be at least 32 characters for security")
         return v
@@ -316,6 +313,54 @@ class AppSettings(BaseSettings):
     def is_development(self) -> bool:
         """Check if running in development environment."""
         return self.environment == "development"
+    
+    @field_validator('cors_origins')
+    @classmethod
+    def validate_cors_origins(cls, v, info):
+        """Validate CORS origins for security."""
+        import os
+        environment = os.getenv('ENVIRONMENT', 'development').lower()
+        
+        origins = [origin.strip() for origin in v.split(",") if origin.strip()]
+        
+        # In production, warn about wildcard origins
+        if environment == 'production':
+            if '*' in v or 'localhost' in v.lower():
+                raise ValueError("Production environment should not allow wildcard (*) or localhost CORS origins")
+        
+        # Validate each origin format
+        for origin in origins:
+            if origin != '*' and not re.match(r'^https?://[a-zA-Z0-9.-]+(:[0-9]+)?$', origin):
+                raise ValueError(f"Invalid CORS origin format: {origin}")
+        
+        return v
+    
+    @field_validator('debug')
+    @classmethod
+    def validate_debug_mode(cls, v, info):
+        """Validate debug mode setting."""
+        import os
+        environment = os.getenv('ENVIRONMENT', 'development').lower()
+        
+        # Debug should be disabled in production
+        if environment == 'production' and v is True:
+            raise ValueError("Debug mode must be disabled in production environment")
+        
+        return v
+    
+    @field_validator('host')
+    @classmethod
+    def validate_host(cls, v, info):
+        """Validate host binding."""
+        import os
+        environment = os.getenv('ENVIRONMENT', 'development').lower()
+        
+        # In production, consider security implications of 0.0.0.0
+        if environment == 'production' and v == '0.0.0.0':
+            import warnings
+            warnings.warn("Binding to 0.0.0.0 in production may expose the service. Consider using specific interfaces.")
+        
+        return v
 
     model_config = {
         "env_file": ".env.development",
