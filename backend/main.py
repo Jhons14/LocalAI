@@ -126,9 +126,9 @@ async def startup_event():
     try:
         # Create all tables
         Base.metadata.create_all(bind=engine)
-        logger.info("✅ Database tables initialized successfully")
+        logger.info("Database tables initialized successfully")
     except Exception as e:
-        logger.error(f"❌ Failed to initialize database tables: {e}")
+        logger.error(f"Failed to initialize database tables: {e}")
         # Don't fail startup - just log the error
 
 # ==================== Storage Classes ====================
