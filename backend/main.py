@@ -33,7 +33,6 @@ except ImportError:
     AsyncPostgresStore = None
     POSTGRES_AVAILABLE = False
 
-print(f"Using memory -------------------------------------------------- {POSTGRES_AVAILABLE}")
 
 from langgraph.store.base import BaseStore
 

@@ -3,7 +3,7 @@ SQLAlchemy database models for the LocalAI application.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from sqlalchemy import Column, String, DateTime, Text, Boolean, Integer, ForeignKey, Index
 from sqlalchemy.orm import relationship
@@ -39,6 +39,7 @@ class User(Base, TimestampMixin):
     # Relationships
     api_keys = relationship("APIKey", back_populates="user", cascade="all, delete-orphan")
     chat_sessions = relationship("ChatSession", back_populates="user", cascade="all, delete-orphan")
+    password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<User(id={self.id}, username={self.username}, email={self.email})>"
@@ -155,3 +156,43 @@ class ChatMessage(Base, TimestampMixin):
         if len(self.content) <= 100:
             return self.content
         return self.content[:97] + "..."
+
+
+class PasswordResetToken(Base, TimestampMixin):
+    """Password reset token model for forgotten password functionality."""
+    
+    __tablename__ = "password_reset_tokens"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    token = Column(String(64), nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    is_used = Column(Boolean, default=False, nullable=False)
+    used_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Track IP and user agent for security
+    requested_ip = Column(String(45), nullable=True)  # Support IPv6
+    requested_user_agent = Column(String(500), nullable=True)
+    
+    # Relationships
+    user = relationship("User", back_populates="password_reset_tokens")
+    
+    # Indexes
+    __table_args__ = (
+        Index("idx_password_reset_tokens_user_active", "user_id", "is_used"),
+        Index("idx_password_reset_tokens_expires", "expires_at"),
+        Index("idx_password_reset_tokens_token_unique", "token"),
+    )
+    
+    def __repr__(self):
+        return f"<PasswordResetToken(id={self.id}, user_id={self.user_id}, expires_at={self.expires_at})>"
+    
+    @property
+    def is_expired(self) -> bool:
+        """Check if the reset token is expired."""
+        return datetime.utcnow() > self.expires_at
+    
+    @property
+    def is_valid(self) -> bool:
+        """Check if the reset token is valid (not used and not expired)."""
+        return not self.is_used and not self.is_expired

@@ -61,6 +61,14 @@ class SecuritySettings(BaseSettings):
         default=15,
         description="Lockout duration in minutes"
     )
+    reset_token_expire_hours: int = Field(
+        default=6,
+        description="Password reset token expiration time in hours"
+    )
+    max_reset_attempts_per_hour: int = Field(
+        default=5,
+        description="Maximum password reset attempts per hour per user"
+    )
 
     @field_validator('secret_key')
     @classmethod
@@ -71,6 +79,54 @@ class SecuritySettings(BaseSettings):
         return v
     
     model_config = {"env_prefix": "SECURITY_"}
+
+
+class EmailSettings(BaseSettings):
+    """Email configuration settings for password reset and notifications."""
+    
+    # SMTP Settings
+    smtp_server: str = Field(
+        default="smtp.gmail.com",
+        description="SMTP server hostname"
+    )
+    smtp_port: int = Field(
+        default=587,
+        description="SMTP server port (587 for TLS, 465 for SSL)"
+    )
+    smtp_username: str = Field(
+        default="",
+        description="SMTP username/email"
+    )
+    smtp_password: str = Field(
+        default="",
+        description="SMTP password or app password"
+    )
+    use_tls: bool = Field(
+        default=True,
+        description="Use TLS encryption (STARTTLS)"
+    )
+    use_ssl: bool = Field(
+        default=False,
+        description="Use SSL encryption"
+    )
+    
+    # Email Content Settings
+    from_email: str = Field(
+        default="noreply@localai.app",
+        description="From email address for password reset emails"
+    )
+    from_name: str = Field(
+        default="LocalAI",
+        description="From name for password reset emails"
+    )
+    
+    # Email Template Settings
+    base_url: str = Field(
+        default="http://localhost:4321",
+        description="Base URL for password reset links"
+    )
+    
+    model_config = {"env_prefix": "EMAIL_"}
 
 
 class RateLimitSettings(BaseSettings):
@@ -248,6 +304,7 @@ class AppSettings(BaseSettings):
     # Component settings
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)
+    email_config: EmailSettings = Field(default_factory=EmailSettings)
     rate_limit: RateLimitSettings = Field(default_factory=RateLimitSettings)
     ollama: OllamaSettings = Field(default_factory=OllamaSettings)
     openai: OpenAISettings = Field(default_factory=OpenAISettings)

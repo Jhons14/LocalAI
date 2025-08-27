@@ -3,13 +3,14 @@ Authentication endpoints for user registration, login, and token management.
 """
 
 from typing import Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
 from database.base import get_db
 from database.models import User
 from services.auth import AuthService, JWTService
+from services.auth.password_reset_service import PasswordResetService
 from services.security import get_current_active_user, get_optional_user
 from config.settings import get_settings
 
@@ -39,6 +40,17 @@ class TokenRefresh(BaseModel):
 class PasswordChange(BaseModel):
     """Password change request model."""
     current_password: str = Field(..., description="Current password")
+    new_password: str = Field(..., min_length=8, max_length=128, description="New password")
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Forgot password request model."""
+    email: EmailStr = Field(..., description="Email address to send reset link to")
+
+
+class ResetPasswordRequest(BaseModel):
+    """Reset password request model."""
+    token: str = Field(..., description="Password reset token")
     new_password: str = Field(..., min_length=8, max_length=128, description="New password")
 
 
@@ -75,6 +87,12 @@ def get_auth_service() -> AuthService:
     settings = get_settings()
     jwt_service = JWTService(settings)
     return AuthService(settings, jwt_service)
+
+
+def get_password_reset_service() -> PasswordResetService:
+    """Get password reset service instance."""
+    settings = get_settings()
+    return PasswordResetService(settings)
 
 
 @router.post("/register", response_model=AuthResponse)
@@ -249,3 +267,86 @@ async def verify_token(
         "username": current_user.username,
         "is_admin": current_user.is_admin
     }
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    request: Request,
+    forgot_request: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+    reset_service: PasswordResetService = Depends(get_password_reset_service)
+):
+    """
+    Request a password reset link for the given email.
+    
+    - **email**: Email address to send reset link to
+    
+    Always returns success to prevent email enumeration.
+    If the email exists in the system, a reset link will be sent.
+    """
+    # Get client IP and user agent for security logging
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent", "")
+    
+    success, message = reset_service.generate_reset_token(
+        db=db,
+        email=forgot_request.email,
+        client_ip=client_ip,
+        user_agent=user_agent
+    )
+    
+    # Always return the same message to prevent email enumeration
+    return {"message": "If your email is in our system, you will receive reset instructions shortly."}
+
+
+@router.get("/verify-reset-token/{token}")
+async def verify_reset_token(
+    token: str,
+    db: Session = Depends(get_db),
+    reset_service: PasswordResetService = Depends(get_password_reset_service)
+):
+    """
+    Verify if a password reset token is valid.
+    
+    - **token**: Password reset token to verify
+    
+    Returns whether the token is valid and not expired.
+    """
+    is_valid, message, user_id = reset_service.verify_reset_token(db, token)
+    
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=message
+        )
+    
+    return {"valid": True, "message": message}
+
+
+@router.post("/reset-password")
+async def reset_password(
+    reset_request: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+    reset_service: PasswordResetService = Depends(get_password_reset_service)
+):
+    """
+    Reset password using a valid reset token.
+    
+    - **token**: Valid password reset token
+    - **new_password**: New strong password (8-128 characters with complexity requirements)
+    
+    Token will be invalidated after successful password reset.
+    """
+    success, message = reset_service.reset_password(
+        db=db,
+        token=reset_request.token,
+        new_password=reset_request.new_password
+    )
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=message
+        )
+    
+    return {"message": message}
