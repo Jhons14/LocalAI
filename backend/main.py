@@ -50,60 +50,9 @@ from prompts import prompt_loader
 
 load_dotenv()
 
-# ==================== Configuration ====================
-class Config:
-    """Centralized configuration management"""
-    
-    # Environment variables
-    OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    MAX_PROMPT_LENGTH = int(os.getenv("MAX_PROMPT_LENGTH", "10000"))
-    MAX_THREAD_ID_LENGTH = int(os.getenv("MAX_THREAD_ID_LENGTH", "100"))
-    ARCADE_API_KEY = os.getenv("ARCADE_API_KEY")
-    DATABASE_URL = os.getenv("DATABASE_URL")
-    CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:4322")
-    
-    # Rate limiting - ensure proper format
-    RATE_LIMIT_CHAT = "30/minute"  # Fixed format
-    RATE_LIMIT_CONFIG = "10/minute"  # Fixed format
-    RATE_LIMIT_KEYS = "5/minute"  # Added for other endpoints
-    RATE_LIMIT_GENERAL = "20/minute"  # General rate limit
-    
-    # Model defaults
-    DEFAULT_TEMPERATURE = float(os.getenv("DEFAULT_TEMPERATURE", "0.7"))
-    DEFAULT_MAX_TOKENS = int(os.getenv("DEFAULT_MAX_TOKENS", "4000"))
-    DEFAULT_TIMEOUT = int(os.getenv("DEFAULT_TIMEOUT", "30"))
-    
-    # Anti-infinite loop protection
-    MAX_TOOL_CALLS_PER_TURN = int(os.getenv("MAX_TOOL_CALLS_PER_TURN", "5"))
-    MAX_RECURSION_DEPTH = int(os.getenv("MAX_RECURSION_DEPTH", "25"))
-    
-    # Available toolkits
-    DEFAULT_TOOLKITS = ["Gmail", "Slack", "Calendar", "Drive"]
-    
-    # Tool capability descriptions
-    TOOL_CAPABILITIES = {
-        "Gmail": "📧 Read, send, and manage emails",
-        "Slack": "💬 Send messages and communicate in channels", 
-        "Calendar": "📅 View and manage calendar events",
-        "Drive": "📁 Access and manage files and documents"
-    }
-    
-    # User preferences storage
-    PREFERENCES_FILE = Path("user_preferences.json")
-    
-    # Tool conflict detection - tools that might overlap in functionality
-    TOOL_CONFLICTS = {
-        "Gmail": {"conflicts_with": [], "note": ""},
-        "Slack": {"conflicts_with": [], "note": ""},
-        "Calendar": {"conflicts_with": [], "note": ""},
-        "Drive": {"conflicts_with": [], "note": ""},
-        # Example future tools that might conflict
-        "Outlook": {"conflicts_with": ["Gmail"], "note": "both provide email functionality"},
-        "Teams": {"conflicts_with": ["Slack"], "note": "both provide messaging functionality"},
-        "OneDrive": {"conflicts_with": ["Drive"], "note": "both provide file storage"}
-    }
-
-config = Config()
+# Initialize settings early for use throughout the app
+from config.settings import get_settings
+settings = get_settings()
 
 # ==================== Logging Setup ====================
 logging.basicConfig(
@@ -128,7 +77,7 @@ limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
 
-origins = [origin.strip() for origin in config.CORS_ORIGINS.split(",") if origin.strip()]
+origins = settings.cors_origins_list
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -140,8 +89,7 @@ app.add_middleware(
 # Add authentication middleware
 from middleware.auth import AuthenticationMiddleware
 from services.security.rate_limiting_middleware import EnhancedRateLimitMiddleware
-from config.settings import get_settings
-settings = get_settings()
+
 app.add_middleware(AuthenticationMiddleware, settings=settings)
 
 # Add enhanced rate limiting middleware
@@ -289,15 +237,15 @@ class WorkflowManager:
             provider=provider,
             model_name=model,
             api_key=api_key,  # Use provided API key for tool operations
-            temperature=config.DEFAULT_TEMPERATURE,
-            max_tokens=config.DEFAULT_MAX_TOKENS
+            temperature=settings.default_temperature,
+            max_tokens=settings.default_max_tokens
         )
         
         # Initialize tool manager if toolkits specified
         tool_manager = None
         tools = []
         if new_toolkits:
-            tool_manager = ArcadeToolManager(api_key=config.ARCADE_API_KEY)
+            tool_manager = ArcadeToolManager(api_key=settings.arcade_api_key)
             tool_manager.init_tools(toolkits=new_toolkits)
             tools = tool_manager.to_langchain(use_interrupts=True)
             self.set_tool_manager(thread_id, tool_manager)
@@ -327,7 +275,7 @@ class WorkflowManager:
             # Add routing
             routing_func = create_routing_function(
                 tool_manager, 
-                config.MAX_TOOL_CALLS_PER_TURN
+                settings.max_tool_calls_per_turn
             )
             workflow.add_conditional_edges("agent", routing_func, ["authorization", "tools", END])
             workflow.add_edge("authorization", "tools")
@@ -369,8 +317,8 @@ class ModelFactory:
         provider: ModelProvider,
         model_name: str,
         api_key: Optional[str] = None,
-        temperature: float = config.DEFAULT_TEMPERATURE,
-        max_tokens: int = config.DEFAULT_MAX_TOKENS,
+        temperature: float = settings.default_temperature,
+        max_tokens: int = settings.default_max_tokens,
         streaming: bool = True
     ):
         """Create a language model based on provider"""
@@ -381,7 +329,7 @@ class ModelFactory:
             return ChatOpenAI(
                 model=model_name,
                 # temperature=temperature,
-                timeout=config.DEFAULT_TIMEOUT,
+                timeout=settings.default_timeout,
                 max_retries=2,
                 api_key=SecretStr(api_key),
                 streaming=streaming
@@ -391,7 +339,7 @@ class ModelFactory:
             return ChatOllama(
                 model=model_name,
                 temperature=temperature,
-                base_url=config.OLLAMA_BASE_URL
+                base_url=settings.ollama.base_url
             )
         
         elif provider == ModelProvider.ANTHROPIC:
@@ -402,7 +350,7 @@ class ModelFactory:
                 temperature=temperature,
                 api_key=SecretStr(api_key),
                 streaming=streaming,
-                timeout=config.DEFAULT_TIMEOUT,
+                timeout=settings.default_timeout,
                 stop=None
             )
         
@@ -438,8 +386,8 @@ def validate_thread_id(thread_id: str) -> str:
     if not re.match(r'^[a-zA-Z0-9_-]+$', thread_id):
         raise ValueError("Thread ID can only contain alphanumeric characters, underscores, and hyphens")
     
-    if len(thread_id) > config.MAX_THREAD_ID_LENGTH:
-        raise ValueError(f"Thread ID too long. Maximum {config.MAX_THREAD_ID_LENGTH} characters allowed")
+    if len(thread_id) > settings.max_thread_id_length:
+        raise ValueError(f"Thread ID too long. Maximum {settings.max_thread_id_length} characters allowed")
     
     return thread_id
 
@@ -457,7 +405,7 @@ def create_tool_change_system_message(changes: dict, tool_manager: Optional[Arca
         message_parts.append(f"✅ Added tools: {', '.join(added_tools)}")
         # Add capabilities for new tools
         for tool in added_tools:
-            capability = config.TOOL_CAPABILITIES.get(tool, "🔧 General purpose tool")
+            capability = settings.tool_capabilities.get(tool, "🔧 General purpose tool")
             message_parts.append(f"   {tool}: {capability}")
     
     if removed_tools:
@@ -497,7 +445,7 @@ def detect_tool_conflicts(toolkits: List[str]) -> List[str]:
     conflicts = []
     
     for tool in toolkits:
-        tool_config = config.TOOL_CONFLICTS.get(tool, {})
+        tool_config = settings.tool_conflicts.get(tool, {})
         conflicts_with = tool_config.get("conflicts_with", [])
         
         for other_tool in toolkits:
@@ -949,7 +897,7 @@ class ChatRequest(BaseModel):
     
     @field_validator('prompt')
     def validate_prompt(cls, v):
-        return sanitize_string(v, config.MAX_PROMPT_LENGTH)
+        return sanitize_string(v, settings.max_prompt_length)
 
 # ==================== API Endpoints ====================
 
@@ -987,15 +935,15 @@ async def chat(
                 provider=provider,
                 model_name=model,
                 api_key=chat_req.api_key,
-                temperature=chat_req.temperature or config.DEFAULT_TEMPERATURE,
-                max_tokens=chat_req.max_tokens or config.DEFAULT_MAX_TOKENS
+                temperature=chat_req.temperature or settings.default_temperature,
+                max_tokens=chat_req.max_tokens or settings.default_max_tokens
             )
             
             # Initialize tool manager if toolkits specified
             tool_manager = None
             tools = []
             if chat_req.toolkits:
-                tool_manager = ArcadeToolManager(api_key=config.ARCADE_API_KEY)
+                tool_manager = ArcadeToolManager(api_key=settings.arcade_api_key)
                 tool_manager.init_tools(toolkits=chat_req.toolkits)
                 tools = tool_manager.to_langchain(use_interrupts=True)
                 
@@ -1038,7 +986,7 @@ async def chat(
                 # Add routing
                 routing_func = create_routing_function(
                     tool_manager, 
-                    config.MAX_TOOL_CALLS_PER_TURN
+                    settings.max_tool_calls_per_turn
                 )
                 workflow.add_conditional_edges("agent", routing_func, ["authorization", "tools", END])
                 workflow.add_edge("authorization", "tools")
@@ -1072,7 +1020,7 @@ async def chat(
                 logger.info(f"Reconfiguring tools for thread {chat_req.thread_id}: {current_toolkits} -> {requested_toolkits}")
                 
                 # Validate API key for tool operations if tools are being added
-                if requested_toolkits and not config.ARCADE_API_KEY:
+                if requested_toolkits and not settings.arcade_api_key:
                     raise HTTPException(
                         status_code=400,
                         detail="Arcade API key required for tool operations"
@@ -1106,7 +1054,7 @@ async def chat(
                 "thread_id": chat_req.thread_id,
                 "user_id": chat_req.userEmail or "default_user"
             },
-            "recursion_limit": config.MAX_RECURSION_DEPTH
+            "recursion_limit": settings.max_recursion_depth
         }
         
         # Prepare input messages
@@ -1153,14 +1101,14 @@ async def generate_response(thread_id: str, input_messages: list, runtime_config
     use_memory = (
         workflow_config is not None and
         workflow_config.get("enable_memory", True) and
-        config.DATABASE_URL
+        settings.database.url
     )
 
     if use_memory and POSTGRES_AVAILABLE:
         try:
             # Use async context managers for PostgreSQL components
-            async with (AsyncPostgresStore.from_conn_string(config.DATABASE_URL) as store,
-                        AsyncPostgresSaver.from_conn_string(config.DATABASE_URL) as checkpointer):
+            async with (AsyncPostgresStore.from_conn_string(settings.database.url) as store,
+                        AsyncPostgresSaver.from_conn_string(settings.database.url) as checkpointer):
                     logger.info(f"Initialized storage for thread {thread_id}")
 
                     # Compile workflow with storage
@@ -1250,7 +1198,7 @@ async def list_models(
     
     if not provider or provider == ModelProvider.OLLAMA:
         try:
-            response = requests.get(f"{config.OLLAMA_BASE_URL}/api/tags", timeout=10)
+            response = requests.get(f"{settings.ollama.base_url}/api/tags", timeout=10)
             response.raise_for_status()
             ollama_models = response.json()["models"]
             models["ollama"] = [model["name"] for model in ollama_models]
@@ -1286,10 +1234,10 @@ async def list_models(
 async def list_toolkits(current_user: Optional[User] = Depends(get_optional_user)):
     """List available tool toolkits with capabilities"""
     toolkits = []
-    for toolkit in config.DEFAULT_TOOLKITS:
+    for toolkit in settings.default_toolkits:
         toolkits.append({
             "name": toolkit,
-            "capability": config.TOOL_CAPABILITIES.get(toolkit, "General purpose tool")
+            "capability": settings.tool_capabilities.get(toolkit, "General purpose tool")
         })
     
     return {
