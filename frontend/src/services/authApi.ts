@@ -177,3 +177,34 @@ export async function getCurrentUser(accessToken: string): Promise<User> {
     throw new AuthApiError(`Network error getting user info: ${error.message}`);
   }
 }
+
+/**
+ * Request password reset for email
+ */
+export async function forgotPassword(email: string): Promise<{ message: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new AuthApiError(
+        `Password reset request failed: ${errorData}`,
+        response.status
+      );
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    if (error instanceof AuthApiError) {
+      throw error;
+    }
+    throw new AuthApiError(`Network error during password reset request: ${error.message}`);
+  }
+}

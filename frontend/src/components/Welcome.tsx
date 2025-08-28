@@ -3,7 +3,6 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { ChatHistoryContextProvider } from '@/context/ChatHistoryContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { AuthProvider } from '@/context/AuthContext';
-import { AuthStatus } from './auth/AuthStatus';
 
 export function Welcome() {
   return (
@@ -11,7 +10,6 @@ export function Welcome() {
       <ToastProvider>
         <ChatHistoryContextProvider>
           <div className='flex flex-col h-screen'>
-            <AuthStatus />
             <main className='flex flex-row flex-1'>
               <Sidebar />
               <Chat />

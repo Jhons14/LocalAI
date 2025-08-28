@@ -7,12 +7,14 @@ import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../ui/Modal';
 import { LoginForm } from './LoginForm';
 import { SignUpForm } from './SignUpForm';
+import { ForgotPasswordForm } from './ForgotPasswordForm';
 
-type ModalType = 'login' | 'signup' | null;
+type ModalType = 'login' | 'signup' | 'forgot-password' | null;
 
 export function AuthStatus() {
   const { user, isAuthenticated, logout, isLoading } = useAuth();
   const [activeModal, setActiveModal] = useState<ModalType>(null);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
 
   const handleLoginSuccess = () => {
     setActiveModal(null);
@@ -42,6 +44,13 @@ export function AuthStatus() {
     setActiveModal('login');
   };
 
+  const switchToForgotPassword = (email?: string) => {
+    if (email) {
+      setForgotPasswordEmail(email);
+    }
+    setActiveModal('forgot-password');
+  };
+
   return (
     <>
       <div className='p-4 border-b border-gray-200'>
@@ -67,7 +76,7 @@ export function AuthStatus() {
             </button>
           </div>
         ) : (
-          <div className='flex justify-between items-center gap-3 md:flex-row flex-col md:items-center items-start'>
+          <div className='flex justify-between gap-3 md:flex-row flex-col md:items-center items-start'>
             <span className=' text-sm'>Not signed in</span>
             <button
               onClick={() => openModal('login')}
@@ -89,6 +98,7 @@ export function AuthStatus() {
         <LoginForm
           onSuccess={handleLoginSuccess}
           onSwitchToSignUp={switchToSignUp}
+          onSwitchToForgotPassword={switchToForgotPassword}
         />
       </Modal>
 
@@ -101,6 +111,20 @@ export function AuthStatus() {
         <SignUpForm
           onSuccess={handleSignUpSuccess}
           onSwitchToLogin={switchToLogin}
+        />
+      </Modal>
+
+      {/* Forgot Password Modal */}
+      <Modal
+        isOpen={activeModal === 'forgot-password'}
+        onClose={closeModal}
+        title='Reset Password'
+      >
+        <ForgotPasswordForm
+          onSuccess={closeModal}
+          onClose={switchToLogin}
+          onCloseAll={closeModal}
+          initialEmail={forgotPasswordEmail}
         />
       </Modal>
     </>
