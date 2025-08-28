@@ -11,13 +11,13 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from typing import Optional, Dict, List
 
-from langchain_arcade import ToolManager, ArcadeToolManager
+from langchain_arcade import ArcadeToolManager
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from langchain_core.messages import HumanMessage, AIMessage, BaseMessage, SystemMessage, ToolMessage
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from langgraph.graph import START, END, MessagesState, StateGraph
@@ -38,14 +38,10 @@ from langgraph.store.base import BaseStore
 
 from pydantic import BaseModel, field_validator, Field, SecretStr
 import uvicorn
-from pathlib import Path
-import os
 import bleach
 from dotenv import load_dotenv
 import uuid
-import json
 import time
-from pathlib import Path
 from enum import Enum
 from prompts import prompt_loader
 
@@ -1236,7 +1232,7 @@ async def list_models(
 async def list_toolkits(current_user: Optional[User] = Depends(get_optional_user)):
     """List available tool toolkits with capabilities"""
     toolkits = []
-    for toolkit in settings.default_toolkits:
+    for toolkit in settings.default_toolkits_list:
         toolkits.append({
             "name": toolkit,
             "capability": settings.tool_capabilities.get(toolkit, "General purpose tool")

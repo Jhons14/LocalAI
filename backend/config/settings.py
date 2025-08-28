@@ -250,9 +250,9 @@ class AppSettings(BaseSettings):
         default=None,
         description="Arcade API key for tool integration"
     )
-    default_toolkits: List[str] = Field(
-        default=["Gmail", "Slack", "Calendar", "Drive"],
-        description="Default available toolkits"
+    default_toolkits: str = Field(
+        default="Gmail,Slack,Calendar,Drive",
+        description="Default available toolkits (comma-separated)"
     )
     max_tool_calls_per_turn: int = Field(
         default=5,
@@ -315,6 +315,13 @@ class AppSettings(BaseSettings):
         if isinstance(self.cors_origins, str):
             return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
         return self.cors_origins
+    
+    @property
+    def default_toolkits_list(self) -> List[str]:
+        """Get default toolkits as a list."""
+        if isinstance(self.default_toolkits, str):
+            return [toolkit.strip() for toolkit in self.default_toolkits.split(",") if toolkit.strip()]
+        return self.default_toolkits
     
     @field_validator('environment')
     @classmethod
