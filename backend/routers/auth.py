@@ -284,6 +284,7 @@ async def forgot_password(
     Always returns success to prevent email enumeration.
     If the email exists in the system, a reset link will be sent.
     """
+    
     # Get client IP and user agent for security logging
     client_ip = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent", "")
@@ -294,9 +295,9 @@ async def forgot_password(
         client_ip=client_ip,
         user_agent=user_agent
     )
-    
+
     # Always return the same message to prevent email enumeration
-    return {"message": "If your email is in our system, you will receive reset instructions shortly."}
+    return {"message": message}
 
 
 @router.get("/verify-reset-token/{token}")

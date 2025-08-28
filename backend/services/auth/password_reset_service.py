@@ -35,6 +35,7 @@ class PasswordResetService:
         Returns:
             Tuple of (success, message)
         """
+        
         # Find user by email
         user = db.query(User).filter(User.email == email).first()
         
@@ -52,7 +53,6 @@ class PasswordResetService:
                         PasswordResetToken.created_at > datetime.utcnow() - timedelta(hours=1)
                     )
                 ).count()
-                
                 if recent_tokens >= 5:
                     return True, "If your email is in our system, you will receive reset instructions shortly."
                 

@@ -31,7 +31,12 @@ class DatabaseSettings(BaseSettings):
         description="Maximum database connection overflow"
     )
 
-    model_config = {"env_prefix": "DB_"}
+    model_config = {
+        "env_prefix": "DB_",
+        "env_file": ".env.development",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore"
+    }
 
 
 class SecuritySettings(BaseSettings):
@@ -78,7 +83,12 @@ class SecuritySettings(BaseSettings):
             raise ValueError("Secret key must be at least 32 characters for security")
         return v
     
-    model_config = {"env_prefix": "SECURITY_"}
+    model_config = {
+        "env_prefix": "SECURITY_",
+        "env_file": ".env.development",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore"
+    }
 
 
 class EmailSettings(BaseSettings):
@@ -126,7 +136,12 @@ class EmailSettings(BaseSettings):
         description="Base URL for password reset links"
     )
     
-    model_config = {"env_prefix": "EMAIL_"}
+    model_config = {
+        "env_prefix": "EMAIL_",
+        "env_file": ".env.development",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore"
+    }
 
 
 class RateLimitSettings(BaseSettings):
@@ -145,7 +160,12 @@ class RateLimitSettings(BaseSettings):
         description="Model requests per minute per IP"
     )
 
-    model_config = {"env_prefix": "RATE_LIMIT_"}
+    model_config = {
+        "env_prefix": "RATE_LIMIT_",
+        "env_file": ".env.development",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore"
+    }
 
 
 class OllamaSettings(BaseSettings):
@@ -164,7 +184,12 @@ class OllamaSettings(BaseSettings):
         description="Maximum number of retries"
     )
 
-    model_config = {"env_prefix": "OLLAMA_"}
+    model_config = {
+        "env_prefix": "OLLAMA_",
+        "env_file": ".env.development",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore"
+    }
 
 
 class OpenAISettings(BaseSettings):
