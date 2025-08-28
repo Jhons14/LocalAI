@@ -13,7 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config.settings import get_settings
 from database.base import Base
-from database.models import User, APIKey, ChatSession, ChatMessage
+from database.models import User, PasswordResetToken
 
 
 def create_auth_tables():
@@ -42,7 +42,7 @@ def create_auth_tables():
         # Verify tables were created
         with engine.connect() as conn:
             # Check for main tables
-            tables_to_check = ['users', 'api_keys', 'chat_sessions', 'chat_messages']
+            tables_to_check = ['users', 'password_reset_tokens']
             existing_tables = []
             
             for table in tables_to_check:
@@ -78,10 +78,7 @@ def create_indexes():
         # Additional performance indexes
         indexes = [
             "CREATE INDEX IF NOT EXISTS idx_users_email_active ON users(email, is_active);",
-            "CREATE INDEX IF NOT EXISTS idx_users_login_attempts ON users(failed_login_attempts, locked_until);",
-            "CREATE INDEX IF NOT EXISTS idx_api_keys_user_active ON api_keys(user_id, is_active);",
-            "CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_activity ON chat_sessions(user_id, last_activity);",
-            "CREATE INDEX IF NOT EXISTS idx_chat_messages_session_time ON chat_messages(session_id, created_at);"
+            "CREATE INDEX IF NOT EXISTS idx_users_login_attempts ON users(failed_login_attempts, locked_until);"
         ]
         
         with engine.connect() as conn:

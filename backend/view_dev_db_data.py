@@ -5,7 +5,7 @@ Database data viewer for development.
 
 import sqlite3
 from database.base import SessionLocal
-from database.models import User, APIKey, ChatSession, ChatMessage
+from database.models import User, PasswordResetToken
 from datetime import datetime
 
 def view_with_sqlite():
@@ -15,7 +15,7 @@ def view_with_sqlite():
     conn = sqlite3.connect('data/dev.db')
     cursor = conn.cursor()
     
-    tables = ['users', 'api_keys', 'chat_sessions', 'chat_messages']
+    tables = ['users', 'password_reset_tokens']
     
     for table_name in tables:
         print(f"=== {table_name.upper()} TABLE ===")
@@ -67,49 +67,18 @@ def view_with_sqlalchemy():
             print(f"Locked: {user.is_locked}")
             print("-" * 40)
         
-        # API Keys
-        api_keys = db.query(APIKey).all()
-        print(f"\n=== API KEYS ({len(api_keys)} records) ===")
-        for key in api_keys:
-            print(f"ID: {key.id}")
-            print(f"User ID: {key.user_id}")
-            print(f"Provider: {key.provider}")
-            print(f"Model: {key.model_name}")
-            print(f"Active: {key.is_active}")
-            print(f"Name: {key.name}")
-            print(f"Usage Count: {key.usage_count}")
-            print(f"Last Used: {key.last_used}")
-            print(f"Created: {key.created_at}")
-            print("-" * 40)
-        
-        # Chat Sessions
-        sessions = db.query(ChatSession).all()
-        print(f"\n=== CHAT SESSIONS ({len(sessions)} records) ===")
-        for session in sessions:
-            print(f"ID: {session.id}")
-            print(f"Thread ID: {session.thread_id}")
-            print(f"User ID: {session.user_id}")
-            print(f"Provider: {session.provider}")
-            print(f"Model: {session.model_name}")
-            print(f"Title: {session.title}")
-            print(f"Message Count: {session.message_count}")
-            print(f"Total Tokens: {session.total_tokens}")
-            print(f"Last Activity: {session.last_activity}")
-            print(f"Active: {session.is_active}")
-            print("-" * 40)
-        
-        # Chat Messages
-        messages = db.query(ChatMessage).order_by(ChatMessage.created_at.desc()).limit(10).all()
-        print(f"\n=== RECENT CHAT MESSAGES ({len(messages)} of total) ===")
-        for msg in messages:
-            print(f"ID: {msg.id}")
-            print(f"Session ID: {msg.session_id}")
-            print(f"Role: {msg.role}")
-            print(f"Content: {msg.content_preview}")
-            print(f"Token Count: {msg.token_count}")
-            print(f"Processing Time: {msg.processing_time_ms}ms")
-            print(f"Error: {msg.is_error}")
-            print(f"Created: {msg.created_at}")
+        # Password Reset Tokens
+        tokens = db.query(PasswordResetToken).all()
+        print(f"\n=== PASSWORD RESET TOKENS ({len(tokens)} records) ===")
+        for token in tokens:
+            print(f"ID: {token.id}")
+            print(f"User ID: {token.user_id}")
+            print(f"Token: {token.token[:16]}...")
+            print(f"Expires: {token.expires_at}")
+            print(f"Is Used: {token.is_used}")
+            print(f"Used At: {token.used_at}")
+            print(f"Requested IP: {token.requested_ip}")
+            print(f"Created: {token.created_at}")
             print("-" * 40)
     
     finally:
@@ -138,16 +107,11 @@ def view_specific_user(user_id=None, email=None):
         print(f"Is Active: {user.is_active}")
         print(f"Is Admin: {user.is_admin}")
         
-        # User's API Keys
-        print(f"\n=== USER'S API KEYS ({len(user.api_keys)}) ===")
-        for key in user.api_keys:
-            print(f"  {key.provider}/{key.model_name} - Used {key.usage_count} times")
-        
-        # User's Chat Sessions
-        print(f"\n=== USER'S CHAT SESSIONS ({len(user.chat_sessions)}) ===")
-        for session in user.chat_sessions:
-            msg_count = len(session.messages)
-            print(f"  {session.thread_id}: {session.provider}/{session.model_name} - {msg_count} messages")
+        # User's Password Reset Tokens
+        print(f"\n=== USER'S PASSWORD RESET TOKENS ({len(user.password_reset_tokens)}) ===")
+        for token in user.password_reset_tokens:
+            status = "Used" if token.is_used else "Expired" if token.is_expired else "Active"
+            print(f"  {token.token[:16]}... - {status} - Created: {token.created_at}")
     
     finally:
         db.close()

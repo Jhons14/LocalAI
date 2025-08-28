@@ -15,7 +15,7 @@ class DatabaseSettings(BaseSettings):
     """Database configuration settings."""
     
     url: str = Field(
-        default="sqlite:///./app.db",
+        default="sqlite:///./data/dev.db",
         description="Database URL"
     )
     echo: bool = Field(

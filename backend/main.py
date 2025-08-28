@@ -22,9 +22,12 @@ from langchain_core.runnables import RunnableConfig
 
 from langgraph.graph import START, END, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
-
+from langgraph.store.sqlite import AsyncSqliteStore
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 # PostgreSQL imports - optional for development
 try:
+
+    
     from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
     from langgraph.store.postgres import AsyncPostgresStore
     POSTGRES_AVAILABLE = True
@@ -1102,14 +1105,24 @@ async def generate_response(thread_id: str, input_messages: list, runtime_config
         workflow_config.get("enable_memory", True) and
         settings.database.url
     )
+    
+    # Determine database type from URL
+    is_sqlite = settings.database.url.startswith("sqlite://")
+    is_postgres = settings.database.url.startswith("postgresql://")
 
-    if use_memory and POSTGRES_AVAILABLE:
+
+    if use_memory:
         try:
-            # Use async context managers for PostgreSQL components
-            async with (AsyncPostgresStore.from_conn_string(settings.database.url) as store,
-                        AsyncPostgresSaver.from_conn_string(settings.database.url) as checkpointer):
-                    logger.info(f"Initialized storage for thread {thread_id}")
-
+            if is_sqlite:
+                # Convert SQLite URL format to file path for LangGraph
+                # From: sqlite:///./data/dev.db -> data/dev.db
+                sqlite_file_path = settings.database.url.replace("sqlite:///./", "").replace("sqlite:///", "")
+                
+                # Use SQLite components with converted path
+                async with (AsyncSqliteStore.from_conn_string(sqlite_file_path) as store,
+                            AsyncSqliteSaver.from_conn_string(sqlite_file_path) as checkpointer):
+                    logger.info(f"Initialized SQLite storage for thread {thread_id}")
+                    
                     # Compile workflow with storage
                     workflow_app = workflow.compile(
                         checkpointer=checkpointer,
@@ -1127,6 +1140,38 @@ async def generate_response(thread_id: str, input_messages: list, runtime_config
                             if content:
                                 yield content.encode('utf-8', errors='ignore').decode('utf-8')
                     return  # Exit after successful completion with storage
+                    
+            elif is_postgres and POSTGRES_AVAILABLE:
+                # Use PostgreSQL components
+                async with (AsyncPostgresStore.from_conn_string(settings.database.url) as store,
+                            AsyncPostgresSaver.from_conn_string(settings.database.url) as checkpointer):
+                    logger.info(f"Initialized PostgreSQL storage for thread {thread_id}")
+                    
+                    # Compile workflow with storage
+                    workflow_app = workflow.compile(
+                        checkpointer=checkpointer,
+                        store=store
+                    )
+
+                    # Stream response with storage context
+                    async for chunk, metadata in workflow_app.astream(
+                        {"messages": input_messages},
+                        runtime_config,
+                        stream_mode="messages"
+                    ):
+                        if isinstance(chunk, AIMessage):
+                            content = str(chunk.content) if chunk.content else ""
+                            if content:
+                                yield content.encode('utf-8', errors='ignore').decode('utf-8')
+                    return  # Exit after successful completion with storage
+                    
+            else:
+                # Unsupported database type or PostgreSQL not available
+                if is_postgres and not POSTGRES_AVAILABLE:
+                    logger.warning("PostgreSQL URL provided but PostgreSQL dependencies not available")
+                else:
+                    logger.warning(f"Unsupported database URL format: {settings.database.url}")
+                raise Exception("Unsupported database configuration")
 
         except Exception as e:
             logger.warning(f"Could not initialize storage, continuing without persistence: {e}")
