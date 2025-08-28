@@ -53,9 +53,9 @@ export function AuthStatus() {
 
   return (
     <>
-      <div className='p-4 border-b border-gray-200'>
+      <div className='px-4'>
         {isAuthenticated && user ? (
-          <div className='flex justify-between items-center flex-wrap gap-3 md:flex-row flex-col md:items-center items-start'>
+          <div className='flex justify-between flex-wrap gap-3 md:flex-row flex-col md:items-center items-start'>
             <div className='flex flex-col gap-1'>
               <span className='font-semibold  text-sm'>
                 Welcome, {user.username}!
