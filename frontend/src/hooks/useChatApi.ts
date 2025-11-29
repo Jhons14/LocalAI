@@ -17,17 +17,34 @@ export function useChatApi() {
       onComplete: () => void
     ) => {
       try {
-        const { reader } = await streamRequest('/chat', {
+        const requestData: any = {
           prompt: params.content,
-          document_filename: params.document_filename,
-          document_content: params.document_content,
           thread_id: params.thread_id,
           model: params.model,
           provider: params.provider,
-          api_key: params.api_key,
           toolkits: params.toolkits,
           enable_memory: params.enable_memory,
+        };
+        
+        // Only include document fields if they have values
+        if (params.document_filename) {
+          requestData.document_filename = params.document_filename;
+        }
+        if (params.document_content) {
+          requestData.document_content = params.document_content;
+        }
+        if (params.api_key) {
+          requestData.api_key = params.api_key;
+        }
+        
+        // Debug logging
+        console.log('🔍 Sending chat request:', {
+          ...requestData,
+          document_content: requestData.document_content ? 
+            `[${requestData.document_content.length} chars]` : 'none'
         });
+        
+        const { reader } = await streamRequest('/chat', requestData);
 
         const decoder = new TextDecoder();
 
