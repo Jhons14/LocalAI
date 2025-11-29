@@ -5,6 +5,7 @@ import { useMobileFirst } from '@/hooks/useResponsive';
 import { useAriaDescribedBy } from '@/hooks/useAccessibility';
 import { useValidation } from '@/hooks/useValidation';
 import { useToast } from '@/hooks/useToast';
+import { DocumentUpload } from '@/components/ui/DocumentUpload';
 import type { ChatInputProps } from '@/types/components';
 
 export const ChatInput = memo(function ChatInput({
@@ -18,6 +19,8 @@ export const ChatInput = memo(function ChatInput({
   const { error: showError } = useToast();
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const [isValidating, setIsValidating] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [documentContent, setDocumentContent] = useState<string>('');
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent) => {
@@ -42,10 +45,16 @@ export const ChatInput = memo(function ChatInput({
       try {
         // Use sanitized value if available
         const sanitizedMessage = validation.sanitizedValue || message;
+        
+        // Combine message with document content if present
+        const finalContent = documentContent 
+          ? `${sanitizedMessage}\n\n--- Document Content ---\n${documentContent}`
+          : sanitizedMessage;
+          
         if (!activeModel) return;
 
         sendMessage({
-          content: sanitizedMessage,
+          content: finalContent,
           thread_id: thread_id,
           model: activeModel.model,
           provider: activeModel.provider,
@@ -54,6 +63,9 @@ export const ChatInput = memo(function ChatInput({
         });
 
         clearValidation('message');
+        // Clear document after sending
+        setSelectedFile(null);
+        setDocumentContent('');
       } catch (error) {
         showError('Send Failed', 'Failed to send message. Please try again.');
       } finally {
@@ -84,12 +96,29 @@ export const ChatInput = memo(function ChatInput({
     [hasFieldError, clearValidation]
   );
 
+  const handleFileSelect = useCallback((file: File, content: string) => {
+    setSelectedFile(file);
+    setDocumentContent(content);
+  }, []);
+
+  const handleFileRemove = useCallback(() => {
+    setSelectedFile(null);
+    setDocumentContent('');
+  }, []);
+
   return (
     <div
-      className={`border-t border-[#999999] ${isMobile ? 'p-3' : 'p-4'}`}
+      className={`border-t border-[#999999] ${isMobile ? 'p-3' : 'p-4'} space-y-3`}
       role='region'
       aria-label='Message input'
     >
+      {/* Document Upload Component */}
+      <DocumentUpload
+        onFileSelect={handleFileSelect}
+        onFileRemove={handleFileRemove}
+        selectedFile={selectedFile}
+        disabled={isValidating}
+      />
       <form
         className={`flex items-end bg-[#333333] border border-[#999999] rounded-xl ${
           isMobile ? 'p-1' : 'p-2'
