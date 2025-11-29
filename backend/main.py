@@ -113,6 +113,7 @@ app.include_router(admin_router)
 
 # Import authentication dependencies
 from services.security import get_current_active_user, get_admin_user, get_optional_user
+from services.document_service import DocumentProcessor
 from database.models import User
 from database.base import get_db, Base, engine
 from sqlalchemy.orm import Session
@@ -885,6 +886,9 @@ def create_routing_function(tool_manager: Optional[ArcadeToolManager], max_tool_
 class ChatRequest(BaseModel):
     thread_id: str = Field(..., min_length=1, max_length=100)
     prompt: str = Field(..., min_length=1, max_length=10000)
+    # Document upload fields
+    document_filename: Optional[str] = Field(None, max_length=255)
+    document_content: Optional[str] = Field(None, max_length=100000)  # Base64 encoded or text content
     # Optional configuration parameters for first-time setup
     model: Optional[str] = Field(None, min_length=1, max_length=100)
     provider: Optional[ModelProvider] = None
@@ -1069,10 +1073,56 @@ async def chat(
                 "content": tool_change_message
             })
         
-        # Add user message
+        # Process document if provided
+        final_prompt = chat_req.prompt
+        if chat_req.document_filename and chat_req.document_content:
+            try:
+                # The frontend sends the document content as text, not base64
+                # We need to process it through our document service for validation and formatting
+                import base64
+                
+                # Try to decode if it's base64, otherwise treat as text
+                try:
+                    if chat_req.document_content.startswith('data:'):
+                        # Handle data URLs (data:text/plain;base64,...)
+                        header, data = chat_req.document_content.split(',', 1)
+                        document_bytes = base64.b64decode(data)
+                    else:
+                        # Assume it's plain text content from frontend
+                        document_bytes = chat_req.document_content.encode('utf-8')
+                except Exception:
+                    # If decoding fails, treat as text
+                    document_bytes = chat_req.document_content.encode('utf-8')
+                
+                # Process document through our service
+                processing_result = DocumentProcessor.process_document(
+                    chat_req.document_filename, 
+                    document_bytes
+                )
+                
+                if processing_result['success']:
+                    # Format the message with document content
+                    final_prompt = DocumentProcessor.format_document_for_llm(
+                        chat_req.prompt,
+                        processing_result['text_content'],
+                        chat_req.document_filename
+                    )
+                    logger.info(f"Successfully processed document: {chat_req.document_filename} "
+                              f"({len(processing_result['text_content'])} characters)")
+                else:
+                    logger.warning(f"Document processing failed: {processing_result['error']}")
+                    # Continue with original prompt, but add error message
+                    final_prompt = f"{chat_req.prompt}\n\n[Note: Could not process uploaded document '{chat_req.document_filename}': {processing_result['error']}]"
+                    
+            except Exception as e:
+                logger.error(f"Error processing document: {str(e)}")
+                # Continue with original prompt but add error note
+                final_prompt = f"{chat_req.prompt}\n\n[Note: Error processing uploaded document: {str(e)}]"
+        
+        # Add user message with processed content
         input_messages.append({
             "type": "human",
-            "content": chat_req.prompt
+            "content": final_prompt
         })
         
         # Track usage

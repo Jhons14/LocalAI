@@ -45,16 +45,13 @@ export const ChatInput = memo(function ChatInput({
       try {
         // Use sanitized value if available
         const sanitizedMessage = validation.sanitizedValue || message;
-        
-        // Combine message with document content if present
-        const finalContent = documentContent 
-          ? `${sanitizedMessage}\n\n--- Document Content ---\n${documentContent}`
-          : sanitizedMessage;
           
         if (!activeModel) return;
 
         sendMessage({
-          content: finalContent,
+          content: sanitizedMessage,
+          document_filename: selectedFile?.name || undefined,
+          document_content: documentContent || undefined,
           thread_id: thread_id,
           model: activeModel.model,
           provider: activeModel.provider,

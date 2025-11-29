@@ -160,6 +160,8 @@ export function ChatHistoryContextProvider({
   const sendMessage = useCallback(
     async ({
       content,
+      document_filename,
+      document_content,
       thread_id,
       model,
       provider,
@@ -198,6 +200,8 @@ export function ChatHistoryContextProvider({
       await sendChatMessage(
         {
           content,
+          document_filename,
+          document_content,
           thread_id,
           model,
           provider,

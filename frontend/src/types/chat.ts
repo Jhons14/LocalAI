@@ -27,6 +27,8 @@ export interface ActiveModel {
 
 export interface SendMessageParams {
   content: string;
+  document_filename?: string;
+  document_content?: string;
   thread_id: string;
   model: ModelName;
   provider: ModelProvider;

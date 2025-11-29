@@ -19,6 +19,8 @@ export function useChatApi() {
       try {
         const { reader } = await streamRequest('/chat', {
           prompt: params.content,
+          document_filename: params.document_filename,
+          document_content: params.document_content,
           thread_id: params.thread_id,
           model: params.model,
           provider: params.provider,
