@@ -26,7 +26,7 @@ function useToggleOutside() {
 }
 
 // Available tools configuration
-const AVAILABLE_TOOLS: ToolName[] = ['Gmail', 'Asana'];
+const AVAILABLE_TOOLS: ToolName[] = ['Gmail', 'Asana', 'Firecrawl'];
 
 // Tools state management hook
 function useToolsState(activeModel: ActiveModel | undefined) {
@@ -97,7 +97,6 @@ function useToolsState(activeModel: ActiveModel | undefined) {
   };
 }
 
-
 interface ToolsProps {
   model: ActiveModel | undefined;
 }
@@ -110,7 +109,6 @@ export function Tools({ model }: ToolsProps) {
   const handleToolToggle = (tool: ToolName, value: boolean) => {
     toggleTool(tool, value);
   };
-
 
   if (!model) return null;
 

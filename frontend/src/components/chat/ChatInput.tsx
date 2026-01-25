@@ -45,15 +45,7 @@ export const ChatInput = memo(function ChatInput({
       try {
         // Use sanitized value if available
         const sanitizedMessage = validation.sanitizedValue || message;
-        
-        // Debug logging
-        console.log('🔍 ChatInput sending message:', {
-          content: sanitizedMessage,
-          document_filename: selectedFile?.name || 'none',
-          document_content_length: documentContent?.length || 0,
-          has_document: !!(selectedFile && documentContent)
-        });
-          
+
         if (!activeModel) return;
 
         sendMessage({
@@ -77,7 +69,15 @@ export const ChatInput = memo(function ChatInput({
         setIsValidating(false);
       }
     },
-    [sendMessage, thread_id, validateField, showError, clearValidation]
+    [
+      sendMessage,
+      thread_id,
+      validateField,
+      showError,
+      clearValidation,
+      selectedFile,
+      documentContent,
+    ],
   );
 
   const handleKeyDown = useCallback(
@@ -87,7 +87,7 @@ export const ChatInput = memo(function ChatInput({
         handleSubmit(event as any);
       }
     },
-    [handleSubmit]
+    [handleSubmit],
   );
 
   const handleInputChange = useCallback(
@@ -98,7 +98,7 @@ export const ChatInput = memo(function ChatInput({
         clearValidation('message');
       }
     },
-    [hasFieldError, clearValidation]
+    [hasFieldError, clearValidation],
   );
 
   const handleFileSelect = useCallback((file: File, content: string) => {
@@ -113,11 +113,14 @@ export const ChatInput = memo(function ChatInput({
 
   return (
     <div
-      className={`border-t border-[#999999] ${isMobile ? 'p-3' : 'p-4'} space-y-3`}
+      className={`border-t border-[#999999] ${
+        isMobile ? 'p-3' : 'p-4'
+      } space-y-3`}
       role='region'
       aria-label='Message input'
     >
       {/* Document Upload Component */}
+
       <DocumentUpload
         onFileSelect={handleFileSelect}
         onFileRemove={handleFileRemove}

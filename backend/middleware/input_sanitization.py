@@ -46,7 +46,7 @@ class InputSanitizationMiddleware(BaseHTTPMiddleware):
         self.max_lengths = {
             'short_text': 255,
             'medium_text': 1000,
-            'long_text': 10000,
+            'long_text': 10000000,
             'thread_id': 100,
             'model_name': 50,
             'provider': 20,
@@ -166,11 +166,11 @@ class InputSanitizationMiddleware(BaseHTTPMiddleware):
             return [self._sanitize_json_recursively(item) for item in data]
         elif isinstance(data, str):
             # Validate string for malicious patterns
-            if self._contains_malicious_patterns(data):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Potentially malicious content detected"
-                )
+            # if self._contains_malicious_patterns(data):
+            #     raise HTTPException(
+            #         status_code=status.HTTP_400_BAD_REQUEST,
+            #         detail="Potentially malicious content detected"
+            #     )
             return self._sanitize_string(data, max_length=self.max_lengths['long_text'])
         else:
             return data

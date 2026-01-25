@@ -2,7 +2,7 @@ export type MessageRole = 'user' | 'assistant';
 export type MessageStatus = 'complete' | 'streaming' | 'error' | 'interrupted';
 export type ModelProvider = 'ollama' | 'openai' | 'anthropic' | 'google';
 export type ModelName = string; // Dynamic model names from API
-export type ToolName = 'Gmail' | 'Asana';
+export type ToolName = 'Gmail' | 'Asana' | 'Firecrawl';
 
 export interface ChatMessage {
   id: string;

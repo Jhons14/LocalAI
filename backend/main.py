@@ -2,6 +2,7 @@ import requests
 import logging
 import re
 from datetime import datetime
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -24,6 +25,7 @@ from langgraph.graph import START, END, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.store.sqlite import AsyncSqliteStore
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+
 # PostgreSQL imports - optional for development
 try:
 
@@ -64,13 +66,32 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
-
+# Initialize database tables on startup
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize database tables on application startup and cleanup on shutdown"""
+    # Startup
+    try:
+        # Create all tables
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize database tables: {e}")
+        # Don't fail startup - just log the error
+    
+    yield
+    
+    # Cleanup on shutdown (if needed)
 # ==================== Application Setup ====================
 app = FastAPI(
     title="Enhanced LocalAI Chat API",
     description="Secure chat interface for LLM models with tool integration",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=lifespan
 )
+
+
+
 
 # ==================== Middleware Setup ====================
 limiter = Limiter(key_func=get_remote_address)
@@ -119,19 +140,7 @@ from database.base import get_db, Base, engine
 from sqlalchemy.orm import Session
 from fastapi import Depends
 
-# Initialize database tables on startup
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database tables on application startup"""
-    try:
-        # Create all tables
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database tables initialized successfully")
-    except Exception as e:
-        logger.error(f"Failed to initialize database tables: {e}")
-        # Don't fail startup - just log the error
 
-# ==================== Storage Classes ====================
 class WorkflowManager:
     """Manages workflow instances and configurations"""
     
@@ -1074,7 +1083,7 @@ async def chat(
             })
         
         # Debug logging
-        logger.info(f"🔍 Chat request received - document_filename: {chat_req.document_filename}, "
+        logger.info(f"Chat request received - document_filename: {chat_req.document_filename}, "
                    f"document_content length: {len(chat_req.document_content) if chat_req.document_content else 0}")
         
         # Process document if provided
@@ -1128,7 +1137,6 @@ async def chat(
             "type": "human",
             "content": final_prompt
         })
-        
         # Track usage
         workflow_manager.track_usage(chat_req.thread_id)
         

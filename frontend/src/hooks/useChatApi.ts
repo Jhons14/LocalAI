@@ -41,8 +41,9 @@ export function useChatApi() {
         console.log('🔍 Sending chat request:', {
           ...requestData,
           document_content: requestData.document_content ? 
-            `[${requestData.document_content.length} chars]` : 'none'
+            `[${requestData.document_content.length} chars]: "${requestData.document_content.substring(0, 100)}..."` : 'none'
         });
+        console.log('🔍 Full request payload:', JSON.stringify(requestData, null, 2));
         
         const { reader } = await streamRequest('/chat', requestData);
 
