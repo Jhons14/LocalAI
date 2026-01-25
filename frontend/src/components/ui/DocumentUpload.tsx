@@ -70,12 +70,11 @@ export function DocumentUpload({
       };
 
       // For text files, read as text
-      if (file.type.startsWith('text/') || file.name.endsWith('.md')) {
+      if (file.type.startsWith('text/') || file.name.endsWith('.md') || file.name.endsWith('.txt')) {
         reader.readAsText(file);
       } else {
-        // For other files like PDF, DOCX, we'll need backend processing
-        // For now, just read as text to get basic content
-        reader.readAsText(file);
+        // For binary files (PDF, DOCX), read as base64 DataURL to preserve content
+        reader.readAsDataURL(file);
       }
     });
   }, []);

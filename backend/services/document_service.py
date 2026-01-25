@@ -1,12 +1,26 @@
 """
 Document processing service for handling uploaded files.
 """
-import os
+import io
 import tempfile
 from typing import Dict, Any, Optional, Tuple
 from pathlib import Path
 import logging
 import mimetypes
+
+# PDF processing
+try:
+    from pypdf import PdfReader
+    PDF_SUPPORT = True
+except ImportError:
+    PDF_SUPPORT = False
+
+# DOCX processing
+try:
+    from docx import Document as DocxDocument
+    DOCX_SUPPORT = True
+except ImportError:
+    DOCX_SUPPORT = False
 
 logger = logging.getLogger(__name__)
 
@@ -98,16 +112,10 @@ class DocumentProcessor:
                         metadata['extraction_method'] = 'utf-8_decode_ignore_errors'
                         
             elif file_extension == '.pdf':
-                # For PDF files, we'd need PyPDF2 or similar
-                # For now, return a placeholder - this would need proper PDF processing
-                extracted_text = "[PDF content processing not yet implemented - please use text files for now]"
-                metadata['extraction_method'] = 'pdf_placeholder'
-                
+                extracted_text, metadata = cls._extract_pdf_content(content, metadata)
+
             elif file_extension == '.docx':
-                # For DOCX files, we'd need python-docx
-                # For now, return a placeholder - this would need proper DOCX processing
-                extracted_text = "[DOCX content processing not yet implemented - please use text files for now]"
-                metadata['extraction_method'] = 'docx_placeholder'
+                extracted_text, metadata = cls._extract_docx_content(content, metadata)
                 
             else:
                 raise ValueError(f"Unsupported file type: {file_extension}")
@@ -126,7 +134,89 @@ class DocumentProcessor:
         except Exception as e:
             logger.error(f"Error extracting text from {filename}: {str(e)}")
             raise ValueError(f"Failed to extract text content: {str(e)}")
-    
+
+    @classmethod
+    def _extract_pdf_content(cls, content: bytes, metadata: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
+        """Extract text content from PDF files using pypdf."""
+        if not PDF_SUPPORT:
+            logger.warning("pypdf not installed - PDF extraction unavailable")
+            return "[PDF processing requires pypdf library - please install it or use text files]", metadata
+
+        try:
+            pdf_file = io.BytesIO(content)
+            reader = PdfReader(pdf_file)
+
+            text_parts = []
+            page_count = len(reader.pages)
+            metadata['page_count'] = page_count
+
+            for page_num, page in enumerate(reader.pages):
+                try:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text_parts.append(f"[Page {page_num + 1}]\n{page_text}")
+                except Exception as e:
+                    logger.warning(f"Failed to extract text from page {page_num + 1}: {e}")
+                    text_parts.append(f"[Page {page_num + 1}] - Could not extract text")
+
+            extracted_text = "\n\n".join(text_parts)
+            metadata['extraction_method'] = 'pypdf'
+
+            if not extracted_text.strip():
+                # PDF might be scanned/image-based
+                extracted_text = "[PDF appears to be image-based or contains no extractable text]"
+                metadata['extraction_method'] = 'pypdf_no_text'
+
+            return extracted_text, metadata
+
+        except Exception as e:
+            logger.error(f"PDF extraction failed: {e}")
+            raise ValueError(f"Failed to extract PDF content: {str(e)}")
+
+    @classmethod
+    def _extract_docx_content(cls, content: bytes, metadata: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
+        """Extract text content from DOCX files using python-docx."""
+        if not DOCX_SUPPORT:
+            logger.warning("python-docx not installed - DOCX extraction unavailable")
+            return "[DOCX processing requires python-docx library - please install it or use text files]", metadata
+
+        try:
+            docx_file = io.BytesIO(content)
+            doc = DocxDocument(docx_file)
+
+            text_parts = []
+
+            # Extract text from paragraphs
+            for para in doc.paragraphs:
+                if para.text.strip():
+                    text_parts.append(para.text)
+
+            # Extract text from tables
+            table_count = len(doc.tables)
+            if table_count > 0:
+                metadata['table_count'] = table_count
+                for table_idx, table in enumerate(doc.tables):
+                    table_text = []
+                    for row in table.rows:
+                        row_text = [cell.text.strip() for cell in row.cells]
+                        table_text.append(" | ".join(row_text))
+                    if table_text:
+                        text_parts.append(f"\n[Table {table_idx + 1}]\n" + "\n".join(table_text))
+
+            extracted_text = "\n\n".join(text_parts)
+            metadata['extraction_method'] = 'python-docx'
+            metadata['paragraph_count'] = len(doc.paragraphs)
+
+            if not extracted_text.strip():
+                extracted_text = "[DOCX document appears to be empty or contains no extractable text]"
+                metadata['extraction_method'] = 'python-docx_no_text'
+
+            return extracted_text, metadata
+
+        except Exception as e:
+            logger.error(f"DOCX extraction failed: {e}")
+            raise ValueError(f"Failed to extract DOCX content: {str(e)}")
+
     @classmethod
     def process_document(cls, filename: str, content: bytes) -> Dict[str, Any]:
         """Complete document processing pipeline."""
@@ -182,9 +272,11 @@ Please analyze the above document content in the context of my request."""
     @classmethod
     def get_supported_formats(cls) -> Dict[str, str]:
         """Get list of supported file formats with descriptions."""
+        pdf_status = "full support" if PDF_SUPPORT else "requires pypdf"
+        docx_status = "full support" if DOCX_SUPPORT else "requires python-docx"
         return {
             '.txt': 'Plain text files',
-            '.md': 'Markdown files', 
-            '.pdf': 'PDF documents (basic support)',
-            '.docx': 'Microsoft Word documents (basic support)'
+            '.md': 'Markdown files',
+            '.pdf': f'PDF documents ({pdf_status})',
+            '.docx': f'Microsoft Word documents ({docx_status})'
         }
