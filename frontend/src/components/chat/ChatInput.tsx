@@ -50,13 +50,13 @@ export const ChatInput = memo(function ChatInput({
 
         sendMessage({
           content: sanitizedMessage,
-          document_filename: selectedFile?.name || undefined,
-          document_content: documentContent || undefined,
           thread_id: thread_id,
           model: activeModel.model,
           provider: activeModel.provider,
           toolkits: activeModel.toolkits,
           api_key: tempApiKey,
+          ...(selectedFile?.name && { document_filename: selectedFile.name }),
+          ...(documentContent && { document_content: documentContent }),
         });
 
         clearValidation('message');
@@ -77,6 +77,8 @@ export const ChatInput = memo(function ChatInput({
       clearValidation,
       selectedFile,
       documentContent,
+      activeModel,
+      tempApiKey,
     ],
   );
 
@@ -120,7 +122,6 @@ export const ChatInput = memo(function ChatInput({
       aria-label='Message input'
     >
       {/* Document Upload Component */}
-
       <DocumentUpload
         onFileSelect={handleFileSelect}
         onFileRemove={handleFileRemove}

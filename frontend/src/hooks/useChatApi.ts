@@ -37,14 +37,6 @@ export function useChatApi() {
           requestData.api_key = params.api_key;
         }
         
-        // Debug logging
-        console.log('🔍 Sending chat request:', {
-          ...requestData,
-          document_content: requestData.document_content ? 
-            `[${requestData.document_content.length} chars]: "${requestData.document_content.substring(0, 100)}..."` : 'none'
-        });
-        console.log('🔍 Full request payload:', JSON.stringify(requestData, null, 2));
-        
         const { reader } = await streamRequest('/chat', requestData);
 
         const decoder = new TextDecoder();
@@ -75,7 +67,7 @@ export function useChatApi() {
 
   const getOllamaModels = useCallback(async (): Promise<string[]> => {
     return getRequest('/models?provider=ollama');
-  }, [postRequest]);
+  }, [getRequest]);
 
   const cancelCurrentRequest = useCallback(() => {
     abortPreviousRequest();

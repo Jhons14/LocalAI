@@ -115,8 +115,7 @@ export const ChatOutput = memo(function ChatOutput({
                   isMobile ? 'text-xs' : 'text-sm'
                 }`}
                 onClick={() => {
-                  // Could implement "load more" functionality here
-                  console.log('Load more messages');
+                  // TODO: Implement "load more" functionality
                 }}
                 aria-label='Load earlier messages from conversation history'
               >

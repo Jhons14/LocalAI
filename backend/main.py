@@ -1082,9 +1082,9 @@ async def chat(
                 "content": tool_change_message
             })
         
-        # Debug logging
-        logger.info(f"Chat request received - document_filename: {chat_req.document_filename}, "
-                   f"document_content length: {len(chat_req.document_content) if chat_req.document_content else 0}")
+        # Log document upload info at debug level
+        logger.debug(f"Chat request received - document_filename: {chat_req.document_filename}, "
+                    f"document_content length: {len(chat_req.document_content) if chat_req.document_content else 0}")
         
         # Process document if provided
         final_prompt = chat_req.prompt

@@ -1,6 +1,5 @@
 import { useRef, useState, useCallback } from 'react';
 import { MdAttachFile, MdClose, MdDescription } from 'react-icons/md';
-import { useValidation } from '@/hooks/useValidation';
 import { useToast } from '@/hooks/useToast';
 
 interface DocumentUploadProps {
