@@ -20,7 +20,6 @@ export const ChatInput = memo(function ChatInput({
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const [isValidating, setIsValidating] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [documentContent, setDocumentContent] = useState<string>('');
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent) => {
@@ -55,14 +54,12 @@ export const ChatInput = memo(function ChatInput({
           provider: activeModel.provider,
           toolkits: activeModel.toolkits,
           api_key: tempApiKey,
-          ...(selectedFile?.name && { document_filename: selectedFile.name }),
-          ...(documentContent && { document_content: documentContent }),
+          ...(selectedFile && { document: selectedFile }),
         });
 
         clearValidation('message');
         // Clear document after sending
         setSelectedFile(null);
-        setDocumentContent('');
       } catch (error) {
         showError('Send Failed', 'Failed to send message. Please try again.');
       } finally {
@@ -76,7 +73,6 @@ export const ChatInput = memo(function ChatInput({
       showError,
       clearValidation,
       selectedFile,
-      documentContent,
       activeModel,
       tempApiKey,
     ],
@@ -103,14 +99,12 @@ export const ChatInput = memo(function ChatInput({
     [hasFieldError, clearValidation],
   );
 
-  const handleFileSelect = useCallback((file: File, content: string) => {
+  const handleFileSelect = useCallback((file: File) => {
     setSelectedFile(file);
-    setDocumentContent(content);
   }, []);
 
   const handleFileRemove = useCallback(() => {
     setSelectedFile(null);
-    setDocumentContent('');
   }, []);
 
   return (

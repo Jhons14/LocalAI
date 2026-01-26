@@ -1,9 +1,10 @@
 import { useRef, useState, useCallback } from 'react';
 import { MdAttachFile, MdClose, MdDescription } from 'react-icons/md';
 import { useToast } from '@/hooks/useToast';
+import { logger } from '@/utils';
 
 interface DocumentUploadProps {
-  onFileSelect: (file: File, content: string) => void;
+  onFileSelect: (file: File) => void;
   onFileRemove: () => void;
   selectedFile: File | null;
   disabled?: boolean;
@@ -30,7 +31,6 @@ export function DocumentUpload({
 }: DocumentUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
   const { error: showError } = useToast();
 
   const validateFile = useCallback((file: File): string | null => {
@@ -52,65 +52,29 @@ export function DocumentUpload({
     return null;
   }, []);
 
-  const processFile = useCallback(async (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-
-      reader.onload = (e) => {
-        const result = e.target?.result;
-        if (typeof result === 'string') {
-          resolve(result);
-        } else {
-          reject(new Error('Failed to read file content'));
-        }
-      };
-
-      reader.onerror = () => {
-        reject(new Error('Failed to read file'));
-      };
-
-      // For text files, read as text
-      if (file.type.startsWith('text/') || file.name.endsWith('.md') || file.name.endsWith('.txt')) {
-        reader.readAsText(file);
-      } else {
-        // For binary files (PDF, DOCX), read as base64 DataURL to preserve content
-        reader.readAsDataURL(file);
-      }
-    });
-  }, []);
-
   const handleFileSelect = useCallback(
-    async (file: File) => {
+    (file: File) => {
       const validation = validateFile(file);
       if (validation) {
         showError('Invalid File', validation);
         return;
       }
 
-      setIsProcessing(true);
-      try {
-        const content = await processFile(file);
-        onFileSelect(file, content);
-      } catch (error) {
-        showError(
-          'File Processing Failed',
-          'Could not process the selected file'
-        );
-      } finally {
-        setIsProcessing(false);
-      }
+      // Pass the File object directly - it will be sent via multipart form data
+      onFileSelect(file);
     },
-    [validateFile, processFile, onFileSelect, showError]
+    [validateFile, onFileSelect, showError],
   );
 
   const handleFileInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
+
       if (file) {
         handleFileSelect(file);
       }
     },
-    [handleFileSelect]
+    [handleFileSelect],
   );
 
   const handleDrop = useCallback(
@@ -125,7 +89,7 @@ export function DocumentUpload({
         handleFileSelect(file);
       }
     },
-    [disabled, handleFileSelect]
+    [disabled, handleFileSelect],
   );
 
   const handleDragOver = useCallback(
@@ -135,7 +99,7 @@ export function DocumentUpload({
         setIsDragOver(true);
       }
     },
-    [disabled]
+    [disabled],
   );
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
@@ -213,19 +177,13 @@ export function DocumentUpload({
               className={isDragOver ? 'text-blue-400' : 'text-gray-400'}
             />
             <div className='text-sm text-gray-300'>
-              {isProcessing ? (
-                <span>Processing file...</span>
-              ) : (
-                <>
-                  <span className='text-white'>Click to upload</span> or drag
-                  and drop
-                  <br />
-                  <span className='text-xs text-gray-400'>
-                    Supports: {ALLOWED_EXTENSIONS.join(', ')} (max{' '}
-                    {MAX_FILE_SIZE / 1024 / 1024}MB)
-                  </span>
-                </>
-              )}
+              <span className='text-white'>Click to upload</span> or drag and
+              drop
+              <br />
+              <span className='text-xs text-gray-400'>
+                Supports: {ALLOWED_EXTENSIONS.join(', ')} (max{' '}
+                {MAX_FILE_SIZE / 1024 / 1024}MB)
+              </span>
             </div>
           </div>
         </div>

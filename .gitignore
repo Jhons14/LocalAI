@@ -46,6 +46,8 @@ venv.bak/
 
 # Database Files
 *.db
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
 backend/data/*.db

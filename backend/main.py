@@ -3,7 +3,7 @@ import logging
 import re
 from datetime import datetime
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import StreamingResponse
@@ -1151,6 +1151,181 @@ async def chat(
         raise
     except Exception as e:
         logger.error(f"Error in chat endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/chat-upload")
+@limiter.limit("30/minute")
+async def chat_with_upload(
+    request: Request,
+    thread_id: str = Form(...),
+    prompt: str = Form(...),
+    model: Optional[str] = Form(None),
+    provider: Optional[str] = Form(None),
+    api_key: Optional[str] = Form(None),
+    temperature: Optional[float] = Form(None),
+    max_tokens: Optional[int] = Form(None),
+    toolkits: Optional[str] = Form(None),  # JSON string of list
+    enable_memory: bool = Form(True),
+    document: Optional[UploadFile] = File(None),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Chat with a model, with support for file uploads via multipart form data."""
+    import json
+
+    try:
+        # Parse toolkits from JSON string if provided
+        parsed_toolkits = []
+        if toolkits:
+            try:
+                parsed_toolkits = json.loads(toolkits)
+            except json.JSONDecodeError:
+                parsed_toolkits = []
+
+        # Parse provider enum
+        parsed_provider = None
+        if provider:
+            try:
+                parsed_provider = ModelProvider(provider.lower())
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Invalid provider: {provider}")
+
+        # Validate thread_id
+        validated_thread_id = validate_thread_id(thread_id)
+
+        # Sanitize prompt
+        sanitized_prompt = sanitize_string(prompt, settings.max_prompt_length)
+
+        # Process document if provided
+        final_prompt = sanitized_prompt
+        if document and document.filename:
+            try:
+                # Read file content directly as bytes (no base64 overhead)
+                document_bytes = await document.read()
+
+                logger.debug(f"Received file upload: {document.filename}, size: {len(document_bytes)} bytes")
+
+                # Process document through our service
+                processing_result = DocumentProcessor.process_document(
+                    document.filename,
+                    document_bytes
+                )
+
+                if processing_result['success']:
+                    final_prompt = DocumentProcessor.format_document_for_llm(
+                        sanitized_prompt,
+                        processing_result['text_content'],
+                        document.filename
+                    )
+                    logger.info(f"Successfully processed document: {document.filename} "
+                              f"({len(processing_result['text_content'])} characters)")
+                else:
+                    logger.warning(f"Document processing failed: {processing_result['error']}")
+                    final_prompt = f"{sanitized_prompt}\n\n[Note: Could not process uploaded document '{document.filename}': {processing_result['error']}]"
+
+            except Exception as e:
+                logger.error(f"Error processing document: {str(e)}")
+                final_prompt = f"{sanitized_prompt}\n\n[Note: Error processing uploaded document: {str(e)}]"
+
+        # Check if thread already exists
+        if not workflow_manager.exists(validated_thread_id):
+            # Auto-configure on first request
+            logger.info(f"Auto-configuring model for new thread {validated_thread_id}")
+
+            # Use provided config or defaults
+            use_provider = parsed_provider or ModelProvider.OLLAMA
+            use_model = model or "llama3.2"
+
+            # Validate required parameters for non-Ollama providers
+            if use_provider != ModelProvider.OLLAMA and not api_key:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"API key required for {use_provider.value} provider"
+                )
+
+            # Create model
+            model_instance = ModelFactory.create_model(
+                provider=use_provider,
+                model_name=use_model,
+                api_key=api_key,
+                temperature=temperature or settings.default_temperature,
+                max_tokens=max_tokens or settings.default_max_tokens
+            )
+
+            # Initialize tool manager if toolkits specified
+            tool_manager = None
+            tools = []
+            if parsed_toolkits:
+                tool_manager = ArcadeToolManager(api_key=settings.arcade_api_key)
+                tool_manager.init_tools(toolkits=parsed_toolkits)
+                tools = tool_manager.to_langchain(use_interrupts=True)
+                workflow_manager.set_tool_manager(validated_thread_id, tool_manager)
+                model_instance = model_instance.bind_tools(tools)
+
+            # Build workflow
+            workflow = StateGraph(state_schema=MessagesState)
+            agent_node = WorkflowBuilder.create_agent_node(model_instance, tool_manager)
+            workflow.add_node("agent", agent_node)
+
+            if tools:
+                tool_node = WorkflowBuilder.create_tool_node(tools)
+                workflow.add_node("tools", tool_node)
+
+                if tool_manager:
+                    auth_node = WorkflowBuilder.create_authorization_node(tool_manager)
+                    workflow.add_node("authorization", auth_node)
+
+                routing_func = create_routing_function(
+                    tool_manager,
+                    settings.max_tool_calls_per_turn
+                )
+                workflow.add_conditional_edges("agent", routing_func, ["authorization", "tools", END])
+                workflow.add_edge("authorization", "tools")
+                workflow.add_edge("tools", "agent")
+            else:
+                workflow.add_edge("agent", END)
+
+            workflow.add_edge(START, "agent")
+
+            # Store workflow
+            workflow_manager.set_workflow(
+                validated_thread_id,
+                workflow,
+                {
+                    "provider": use_provider,
+                    "model": use_model,
+                    "toolkits": parsed_toolkits,
+                    "enable_memory": enable_memory
+                }
+            )
+
+        # Prepare runtime config
+        runtime_config = {
+            "configurable": {
+                "thread_id": validated_thread_id,
+                "user_id": f"user_{current_user.id}" if current_user else validated_thread_id
+            },
+            "recursion_limit": settings.max_recursion_depth
+        }
+
+        # Prepare messages
+        input_messages = [{
+            "type": "human",
+            "content": final_prompt
+        }]
+
+        # Track usage
+        workflow_manager.track_usage(validated_thread_id)
+
+        return StreamingResponse(
+            generate_response(validated_thread_id, input_messages, runtime_config),
+            media_type="text/event-stream"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in chat-upload endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

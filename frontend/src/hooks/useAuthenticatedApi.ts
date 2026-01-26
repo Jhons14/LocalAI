@@ -20,9 +20,11 @@ export function useAuthenticatedApi() {
     }
 
     // Prepare headers with auth token
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
+    // Don't set Content-Type for FormData - browser sets it automatically with boundary
+    const isFormData = options.body instanceof FormData;
+    const headers: Record<string, string> = {
+      ...(!isFormData && { 'Content-Type': 'application/json' }),
+      ...(options.headers as Record<string, string>),
       'Authorization': `Bearer ${accessToken}`,
     };
 
@@ -39,7 +41,7 @@ export function useAuthenticatedApi() {
       if (refreshSuccess) {
         // Get the new token and retry the request
         const newAccessToken = localStorage.getItem('auth_access_token');
-        const newHeaders = {
+        const newHeaders: Record<string, string> = {
           ...headers,
           'Authorization': `Bearer ${newAccessToken}`,
         };

@@ -1,13 +1,9 @@
 import { useCallback } from 'react';
 import { useApi } from './useApi';
-import type {
-  SendMessageParams,
-  ConfigureModelParams,
-  AddToolToModelParams,
-} from '@/types/chat';
+import type { SendMessageParams } from '@/types/chat';
 
 export function useChatApi() {
-  const { streamRequest, postRequest, getRequest, abortPreviousRequest } = useApi();
+  const { streamRequest, streamFormDataRequest, postRequest, getRequest, abortPreviousRequest } = useApi();
 
   const sendChatMessage = useCallback(
     async (
@@ -17,27 +13,43 @@ export function useChatApi() {
       onComplete: () => void
     ) => {
       try {
-        const requestData: any = {
-          prompt: params.content,
-          thread_id: params.thread_id,
-          model: params.model,
-          provider: params.provider,
-          toolkits: params.toolkits,
-          enable_memory: params.enable_memory,
-        };
-        
-        // Only include document fields if they have values
-        if (params.document_filename) {
-          requestData.document_filename = params.document_filename;
+        let reader: ReadableStreamDefaultReader<Uint8Array>;
+
+        // If there's a document, use multipart form data upload
+        if (params.document) {
+          const formData = new FormData();
+          formData.append('thread_id', params.thread_id);
+          formData.append('prompt', params.content);
+          formData.append('model', params.model);
+          formData.append('provider', params.provider);
+          formData.append('toolkits', JSON.stringify(params.toolkits));
+          formData.append('enable_memory', String(params.enable_memory ?? true));
+          formData.append('document', params.document);
+
+          if (params.api_key) {
+            formData.append('api_key', params.api_key);
+          }
+
+          const response = await streamFormDataRequest('/chat-upload', formData);
+          reader = response.reader;
+        } else {
+          // No document, use JSON request
+          const requestData: any = {
+            prompt: params.content,
+            thread_id: params.thread_id,
+            model: params.model,
+            provider: params.provider,
+            toolkits: params.toolkits,
+            enable_memory: params.enable_memory,
+          };
+
+          if (params.api_key) {
+            requestData.api_key = params.api_key;
+          }
+
+          const response = await streamRequest('/chat', requestData);
+          reader = response.reader;
         }
-        if (params.document_content) {
-          requestData.document_content = params.document_content;
-        }
-        if (params.api_key) {
-          requestData.api_key = params.api_key;
-        }
-        
-        const { reader } = await streamRequest('/chat', requestData);
 
         const decoder = new TextDecoder();
 
@@ -56,13 +68,13 @@ export function useChatApi() {
           onError('Request was cancelled');
           return;
         }
-        
+
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error occurred';
         onError(errorMessage);
       }
     },
-    [streamRequest]
+    [streamRequest, streamFormDataRequest]
   );
 
   const getOllamaModels = useCallback(async (): Promise<string[]> => {

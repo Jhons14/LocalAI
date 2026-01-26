@@ -137,6 +137,58 @@ export function useApi() {
     [makeRequest, abortPreviousRequest]
   );
 
+  const streamFormDataRequest = useCallback(
+    async (endpoint: string, formData: FormData): Promise<StreamResponse> => {
+      const controller = abortPreviousRequest();
+
+      try {
+        let response: Response;
+
+        // Use authenticated request if user is authenticated
+        // Note: Don't set Content-Type header - browser will set it with boundary for FormData
+        if (isAuthenticated) {
+          response = await makeAuthenticatedRequest(`${BACKEND_URL}${endpoint}`, {
+            method: 'POST',
+            body: formData,
+            signal: controller.signal,
+          });
+        } else {
+          response = await fetch(`${BACKEND_URL}${endpoint}`, {
+            method: 'POST',
+            body: formData,
+            signal: controller.signal,
+          });
+        }
+
+        if (!response.ok) {
+          const errorMessage = handleApiError(
+            response.status,
+            endpoint,
+            response.statusText
+          );
+          throw new ApiError(response.status, errorMessage);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new ApiError(0, 'No reader available for streaming');
+        }
+
+        return { reader, response };
+      } catch (error) {
+        if (error instanceof ApiError) {
+          throw error;
+        }
+        const networkError = error as Error;
+        if (networkError.name === 'AbortError') {
+          throw networkError;
+        }
+        throw new ApiError(0, 'Network error occurred');
+      }
+    },
+    [BACKEND_URL, handleApiError, isAuthenticated, makeAuthenticatedRequest, abortPreviousRequest]
+  );
+
   const postRequest = useCallback(
     async <T>(endpoint: string, data: object): Promise<T> => {
       const response = await makeRequest(endpoint, {
@@ -162,6 +214,7 @@ export function useApi() {
 
   return {
     streamRequest,
+    streamFormDataRequest,
     postRequest,
     getRequest,
     abortPreviousRequest,
