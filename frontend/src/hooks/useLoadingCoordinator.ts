@@ -49,9 +49,6 @@ export function useLoadingCoordinator() {
 
   // Mark as ready
   const markReady = useCallback(() => {
-    const loadTime = Date.now() - phaseStartTimeRef.current;
-    console.log(`Loading completed in ${loadTime}ms`);
-    
     setLoadingState({
       isLoading: false,
       phase: 'ready',

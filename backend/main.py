@@ -1122,8 +1122,7 @@ async def chat(
                     )
                     logger.info(f"Successfully processed document: {chat_req.document_filename} "
                               f"({len(processing_result['text_content'])} characters)")
-                    logger.info(f"{processing_result['text_content']}")
-                    
+
                 else:
                     logger.warning(f"Document processing failed: {processing_result['error']}")
                     # Continue with original prompt, but add error message

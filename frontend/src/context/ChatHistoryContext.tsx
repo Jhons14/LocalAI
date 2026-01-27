@@ -190,6 +190,13 @@ export function ChatHistoryContextProvider({
         createdAt: Date.now(),
         model,
         provider,
+        ...(document && {
+          attachment: {
+            filename: document.name,
+            size: document.size,
+            type: document.type,
+          },
+        }),
       };
 
       const assistantMessage: ChatMessage = {

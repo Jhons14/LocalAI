@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRef, useState, useEffect, memo, useCallback, useMemo } from 'react';
-import { MdEdit, MdSend, MdClose } from 'react-icons/md';
+import { MdEdit, MdSend, MdClose, MdDescription } from 'react-icons/md';
 import { marked } from 'marked';
 import { useChatHistoryContext } from '@/hooks/useChatHistoryContext';
 import DOMPurify from 'dompurify';
@@ -352,6 +352,15 @@ const UserMessageOutput = memo(function UserMessageOutput({
             isMobile ? 'text-sm px-3 py-2 break-words' : 'text-sm px-4 py-2'
           }`}
         >
+          {msg.attachment && (
+            <div className='flex items-center gap-2 mb-2 pb-2 border-b border-gray-500'>
+              <MdDescription className='text-blue-400 flex-shrink-0' size={16} />
+              <span className='truncate text-xs'>{msg.attachment.filename}</span>
+              <span className='text-gray-400 text-xs flex-shrink-0'>
+                ({(msg.attachment.size / 1024).toFixed(1)} KB)
+              </span>
+            </div>
+          )}
           <p className='whitespace-pre-wrap'>{msg.content?.trim()}</p>
           {msg.status === 'streaming' && (
             <span className='animate-blink'>|</span>

@@ -4,6 +4,13 @@ export type ModelProvider = 'ollama' | 'openai' | 'anthropic' | 'google';
 export type ModelName = string; // Dynamic model names from API
 export type ToolName = 'Gmail' | 'Asana' | 'Firecrawl';
 
+
+export interface MessageAttachment {
+  filename: string;
+  size: number;
+  type: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: MessageRole;
@@ -15,6 +22,7 @@ export interface ChatMessage {
   thread_id?: string;
   model?: ModelName;
   provider?: ModelProvider;
+  attachment?: MessageAttachment;
 }
 
 export interface ActiveModel {

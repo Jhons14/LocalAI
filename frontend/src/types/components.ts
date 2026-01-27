@@ -1,5 +1,5 @@
 import {type JSX } from 'react';
-import {type ModelName,type ModelProvider } from './chat';
+import {type ModelName, type ModelProvider, type MessageAttachment } from './chat';
 
 export interface NavItem {
   name: string;
@@ -38,6 +38,7 @@ export interface UserMessageOutputProps {
     id: string;
     content?: string;
     status?: 'complete' | 'streaming' | 'error';
+    attachment?: MessageAttachment;
   };
   thread_id: string;
 }
