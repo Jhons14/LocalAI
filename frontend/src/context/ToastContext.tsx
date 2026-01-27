@@ -1,6 +1,7 @@
 import { createContext, useState, useCallback } from 'react';
 import { v4 as uuid } from 'uuid';
 import type { Toast, ToastType } from '@/components/ui/Toast';
+import { ToastContainer } from '@/components/ui/Toast';
 
 export interface ToastContextValue {
   toasts: Toast[];
@@ -94,6 +95,7 @@ export function ToastProvider({
       }}
     >
       {children}
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </ToastContext.Provider>
   );
 }

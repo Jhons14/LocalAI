@@ -1,6 +1,7 @@
 import { useRef, useCallback } from 'react';
 import { apiLogger } from '@/utils/logger';
 import { captureApiError, captureNetworkError } from '@/utils/errorMonitoring';
+import { useAuthenticatedApi } from './useAuthenticatedApi';
 
 interface ApiError {
   status: number;
@@ -15,6 +16,7 @@ interface StreamResponse {
 export function useApi() {
   const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL;
   const controllerRef = useRef<AbortController | null>(null);
+  const { makeAuthenticatedRequest, isAuthenticated } = useAuthenticatedApi();
 
   const abortPreviousRequest = useCallback(() => {
     controllerRef.current?.abort();
@@ -60,13 +62,26 @@ export function useApi() {
   const makeRequest = useCallback(
     async (endpoint: string, options: RequestInit = {}): Promise<Response> => {
       try {
-        const response = await fetch(`${BACKEND_URL}${endpoint}`, {
-          headers: {
-            'Content-Type': 'application/json',
-            ...options.headers,
-          },
-          ...options,
-        });
+        let response: Response;
+        
+        // Use authenticated request if user is authenticated
+        if (isAuthenticated) {
+          response = await makeAuthenticatedRequest(`${BACKEND_URL}${endpoint}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              ...options.headers,
+            },
+            ...options,
+          });
+        } else {
+          response = await fetch(`${BACKEND_URL}${endpoint}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              ...options.headers,
+            },
+            ...options,
+          });
+        }
 
         if (!response.ok) {
           const errorMessage = handleApiError(
@@ -99,7 +114,7 @@ export function useApi() {
         throw new ApiError(0, 'Network error occurred');
       }
     },
-    [BACKEND_URL, handleApiError]
+    [BACKEND_URL, handleApiError, isAuthenticated, makeAuthenticatedRequest]
   );
 
   const streamRequest = useCallback(
@@ -120,6 +135,58 @@ export function useApi() {
       return { reader, response };
     },
     [makeRequest, abortPreviousRequest]
+  );
+
+  const streamFormDataRequest = useCallback(
+    async (endpoint: string, formData: FormData): Promise<StreamResponse> => {
+      const controller = abortPreviousRequest();
+
+      try {
+        let response: Response;
+
+        // Use authenticated request if user is authenticated
+        // Note: Don't set Content-Type header - browser will set it with boundary for FormData
+        if (isAuthenticated) {
+          response = await makeAuthenticatedRequest(`${BACKEND_URL}${endpoint}`, {
+            method: 'POST',
+            body: formData,
+            signal: controller.signal,
+          });
+        } else {
+          response = await fetch(`${BACKEND_URL}${endpoint}`, {
+            method: 'POST',
+            body: formData,
+            signal: controller.signal,
+          });
+        }
+
+        if (!response.ok) {
+          const errorMessage = handleApiError(
+            response.status,
+            endpoint,
+            response.statusText
+          );
+          throw new ApiError(response.status, errorMessage);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new ApiError(0, 'No reader available for streaming');
+        }
+
+        return { reader, response };
+      } catch (error) {
+        if (error instanceof ApiError) {
+          throw error;
+        }
+        const networkError = error as Error;
+        if (networkError.name === 'AbortError') {
+          throw networkError;
+        }
+        throw new ApiError(0, 'Network error occurred');
+      }
+    },
+    [BACKEND_URL, handleApiError, isAuthenticated, makeAuthenticatedRequest, abortPreviousRequest]
   );
 
   const postRequest = useCallback(
@@ -147,6 +214,7 @@ export function useApi() {
 
   return {
     streamRequest,
+    streamFormDataRequest,
     postRequest,
     getRequest,
     abortPreviousRequest,

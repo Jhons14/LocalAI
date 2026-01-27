@@ -2,7 +2,8 @@ import requests
 import logging
 import re
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, Request
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException, Request, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import StreamingResponse
@@ -11,91 +12,49 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from typing import Optional, Dict, List
 
-from langchain_arcade import ToolManager, ArcadeToolManager
+from langchain_arcade import ArcadeToolManager
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from langchain_core.messages import HumanMessage, AIMessage, BaseMessage, SystemMessage, ToolMessage
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from langgraph.graph import START, END, MessagesState, StateGraph
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import ToolNode
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from langgraph.store.postgres import AsyncPostgresStore
+from langgraph.store.sqlite import AsyncSqliteStore
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+
+# PostgreSQL imports - optional for development
+try:
+
+    
+    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+    from langgraph.store.postgres import AsyncPostgresStore
+    POSTGRES_AVAILABLE = True
+except ImportError:
+    AsyncPostgresSaver = None
+    AsyncPostgresStore = None
+    POSTGRES_AVAILABLE = False
+
+
 from langgraph.store.base import BaseStore
 
 from pydantic import BaseModel, field_validator, Field, SecretStr
 import uvicorn
-from pathlib import Path
-import os
 import bleach
 from dotenv import load_dotenv
 import uuid
-import json
 import time
-from pathlib import Path
 from enum import Enum
 from prompts import prompt_loader
 
 load_dotenv()
 
-# ==================== Configuration ====================
-class Config:
-    """Centralized configuration management"""
-    
-    # Environment variables
-    OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    MAX_PROMPT_LENGTH = int(os.getenv("MAX_PROMPT_LENGTH", "10000"))
-    MAX_THREAD_ID_LENGTH = int(os.getenv("MAX_THREAD_ID_LENGTH", "100"))
-    ARCADE_API_KEY = os.getenv("ARCADE_API_KEY")
-    DATABASE_URL = os.getenv("DATABASE_URL")
-    CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:4322")
-    
-    # Rate limiting - ensure proper format
-    RATE_LIMIT_CHAT = "30/minute"  # Fixed format
-    RATE_LIMIT_CONFIG = "10/minute"  # Fixed format
-    RATE_LIMIT_KEYS = "5/minute"  # Added for other endpoints
-    RATE_LIMIT_GENERAL = "20/minute"  # General rate limit
-    
-    # Model defaults
-    DEFAULT_TEMPERATURE = float(os.getenv("DEFAULT_TEMPERATURE", "0.7"))
-    DEFAULT_MAX_TOKENS = int(os.getenv("DEFAULT_MAX_TOKENS", "4000"))
-    DEFAULT_TIMEOUT = int(os.getenv("DEFAULT_TIMEOUT", "30"))
-    
-    # Anti-infinite loop protection
-    MAX_TOOL_CALLS_PER_TURN = int(os.getenv("MAX_TOOL_CALLS_PER_TURN", "5"))
-    MAX_RECURSION_DEPTH = int(os.getenv("MAX_RECURSION_DEPTH", "25"))
-    
-    # Available toolkits
-    DEFAULT_TOOLKITS = ["Gmail", "Slack", "Calendar", "Drive"]
-    
-    # Tool capability descriptions
-    TOOL_CAPABILITIES = {
-        "Gmail": "📧 Read, send, and manage emails",
-        "Slack": "💬 Send messages and communicate in channels", 
-        "Calendar": "📅 View and manage calendar events",
-        "Drive": "📁 Access and manage files and documents"
-    }
-    
-    # User preferences storage
-    PREFERENCES_FILE = Path("user_preferences.json")
-    
-    # Tool conflict detection - tools that might overlap in functionality
-    TOOL_CONFLICTS = {
-        "Gmail": {"conflicts_with": [], "note": ""},
-        "Slack": {"conflicts_with": [], "note": ""},
-        "Calendar": {"conflicts_with": [], "note": ""},
-        "Drive": {"conflicts_with": [], "note": ""},
-        # Example future tools that might conflict
-        "Outlook": {"conflicts_with": ["Gmail"], "note": "both provide email functionality"},
-        "Teams": {"conflicts_with": ["Slack"], "note": "both provide messaging functionality"},
-        "OneDrive": {"conflicts_with": ["Drive"], "note": "both provide file storage"}
-    }
-
-config = Config()
+# Initialize settings early for use throughout the app
+from config.settings import get_settings
+settings = get_settings()
 
 # ==================== Logging Setup ====================
 logging.basicConfig(
@@ -107,20 +66,39 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
-
+# Initialize database tables on startup
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize database tables on application startup and cleanup on shutdown"""
+    # Startup
+    try:
+        # Create all tables
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize database tables: {e}")
+        # Don't fail startup - just log the error
+    
+    yield
+    
+    # Cleanup on shutdown (if needed)
 # ==================== Application Setup ====================
 app = FastAPI(
     title="Enhanced LocalAI Chat API",
     description="Secure chat interface for LLM models with tool integration",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=lifespan
 )
+
+
+
 
 # ==================== Middleware Setup ====================
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
 
-origins = [origin.strip() for origin in config.CORS_ORIGINS.split(",") if origin.strip()]
+origins = settings.cors_origins_list
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -129,12 +107,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add authentication middleware
+from middleware.auth import AuthenticationMiddleware
+from middleware.input_sanitization import InputSanitizationMiddleware
+from services.security.rate_limiting_middleware import EnhancedRateLimitMiddleware
+
+# Add input sanitization middleware (should be first for security)
+app.add_middleware(InputSanitizationMiddleware, settings=settings)
+
+app.add_middleware(AuthenticationMiddleware, settings=settings)
+
+# Add enhanced rate limiting middleware
+enhanced_rate_limiter = EnhancedRateLimitMiddleware(app, settings)
+app.add_middleware(EnhancedRateLimitMiddleware, settings=settings)
+
 app.add_middleware(
     TrustedHostMiddleware, 
     allowed_hosts=["localhost", "127.0.0.1", "*"]
 )
 
-# ==================== Storage Classes ====================
+# Import and add routers
+from routers.auth import router as auth_router
+from routers.admin import router as admin_router
+app.include_router(auth_router)
+app.include_router(admin_router)
+
+# Import authentication dependencies
+from services.security import get_current_active_user, get_admin_user, get_optional_user
+from services.document_service import DocumentProcessor
+from database.models import User
+from database.base import get_db, Base, engine
+from sqlalchemy.orm import Session
+from fastapi import Depends
+
+
 class WorkflowManager:
     """Manages workflow instances and configurations"""
     
@@ -245,15 +251,15 @@ class WorkflowManager:
             provider=provider,
             model_name=model,
             api_key=api_key,  # Use provided API key for tool operations
-            temperature=config.DEFAULT_TEMPERATURE,
-            max_tokens=config.DEFAULT_MAX_TOKENS
+            temperature=settings.default_temperature,
+            max_tokens=settings.default_max_tokens
         )
         
         # Initialize tool manager if toolkits specified
         tool_manager = None
         tools = []
         if new_toolkits:
-            tool_manager = ArcadeToolManager(api_key=config.ARCADE_API_KEY)
+            tool_manager = ArcadeToolManager(api_key=settings.arcade_api_key)
             tool_manager.init_tools(toolkits=new_toolkits)
             tools = tool_manager.to_langchain(use_interrupts=True)
             self.set_tool_manager(thread_id, tool_manager)
@@ -283,7 +289,7 @@ class WorkflowManager:
             # Add routing
             routing_func = create_routing_function(
                 tool_manager, 
-                config.MAX_TOOL_CALLS_PER_TURN
+                settings.max_tool_calls_per_turn
             )
             workflow.add_conditional_edges("agent", routing_func, ["authorization", "tools", END])
             workflow.add_edge("authorization", "tools")
@@ -325,8 +331,8 @@ class ModelFactory:
         provider: ModelProvider,
         model_name: str,
         api_key: Optional[str] = None,
-        temperature: float = config.DEFAULT_TEMPERATURE,
-        max_tokens: int = config.DEFAULT_MAX_TOKENS,
+        temperature: float = settings.default_temperature,
+        max_tokens: int = settings.default_max_tokens,
         streaming: bool = True
     ):
         """Create a language model based on provider"""
@@ -337,7 +343,7 @@ class ModelFactory:
             return ChatOpenAI(
                 model=model_name,
                 # temperature=temperature,
-                timeout=config.DEFAULT_TIMEOUT,
+                timeout=settings.default_timeout,
                 max_retries=2,
                 api_key=SecretStr(api_key),
                 streaming=streaming
@@ -347,7 +353,7 @@ class ModelFactory:
             return ChatOllama(
                 model=model_name,
                 temperature=temperature,
-                base_url=config.OLLAMA_BASE_URL
+                base_url=settings.ollama.base_url
             )
         
         elif provider == ModelProvider.ANTHROPIC:
@@ -358,7 +364,7 @@ class ModelFactory:
                 temperature=temperature,
                 api_key=SecretStr(api_key),
                 streaming=streaming,
-                timeout=config.DEFAULT_TIMEOUT,
+                timeout=settings.default_timeout,
                 stop=None
             )
         
@@ -394,8 +400,8 @@ def validate_thread_id(thread_id: str) -> str:
     if not re.match(r'^[a-zA-Z0-9_-]+$', thread_id):
         raise ValueError("Thread ID can only contain alphanumeric characters, underscores, and hyphens")
     
-    if len(thread_id) > config.MAX_THREAD_ID_LENGTH:
-        raise ValueError(f"Thread ID too long. Maximum {config.MAX_THREAD_ID_LENGTH} characters allowed")
+    if len(thread_id) > settings.max_thread_id_length:
+        raise ValueError(f"Thread ID too long. Maximum {settings.max_thread_id_length} characters allowed")
     
     return thread_id
 
@@ -413,7 +419,7 @@ def create_tool_change_system_message(changes: dict, tool_manager: Optional[Arca
         message_parts.append(f"✅ Added tools: {', '.join(added_tools)}")
         # Add capabilities for new tools
         for tool in added_tools:
-            capability = config.TOOL_CAPABILITIES.get(tool, "🔧 General purpose tool")
+            capability = settings.tool_capabilities.get(tool, "🔧 General purpose tool")
             message_parts.append(f"   {tool}: {capability}")
     
     if removed_tools:
@@ -453,7 +459,7 @@ def detect_tool_conflicts(toolkits: List[str]) -> List[str]:
     conflicts = []
     
     for tool in toolkits:
-        tool_config = config.TOOL_CONFLICTS.get(tool, {})
+        tool_config = settings.tool_conflicts.get(tool, {})
         conflicts_with = tool_config.get("conflicts_with", [])
         
         for other_tool in toolkits:
@@ -889,8 +895,10 @@ def create_routing_function(tool_manager: Optional[ArcadeToolManager], max_tool_
 class ChatRequest(BaseModel):
     thread_id: str = Field(..., min_length=1, max_length=100)
     prompt: str = Field(..., min_length=1, max_length=10000)
+    # Document upload fields
+    document_filename: Optional[str] = Field(None, max_length=255)
+    document_content: Optional[str] = Field(None, max_length=100000)  # Base64 encoded or text content
     # Optional configuration parameters for first-time setup
-    userEmail: Optional[str] = Field(None, max_length=100)
     model: Optional[str] = Field(None, min_length=1, max_length=100)
     provider: Optional[ModelProvider] = None
     api_key: Optional[str] = Field(None, max_length=500)
@@ -905,13 +913,17 @@ class ChatRequest(BaseModel):
     
     @field_validator('prompt')
     def validate_prompt(cls, v):
-        return sanitize_string(v, config.MAX_PROMPT_LENGTH)
+        return sanitize_string(v, settings.max_prompt_length)
 
 # ==================== API Endpoints ====================
 
 @app.post("/chat")
 @limiter.limit("30/minute")
-async def chat(request: Request, chat_req: ChatRequest):
+async def chat(
+    request: Request, 
+    chat_req: ChatRequest, 
+    current_user: User = Depends(get_current_active_user)
+):
     """Chat with a model, configuring it automatically on first request"""
     try:
 
@@ -938,15 +950,15 @@ async def chat(request: Request, chat_req: ChatRequest):
                 provider=provider,
                 model_name=model,
                 api_key=chat_req.api_key,
-                temperature=chat_req.temperature or config.DEFAULT_TEMPERATURE,
-                max_tokens=chat_req.max_tokens or config.DEFAULT_MAX_TOKENS
+                temperature=chat_req.temperature or settings.default_temperature,
+                max_tokens=chat_req.max_tokens or settings.default_max_tokens
             )
             
             # Initialize tool manager if toolkits specified
             tool_manager = None
             tools = []
             if chat_req.toolkits:
-                tool_manager = ArcadeToolManager(api_key=config.ARCADE_API_KEY)
+                tool_manager = ArcadeToolManager(api_key=settings.arcade_api_key)
                 tool_manager.init_tools(toolkits=chat_req.toolkits)
                 tools = tool_manager.to_langchain(use_interrupts=True)
                 
@@ -989,7 +1001,7 @@ async def chat(request: Request, chat_req: ChatRequest):
                 # Add routing
                 routing_func = create_routing_function(
                     tool_manager, 
-                    config.MAX_TOOL_CALLS_PER_TURN
+                    settings.max_tool_calls_per_turn
                 )
                 workflow.add_conditional_edges("agent", routing_func, ["authorization", "tools", END])
                 workflow.add_edge("authorization", "tools")
@@ -1023,7 +1035,7 @@ async def chat(request: Request, chat_req: ChatRequest):
                 logger.info(f"Reconfiguring tools for thread {chat_req.thread_id}: {current_toolkits} -> {requested_toolkits}")
                 
                 # Validate API key for tool operations if tools are being added
-                if requested_toolkits and not config.ARCADE_API_KEY:
+                if requested_toolkits and not settings.arcade_api_key:
                     raise HTTPException(
                         status_code=400,
                         detail="Arcade API key required for tool operations"
@@ -1055,9 +1067,9 @@ async def chat(request: Request, chat_req: ChatRequest):
         runtime_config = {
             "configurable": {
                 "thread_id": chat_req.thread_id,
-                "user_id": chat_req.userEmail or "default_user"
+                "user_id": current_user.email or f"user_{current_user.id}"
             },
-            "recursion_limit": config.MAX_RECURSION_DEPTH
+            "recursion_limit": settings.max_recursion_depth
         }
         
         # Prepare input messages
@@ -1070,12 +1082,63 @@ async def chat(request: Request, chat_req: ChatRequest):
                 "content": tool_change_message
             })
         
-        # Add user message
+        # Log document upload info at debug level
+        logger.debug(f"Chat request received - document_filename: {chat_req.document_filename}, "
+                    f"document_content length: {len(chat_req.document_content) if chat_req.document_content else 0}")
+        
+        # Process document if provided
+        final_prompt = chat_req.prompt
+        if chat_req.document_filename and chat_req.document_content:
+            try:
+                # The frontend sends the document content as text, not base64
+                # We need to process it through our document service for validation and formatting
+                import base64
+                
+                # Try to decode if it's base64, otherwise treat as text
+                try:
+                    if chat_req.document_content.startswith('data:'):
+                        # Handle data URLs (data:text/plain;base64,...)
+                        header, data = chat_req.document_content.split(',', 1)
+                        document_bytes = base64.b64decode(data)
+                    else:
+                        # Assume it's plain text content from frontend
+                        document_bytes = chat_req.document_content.encode('utf-8')
+                except Exception:
+                    # If decoding fails, treat as text
+                    document_bytes = chat_req.document_content.encode('utf-8')
+                
+                # Process document through our service
+                processing_result = DocumentProcessor.process_document(
+                    chat_req.document_filename, 
+                    document_bytes
+                )
+                
+                if processing_result['success']:
+                    # Format the message with document content
+                    final_prompt = DocumentProcessor.format_document_for_llm(
+                        chat_req.prompt,
+                        processing_result['text_content'],
+                        chat_req.document_filename
+                    )
+                    logger.info(f"Successfully processed document: {chat_req.document_filename} "
+                              f"({len(processing_result['text_content'])} characters)")
+                    logger.info(f"{processing_result['text_content']}")
+                    
+                else:
+                    logger.warning(f"Document processing failed: {processing_result['error']}")
+                    # Continue with original prompt, but add error message
+                    final_prompt = f"{chat_req.prompt}\n\n[Note: Could not process uploaded document '{chat_req.document_filename}': {processing_result['error']}]"
+                    
+            except Exception as e:
+                logger.error(f"Error processing document: {str(e)}")
+                # Continue with original prompt but add error note
+                final_prompt = f"{chat_req.prompt}\n\n[Note: Error processing uploaded document: {str(e)}]"
+        
+        # Add user message with processed content
         input_messages.append({
             "type": "human",
-            "content": chat_req.prompt
+            "content": final_prompt
         })
-        
         # Track usage
         workflow_manager.track_usage(chat_req.thread_id)
         
@@ -1091,6 +1154,181 @@ async def chat(request: Request, chat_req: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/chat-upload")
+@limiter.limit("30/minute")
+async def chat_with_upload(
+    request: Request,
+    thread_id: str = Form(...),
+    prompt: str = Form(...),
+    model: Optional[str] = Form(None),
+    provider: Optional[str] = Form(None),
+    api_key: Optional[str] = Form(None),
+    temperature: Optional[float] = Form(None),
+    max_tokens: Optional[int] = Form(None),
+    toolkits: Optional[str] = Form(None),  # JSON string of list
+    enable_memory: bool = Form(True),
+    document: Optional[UploadFile] = File(None),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Chat with a model, with support for file uploads via multipart form data."""
+    import json
+
+    try:
+        # Parse toolkits from JSON string if provided
+        parsed_toolkits = []
+        if toolkits:
+            try:
+                parsed_toolkits = json.loads(toolkits)
+            except json.JSONDecodeError:
+                parsed_toolkits = []
+
+        # Parse provider enum
+        parsed_provider = None
+        if provider:
+            try:
+                parsed_provider = ModelProvider(provider.lower())
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Invalid provider: {provider}")
+
+        # Validate thread_id
+        validated_thread_id = validate_thread_id(thread_id)
+
+        # Sanitize prompt
+        sanitized_prompt = sanitize_string(prompt, settings.max_prompt_length)
+
+        # Process document if provided
+        final_prompt = sanitized_prompt
+        if document and document.filename:
+            try:
+                # Read file content directly as bytes (no base64 overhead)
+                document_bytes = await document.read()
+
+                logger.debug(f"Received file upload: {document.filename}, size: {len(document_bytes)} bytes")
+
+                # Process document through our service
+                processing_result = DocumentProcessor.process_document(
+                    document.filename,
+                    document_bytes
+                )
+
+                if processing_result['success']:
+                    final_prompt = DocumentProcessor.format_document_for_llm(
+                        sanitized_prompt,
+                        processing_result['text_content'],
+                        document.filename
+                    )
+                    logger.info(f"Successfully processed document: {document.filename} "
+                              f"({len(processing_result['text_content'])} characters)")
+                else:
+                    logger.warning(f"Document processing failed: {processing_result['error']}")
+                    final_prompt = f"{sanitized_prompt}\n\n[Note: Could not process uploaded document '{document.filename}': {processing_result['error']}]"
+
+            except Exception as e:
+                logger.error(f"Error processing document: {str(e)}")
+                final_prompt = f"{sanitized_prompt}\n\n[Note: Error processing uploaded document: {str(e)}]"
+
+        # Check if thread already exists
+        if not workflow_manager.exists(validated_thread_id):
+            # Auto-configure on first request
+            logger.info(f"Auto-configuring model for new thread {validated_thread_id}")
+
+            # Use provided config or defaults
+            use_provider = parsed_provider or ModelProvider.OLLAMA
+            use_model = model or "llama3.2"
+
+            # Validate required parameters for non-Ollama providers
+            if use_provider != ModelProvider.OLLAMA and not api_key:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"API key required for {use_provider.value} provider"
+                )
+
+            # Create model
+            model_instance = ModelFactory.create_model(
+                provider=use_provider,
+                model_name=use_model,
+                api_key=api_key,
+                temperature=temperature or settings.default_temperature,
+                max_tokens=max_tokens or settings.default_max_tokens
+            )
+
+            # Initialize tool manager if toolkits specified
+            tool_manager = None
+            tools = []
+            if parsed_toolkits:
+                tool_manager = ArcadeToolManager(api_key=settings.arcade_api_key)
+                tool_manager.init_tools(toolkits=parsed_toolkits)
+                tools = tool_manager.to_langchain(use_interrupts=True)
+                workflow_manager.set_tool_manager(validated_thread_id, tool_manager)
+                model_instance = model_instance.bind_tools(tools)
+
+            # Build workflow
+            workflow = StateGraph(state_schema=MessagesState)
+            agent_node = WorkflowBuilder.create_agent_node(model_instance, tool_manager)
+            workflow.add_node("agent", agent_node)
+
+            if tools:
+                tool_node = WorkflowBuilder.create_tool_node(tools)
+                workflow.add_node("tools", tool_node)
+
+                if tool_manager:
+                    auth_node = WorkflowBuilder.create_authorization_node(tool_manager)
+                    workflow.add_node("authorization", auth_node)
+
+                routing_func = create_routing_function(
+                    tool_manager,
+                    settings.max_tool_calls_per_turn
+                )
+                workflow.add_conditional_edges("agent", routing_func, ["authorization", "tools", END])
+                workflow.add_edge("authorization", "tools")
+                workflow.add_edge("tools", "agent")
+            else:
+                workflow.add_edge("agent", END)
+
+            workflow.add_edge(START, "agent")
+
+            # Store workflow
+            workflow_manager.set_workflow(
+                validated_thread_id,
+                workflow,
+                {
+                    "provider": use_provider,
+                    "model": use_model,
+                    "toolkits": parsed_toolkits,
+                    "enable_memory": enable_memory
+                }
+            )
+
+        # Prepare runtime config
+        runtime_config = {
+            "configurable": {
+                "thread_id": validated_thread_id,
+                "user_id": f"user_{current_user.id}" if current_user else validated_thread_id
+            },
+            "recursion_limit": settings.max_recursion_depth
+        }
+
+        # Prepare messages
+        input_messages = [{
+            "type": "human",
+            "content": final_prompt
+        }]
+
+        # Track usage
+        workflow_manager.track_usage(validated_thread_id)
+
+        return StreamingResponse(
+            generate_response(validated_thread_id, input_messages, runtime_config),
+            media_type="text/event-stream"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in chat-upload endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 async def generate_response(thread_id: str, input_messages: list, runtime_config: dict):
     """Generate streaming response from workflow"""
     workflow = workflow_manager.get_workflow(thread_id)
@@ -1103,17 +1341,27 @@ async def generate_response(thread_id: str, input_messages: list, runtime_config
     # Check if we should use memory/persistence
     use_memory = (
         workflow_config is not None and
-        workflow_config.get("enable_memory", False) and
-        config.DATABASE_URL
+        workflow_config.get("enable_memory", True) and
+        settings.database.url
     )
+    
+    # Determine database type from URL
+    is_sqlite = settings.database.url.startswith("sqlite://")
+    is_postgres = settings.database.url.startswith("postgresql://")
+
 
     if use_memory:
         try:
-            # Use async context managers for PostgreSQL components
-            async with (AsyncPostgresStore.from_conn_string(config.DATABASE_URL) as store,
-                        AsyncPostgresSaver.from_conn_string(config.DATABASE_URL) as checkpointer):
-                    logger.info(f"Initialized storage for thread {thread_id}")
-
+            if is_sqlite:
+                # Convert SQLite URL format to file path for LangGraph
+                # From: sqlite:///./data/dev.db -> data/dev.db
+                sqlite_file_path = settings.database.url.replace("sqlite:///./", "").replace("sqlite:///", "")
+                
+                # Use SQLite components with converted path
+                async with (AsyncSqliteStore.from_conn_string(sqlite_file_path) as store,
+                            AsyncSqliteSaver.from_conn_string(sqlite_file_path) as checkpointer):
+                    logger.info(f"Initialized SQLite storage for thread {thread_id}")
+                    
                     # Compile workflow with storage
                     workflow_app = workflow.compile(
                         checkpointer=checkpointer,
@@ -1131,6 +1379,38 @@ async def generate_response(thread_id: str, input_messages: list, runtime_config
                             if content:
                                 yield content.encode('utf-8', errors='ignore').decode('utf-8')
                     return  # Exit after successful completion with storage
+                    
+            elif is_postgres and POSTGRES_AVAILABLE:
+                # Use PostgreSQL components
+                async with (AsyncPostgresStore.from_conn_string(settings.database.url) as store,
+                            AsyncPostgresSaver.from_conn_string(settings.database.url) as checkpointer):
+                    logger.info(f"Initialized PostgreSQL storage for thread {thread_id}")
+                    
+                    # Compile workflow with storage
+                    workflow_app = workflow.compile(
+                        checkpointer=checkpointer,
+                        store=store
+                    )
+
+                    # Stream response with storage context
+                    async for chunk, metadata in workflow_app.astream(
+                        {"messages": input_messages},
+                        runtime_config,
+                        stream_mode="messages"
+                    ):
+                        if isinstance(chunk, AIMessage):
+                            content = str(chunk.content) if chunk.content else ""
+                            if content:
+                                yield content.encode('utf-8', errors='ignore').decode('utf-8')
+                    return  # Exit after successful completion with storage
+                    
+            else:
+                # Unsupported database type or PostgreSQL not available
+                if is_postgres and not POSTGRES_AVAILABLE:
+                    logger.warning("PostgreSQL URL provided but PostgreSQL dependencies not available")
+                else:
+                    logger.warning(f"Unsupported database URL format: {settings.database.url}")
+                raise Exception("Unsupported database configuration")
 
         except Exception as e:
             logger.warning(f"Could not initialize storage, continuing without persistence: {e}")
@@ -1157,7 +1437,10 @@ async def generate_response(thread_id: str, input_messages: list, runtime_config
         yield f"[ERROR] {str(e)}"
 
 @app.get("/threads/{thread_id}/status")
-async def get_thread_status(thread_id: str):
+async def get_thread_status(
+    thread_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
     """Get the status and configuration of a thread"""
     if not workflow_manager.exists(thread_id):
         raise HTTPException(status_code=404, detail="Thread not found")
@@ -1174,7 +1457,11 @@ async def get_thread_status(thread_id: str):
 
 @app.delete("/threads/{thread_id}")
 @limiter.limit("5/minute")
-async def delete_thread(request: Request, thread_id: str):
+async def delete_thread(
+    request: Request, 
+    thread_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
     """Delete a thread and its configuration"""
     if not workflow_manager.exists(thread_id):
         raise HTTPException(status_code=404, detail="Thread not found")
@@ -1184,13 +1471,17 @@ async def delete_thread(request: Request, thread_id: str):
 
 @app.get("/models")
 @limiter.limit("20/minute")
-async def list_models(request: Request, provider: Optional[ModelProvider] = None):
+async def list_models(
+    request: Request, 
+    provider: Optional[ModelProvider] = None,
+    current_user: Optional[User] = Depends(get_optional_user)
+):
     """List available models by provider"""
     models = {}
     
     if not provider or provider == ModelProvider.OLLAMA:
         try:
-            response = requests.get(f"{config.OLLAMA_BASE_URL}/api/tags", timeout=10)
+            response = requests.get(f"{settings.ollama.base_url}/api/tags", timeout=10)
             response.raise_for_status()
             ollama_models = response.json()["models"]
             models["ollama"] = [model["name"] for model in ollama_models]
@@ -1223,13 +1514,13 @@ async def list_models(request: Request, provider: Optional[ModelProvider] = None
     return models
 
 @app.get("/toolkits")
-async def list_toolkits():
+async def list_toolkits(current_user: Optional[User] = Depends(get_optional_user)):
     """List available tool toolkits with capabilities"""
     toolkits = []
-    for toolkit in config.DEFAULT_TOOLKITS:
+    for toolkit in settings.default_toolkits_list:
         toolkits.append({
             "name": toolkit,
-            "capability": config.TOOL_CAPABILITIES.get(toolkit, "General purpose tool")
+            "capability": settings.tool_capabilities.get(toolkit, "General purpose tool")
         })
     
     return {

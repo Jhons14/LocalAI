@@ -105,7 +105,7 @@ export const ToastComponent = memo(function ToastComponent({
             </div>
             <button
               onClick={handleClose}
-              className='flex-shrink-0 ml-2 text-gray-400 hover:text-gray-600 transition-colors'
+              className='flex-shrink-0 ml-2 text-gray-400 hover:text-gray-600 transition-all cursor-pointer hover:scale-120 duration-150'
               style={{ color: '#9CA3AF' }}
               aria-label='Close notification'
             >

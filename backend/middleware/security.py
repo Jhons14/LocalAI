@@ -6,7 +6,9 @@ from typing import Callable
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
-from config.settings import settings
+from config.settings import get_settings
+
+settings = get_settings()
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):

@@ -15,7 +15,7 @@ import type {
 } from '@/types/chat';
 
 export const ChatHistoryContext = createContext<ChatContextValue | undefined>(
-  undefined
+  undefined,
 );
 
 export function ChatHistoryContextProvider({
@@ -32,7 +32,6 @@ export function ChatHistoryContextProvider({
   const [isModelConnected, setIsModelConnected] = useState<boolean>(false);
   const [tempApiKey, setTempApiKey] = useState<string>('');
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
-  const [userEmail, setUserEmail] = useState<string>('');
 
   const chatManager = useRef<
     Record<string, { thread_id?: string; messages: ChatMessage[] }>
@@ -46,10 +45,10 @@ export function ChatHistoryContextProvider({
 
       if (persistedMessages.length > 0) {
         // Validate that loaded messages belong to the correct model
-        const validMessages = persistedMessages.filter(msg => 
-          !msg.model || msg.model === activeModel.model
+        const validMessages = persistedMessages.filter(
+          (msg) => !msg.model || msg.model === activeModel.model,
         );
-        
+
         setMessages(validMessages);
         // Update in-memory cache with validated messages
         chatManager.current[activeModel.model] = {
@@ -59,7 +58,10 @@ export function ChatHistoryContextProvider({
       } else {
         // Check in-memory cache
         const existingModelData = chatManager.current[activeModel.model];
-        if (existingModelData && existingModelData.thread_id === activeModel.thread_id) {
+        if (
+          existingModelData &&
+          existingModelData.thread_id === activeModel.thread_id
+        ) {
           setMessages(existingModelData.messages);
         } else {
           setMessages([]);
@@ -76,8 +78,8 @@ export function ChatHistoryContextProvider({
     if (messages.length === 0) return;
 
     // Validate messages belong to current model - filter out any cross-contamination
-    const validMessages = messages.filter(msg => 
-      !msg.model || msg.model === activeModel.model
+    const validMessages = messages.filter(
+      (msg) => !msg.model || msg.model === activeModel.model,
     );
 
     // Only save if we have valid messages
@@ -94,7 +96,7 @@ export function ChatHistoryContextProvider({
       activeModel.thread_id,
       validMessages,
       activeModel.model,
-      activeModel.provider
+      activeModel.provider,
     );
 
     // Check storage usage periodically
@@ -110,18 +112,25 @@ export function ChatHistoryContextProvider({
       if (isStreaming) {
         cancelCurrentRequest();
         setIsStreaming(false);
-        
+
         // Mark any streaming messages as interrupted
-        setMessages(prev => prev.map(msg => 
-          msg.status === 'streaming' 
-            ? { ...msg, status: 'interrupted' as const, content: msg.content + '\n\n[Request interrupted by model switch]' }
-            : msg
-        ));
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.status === 'streaming'
+              ? {
+                  ...msg,
+                  status: 'interrupted' as const,
+                  content:
+                    msg.content + '\n\n[Request interrupted by model switch]',
+                }
+              : msg,
+          ),
+        );
       }
 
       // Check if this model already exists in memory with valid thread_id
       const existingModelData = chatManager.current[model];
-      
+
       if (existingModelData && existingModelData.thread_id) {
         // Model exists with valid thread_id, load its conversation
         setActiveModel({
@@ -145,7 +154,7 @@ export function ChatHistoryContextProvider({
         // Initialize with empty toolkits for new models
         toolkits: [],
       });
-      
+
       // Initialize empty conversation for this model
       chatManager.current[model] = {
         thread_id: newThreadId,
@@ -154,20 +163,20 @@ export function ChatHistoryContextProvider({
       setMessages([]);
       setIsModelConnected(false);
     },
-    [activeModel, setActiveModel, isStreaming, cancelCurrentRequest]
+    [activeModel, setActiveModel, isStreaming, cancelCurrentRequest],
   );
 
   // Función para enviar un mensaje al modelo
   const sendMessage = useCallback(
     async ({
       content,
+      document,
       thread_id,
       model,
       provider,
       api_key,
       toolkits = [],
       enable_memory = true,
-      email,
     }: SendMessageParams) => {
       if (!thread_id) {
         throw new Error('Please select a model');
@@ -206,18 +215,21 @@ export function ChatHistoryContextProvider({
           toolkits,
           enable_memory,
           api_key,
-          email,
+          ...(document && { document }),
         },
         // onChunk
         (chunk: string) => {
           // Only update if we're still on the same model and thread
-          if (activeModel?.model === model && activeModel?.thread_id === thread_id) {
+          if (
+            activeModel?.model === model &&
+            activeModel?.thread_id === thread_id
+          ) {
             setMessages((prev) =>
               prev.map((msg) =>
                 msg.id === assistantMessage.id
                   ? { ...msg, content: (msg.content || '') + chunk }
-                  : msg
-              )
+                  : msg,
+              ),
             );
           }
         },
@@ -228,8 +240,8 @@ export function ChatHistoryContextProvider({
             prev.map((msg) =>
               msg.id === assistantMessage.id
                 ? { ...msg, status: 'error' as const, content: error }
-                : msg
-            )
+                : msg,
+            ),
           );
         },
         // onComplete
@@ -239,20 +251,20 @@ export function ChatHistoryContextProvider({
             prev.map((msg) =>
               msg.id === assistantMessage.id
                 ? { ...msg, status: 'complete' as const }
-                : msg
-            )
+                : msg,
+            ),
           );
-        }
+        },
       );
     },
-    [sendChatMessage, activeModel?.toolkits, tempApiKey, userEmail]
+    [sendChatMessage, activeModel?.toolkits, tempApiKey],
   );
 
   const edit = useCallback(
     async (userMessageId: string, newContent: string, thread_id: string) => {
       const userMsg = messages.find((msg) => msg.id === userMessageId);
       const assistantMessage = messages.find(
-        (msg) => msg.relatedTo === userMessageId
+        (msg) => msg.relatedTo === userMessageId,
       );
 
       if (!userMsg) return;
@@ -283,19 +295,18 @@ export function ChatHistoryContextProvider({
           if (msg.id === userMessageId) return newUserMessage;
           if (msg.id === assistantMessage?.id) return newAssistantMessage;
           return msg;
-        })
+        }),
       );
 
       await sendChatMessage(
-        { 
-          content: newContent, 
+        {
+          content: newContent,
           thread_id,
           model: activeModel?.model,
           provider: activeModel?.provider,
           api_key: tempApiKey,
           toolkits: activeModel?.toolkits || [],
           enable_memory: true,
-          email: userEmail,
         },
         // onChunk
         (chunk: string) => {
@@ -303,8 +314,8 @@ export function ChatHistoryContextProvider({
             prev.map((msg) =>
               msg.id === newAssistantMessage.id
                 ? { ...msg, content: (msg.content || '') + chunk }
-                : msg
-            )
+                : msg,
+            ),
           );
         },
         // onError
@@ -313,8 +324,8 @@ export function ChatHistoryContextProvider({
             prev.map((msg) =>
               msg.id === newAssistantMessage.id
                 ? { ...msg, status: 'error' as const, content: error }
-                : msg
-            )
+                : msg,
+            ),
           );
         },
         // onComplete
@@ -323,13 +334,13 @@ export function ChatHistoryContextProvider({
             prev.map((msg) =>
               msg.id === newAssistantMessage.id
                 ? { ...msg, status: 'complete' as const }
-                : msg
-            )
+                : msg,
+            ),
           );
-        }
+        },
       );
     },
-    [messages, sendChatMessage, activeModel, tempApiKey, userEmail]
+    [messages, sendChatMessage, activeModel, tempApiKey],
   );
 
   const clear = useCallback(() => {
@@ -340,7 +351,7 @@ export function ChatHistoryContextProvider({
         activeModel.thread_id,
         [],
         activeModel.model,
-        activeModel.provider
+        activeModel.provider,
       );
     }
   }, [activeModel, saveChatHistory]);
@@ -360,8 +371,6 @@ export function ChatHistoryContextProvider({
         setIsModelConnected,
         rechargeModel,
         isStreaming,
-        userEmail,
-        setUserEmail,
       }}
     >
       {children}

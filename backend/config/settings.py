@@ -4,7 +4,8 @@ Provides environment-specific configurations and validation.
 """
 
 import os
-from typing import List, Optional
+import re
+from typing import List, Optional, Dict
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 from pathlib import Path
@@ -14,7 +15,7 @@ class DatabaseSettings(BaseSettings):
     """Database configuration settings."""
     
     url: str = Field(
-        default="sqlite:///./app.db",
+        default="sqlite:///./data/dev.db",
         description="Database URL"
     )
     echo: bool = Field(
@@ -30,15 +31,20 @@ class DatabaseSettings(BaseSettings):
         description="Maximum database connection overflow"
     )
 
-    model_config = {"env_prefix": "DB_"}
+    model_config = {
+        "env_prefix": "DB_",
+        "env_file": ".env.development",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore"
+    }
 
 
 class SecuritySettings(BaseSettings):
     """Security-related configuration settings."""
     
     secret_key: str = Field(
-        default="your-secret-key-change-in-production",
-        description="Secret key for JWT tokens"
+        default="dev-secret-key-change-me-in-production-please",
+        description="Secret key for JWT tokens - MUST be changed in production"
     )
     algorithm: str = Field(
         default="HS256",
@@ -60,8 +66,82 @@ class SecuritySettings(BaseSettings):
         default=15,
         description="Lockout duration in minutes"
     )
+    reset_token_expire_hours: int = Field(
+        default=6,
+        description="Password reset token expiration time in hours"
+    )
+    max_reset_attempts_per_hour: int = Field(
+        default=5,
+        description="Maximum password reset attempts per hour per user"
+    )
 
-    model_config = {"env_prefix": "SECURITY_"}
+    @field_validator('secret_key')
+    @classmethod
+    def validate_secret_key(cls, v):
+        """Validate secret key meets basic security requirements."""
+        if len(v) < 32:
+            raise ValueError("Secret key must be at least 32 characters for security")
+        return v
+    
+    model_config = {
+        "env_prefix": "SECURITY_",
+        "env_file": ".env.development",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore"
+    }
+
+
+class EmailSettings(BaseSettings):
+    """Email configuration settings for password reset and notifications."""
+    
+    # SMTP Settings
+    smtp_server: str = Field(
+        default="smtp.gmail.com",
+        description="SMTP server hostname"
+    )
+    smtp_port: int = Field(
+        default=587,
+        description="SMTP server port (587 for TLS, 465 for SSL)"
+    )
+    smtp_username: str = Field(
+        default="",
+        description="SMTP username/email"
+    )
+    smtp_password: str = Field(
+        default="",
+        description="SMTP password or app password"
+    )
+    use_tls: bool = Field(
+        default=True,
+        description="Use TLS encryption (STARTTLS)"
+    )
+    use_ssl: bool = Field(
+        default=False,
+        description="Use SSL encryption"
+    )
+    
+    # Email Content Settings
+    from_email: str = Field(
+        default="noreply@localai.app",
+        description="From email address for password reset emails"
+    )
+    from_name: str = Field(
+        default="LocalAI",
+        description="From name for password reset emails"
+    )
+    
+    # Email Template Settings
+    base_url: str = Field(
+        default="http://localhost:4321",
+        description="Base URL for password reset links"
+    )
+    
+    model_config = {
+        "env_prefix": "EMAIL_",
+        "env_file": ".env.development",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore"
+    }
 
 
 class RateLimitSettings(BaseSettings):
@@ -80,7 +160,12 @@ class RateLimitSettings(BaseSettings):
         description="Model requests per minute per IP"
     )
 
-    model_config = {"env_prefix": "RATE_LIMIT_"}
+    model_config = {
+        "env_prefix": "RATE_LIMIT_",
+        "env_file": ".env.development",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore"
+    }
 
 
 class OllamaSettings(BaseSettings):
@@ -99,7 +184,12 @@ class OllamaSettings(BaseSettings):
         description="Maximum number of retries"
     )
 
-    model_config = {"env_prefix": "OLLAMA_"}
+    model_config = {
+        "env_prefix": "OLLAMA_",
+        "env_file": ".env.development",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore"
+    }
 
 
 class OpenAISettings(BaseSettings):
@@ -161,9 +251,9 @@ class AppSettings(BaseSettings):
     )
     
     # CORS settings
-    cors_origins: List[str] = Field(
-        default=["http://localhost:4321", "http://localhost:3000"],
-        description="Allowed CORS origins"
+    cors_origins: str = Field(
+        default="http://localhost:4321,http://localhost:3000,http://localhost:4322",
+        description="Allowed CORS origins (comma-separated)"
     )
     cors_credentials: bool = Field(
         default=True,
@@ -178,6 +268,38 @@ class AppSettings(BaseSettings):
     max_thread_id_length: int = Field(
         default=100,
         description="Maximum thread ID length"
+    )
+    
+    # Tool Management
+    arcade_api_key: Optional[str] = Field(
+        default=None,
+        description="Arcade API key for tool integration"
+    )
+    default_toolkits: str = Field(
+        default="Gmail,Slack,Calendar,Drive",
+        description="Default available toolkits (comma-separated)"
+    )
+    max_tool_calls_per_turn: int = Field(
+        default=5,
+        description="Maximum tool calls per conversation turn"
+    )
+    max_recursion_depth: int = Field(
+        default=25,
+        description="Maximum recursion depth for tool calls"
+    )
+    
+    # Model defaults (moved from provider-specific to general)
+    default_temperature: float = Field(
+        default=0.7,
+        description="Default temperature for model responses"
+    )
+    default_max_tokens: int = Field(
+        default=4000,
+        description="Default maximum tokens per response"
+    )
+    default_timeout: int = Field(
+        default=30,
+        description="Default timeout for API calls in seconds"
     )
     
     # Logging settings
@@ -199,20 +321,32 @@ class AppSettings(BaseSettings):
         default=Path("data"),
         description="Data directory"
     )
+    preferences_file: Path = Field(
+        default=Path("user_preferences.json"),
+        description="User preferences file path"
+    )
     
     # Component settings
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)
+    email_config: EmailSettings = Field(default_factory=EmailSettings)
     rate_limit: RateLimitSettings = Field(default_factory=RateLimitSettings)
     ollama: OllamaSettings = Field(default_factory=OllamaSettings)
     openai: OpenAISettings = Field(default_factory=OpenAISettings)
     
-    @field_validator('cors_origins', mode='before')
-    @classmethod
-    def parse_cors_origins(cls, v):
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """Get CORS origins as a list."""
+        if isinstance(self.cors_origins, str):
+            return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        return self.cors_origins
+    
+    @property
+    def default_toolkits_list(self) -> List[str]:
+        """Get default toolkits as a list."""
+        if isinstance(self.default_toolkits, str):
+            return [toolkit.strip() for toolkit in self.default_toolkits.split(",") if toolkit.strip()]
+        return self.default_toolkits
     
     @field_validator('environment')
     @classmethod
@@ -230,6 +364,30 @@ class AppSettings(BaseSettings):
             raise ValueError(f'Log level must be one of: {", ".join(valid_levels)}')
         return v.upper()
     
+    @property
+    def tool_capabilities(self) -> Dict[str, str]:
+        """Tool capability descriptions."""
+        return {
+            "Gmail": "📧 Read, send, and manage emails",
+            "Slack": "💬 Send messages and communicate in channels", 
+            "Calendar": "📅 View and manage calendar events",
+            "Drive": "📁 Access and manage files and documents"
+        }
+    
+    @property
+    def tool_conflicts(self) -> Dict[str, Dict]:
+        """Tool conflict detection mapping."""
+        return {
+            "Gmail": {"conflicts_with": [], "note": ""},
+            "Slack": {"conflicts_with": [], "note": ""},
+            "Calendar": {"conflicts_with": [], "note": ""},
+            "Drive": {"conflicts_with": [], "note": ""},
+            # Example future tools that might conflict
+            "Outlook": {"conflicts_with": ["Gmail"], "note": "both provide email functionality"},
+            "Teams": {"conflicts_with": ["Slack"], "note": "both provide messaging functionality"},
+            "OneDrive": {"conflicts_with": ["Drive"], "note": "both provide file storage"}
+        }
+    
     def ensure_directories(self):
         """Ensure required directories exist."""
         self.config_dir.mkdir(exist_ok=True)
@@ -244,19 +402,64 @@ class AppSettings(BaseSettings):
     def is_development(self) -> bool:
         """Check if running in development environment."""
         return self.environment == "development"
+    
+    @field_validator('cors_origins')
+    @classmethod
+    def validate_cors_origins(cls, v, info):
+        """Validate CORS origins for security."""
+        import os
+        environment = os.getenv('ENVIRONMENT', 'development').lower()
+        
+        origins = [origin.strip() for origin in v.split(",") if origin.strip()]
+        
+        # In production, warn about wildcard origins
+        if environment == 'production':
+            if '*' in v or 'localhost' in v.lower():
+                raise ValueError("Production environment should not allow wildcard (*) or localhost CORS origins")
+        
+        # Validate each origin format
+        for origin in origins:
+            if origin != '*' and not re.match(r'^https?://[a-zA-Z0-9.-]+(:[0-9]+)?$', origin):
+                raise ValueError(f"Invalid CORS origin format: {origin}")
+        
+        return v
+    
+    @field_validator('debug')
+    @classmethod
+    def validate_debug_mode(cls, v, info):
+        """Validate debug mode setting."""
+        import os
+        environment = os.getenv('ENVIRONMENT', 'development').lower()
+        
+        # Debug should be disabled in production
+        if environment == 'production' and v is True:
+            raise ValueError("Debug mode must be disabled in production environment")
+        
+        return v
+    
+    @field_validator('host')
+    @classmethod
+    def validate_host(cls, v, info):
+        """Validate host binding."""
+        import os
+        environment = os.getenv('ENVIRONMENT', 'development').lower()
+        
+        # In production, consider security implications of 0.0.0.0
+        if environment == 'production' and v == '0.0.0.0':
+            import warnings
+            warnings.warn("Binding to 0.0.0.0 in production may expose the service. Consider using specific interfaces.")
+        
+        return v
 
     model_config = {
-        "env_file": ".env",
+        "env_file": ".env.development",
         "env_file_encoding": "utf-8",
-        "case_sensitive": False
+        "case_sensitive": False,
+        "extra": "ignore"  # Ignore unknown environment variables
     }
 
 
-# Global settings instance
+# Global settings instance  
 def get_settings() -> AppSettings:
     """Get application settings instance."""
     return AppSettings()
-
-
-# Create settings instance
-settings = get_settings()

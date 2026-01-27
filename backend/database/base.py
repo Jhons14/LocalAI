@@ -5,7 +5,9 @@ SQLAlchemy base configuration and declarative base.
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from config.settings import settings
+from config.settings import get_settings
+
+settings = get_settings()
 
 # Create engine based on settings
 engine = create_engine(
@@ -31,3 +33,17 @@ naming_convention = {
 
 metadata = MetaData(naming_convention=naming_convention)
 Base = declarative_base(metadata=metadata)
+
+
+def get_db():
+    """
+    Dependency to get database session.
+    
+    Yields:
+        Database session that will be closed after use
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

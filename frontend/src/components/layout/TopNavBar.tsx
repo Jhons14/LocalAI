@@ -5,6 +5,7 @@ import { useMobileFirst } from '@/hooks/useResponsive';
 import { ChatHistoryManager } from '@/components/chat/ChatHistoryManager';
 import { ApiKeyModal } from '@/components/ui/ApiKeyModal';
 import { Tools } from '../ui/Tools';
+import { AuthStatus } from '@/components/auth/AuthStatus';
 
 export const TopNavBar = memo(function TopNavBar() {
   const { activeModel, tempApiKey, clear } = useChatHistoryContext();
@@ -28,6 +29,10 @@ export const TopNavBar = memo(function TopNavBar() {
         >
           {activeModel?.model || 'Select a model...'}
         </h1>
+      </div>
+
+      <div className='w-full'>
+        <AuthStatus />
       </div>
       <div className={`flex justify-end gap-4 ${isMobile && 'flex-col'}`}>
         <div className='flex items-center gap-2'>

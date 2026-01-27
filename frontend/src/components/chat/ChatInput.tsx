@@ -5,12 +5,13 @@ import { useMobileFirst } from '@/hooks/useResponsive';
 import { useAriaDescribedBy } from '@/hooks/useAccessibility';
 import { useValidation } from '@/hooks/useValidation';
 import { useToast } from '@/hooks/useToast';
+import { DocumentUpload } from '@/components/ui/DocumentUpload';
 import type { ChatInputProps } from '@/types/components';
 
 export const ChatInput = memo(function ChatInput({
   thread_id,
 }: ChatInputProps) {
-  const { sendMessage, activeModel, tempApiKey, userEmail } = useChatHistoryContext();
+  const { sendMessage, activeModel, tempApiKey } = useChatHistoryContext();
   const { isMobile } = useMobileFirst();
   const { getDescribedBy } = useAriaDescribedBy('chat-input');
   const { validateField, getFieldError, hasFieldError, clearValidation } =
@@ -18,6 +19,7 @@ export const ChatInput = memo(function ChatInput({
   const { error: showError } = useToast();
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const [isValidating, setIsValidating] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent) => {
@@ -42,6 +44,7 @@ export const ChatInput = memo(function ChatInput({
       try {
         // Use sanitized value if available
         const sanitizedMessage = validation.sanitizedValue || message;
+
         if (!activeModel) return;
 
         sendMessage({
@@ -51,17 +54,28 @@ export const ChatInput = memo(function ChatInput({
           provider: activeModel.provider,
           toolkits: activeModel.toolkits,
           api_key: tempApiKey,
-          email: userEmail,
+          ...(selectedFile && { document: selectedFile }),
         });
 
         clearValidation('message');
+        // Clear document after sending
+        setSelectedFile(null);
       } catch (error) {
         showError('Send Failed', 'Failed to send message. Please try again.');
       } finally {
         setIsValidating(false);
       }
     },
-    [sendMessage, thread_id, validateField, showError, clearValidation]
+    [
+      sendMessage,
+      thread_id,
+      validateField,
+      showError,
+      clearValidation,
+      selectedFile,
+      activeModel,
+      tempApiKey,
+    ],
   );
 
   const handleKeyDown = useCallback(
@@ -71,7 +85,7 @@ export const ChatInput = memo(function ChatInput({
         handleSubmit(event as any);
       }
     },
-    [handleSubmit]
+    [handleSubmit],
   );
 
   const handleInputChange = useCallback(
@@ -82,15 +96,32 @@ export const ChatInput = memo(function ChatInput({
         clearValidation('message');
       }
     },
-    [hasFieldError, clearValidation]
+    [hasFieldError, clearValidation],
   );
+
+  const handleFileSelect = useCallback((file: File) => {
+    setSelectedFile(file);
+  }, []);
+
+  const handleFileRemove = useCallback(() => {
+    setSelectedFile(null);
+  }, []);
 
   return (
     <div
-      className={`border-t border-[#999999] ${isMobile ? 'p-3' : 'p-4'}`}
+      className={`border-t border-[#999999] ${
+        isMobile ? 'p-3' : 'p-4'
+      } space-y-3`}
       role='region'
       aria-label='Message input'
     >
+      {/* Document Upload Component */}
+      <DocumentUpload
+        onFileSelect={handleFileSelect}
+        onFileRemove={handleFileRemove}
+        selectedFile={selectedFile}
+        disabled={isValidating}
+      />
       <form
         className={`flex items-end bg-[#333333] border border-[#999999] rounded-xl ${
           isMobile ? 'p-1' : 'p-2'
