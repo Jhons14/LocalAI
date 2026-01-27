@@ -605,7 +605,7 @@ async def list_models(
     provider: Optional[ModelProvider] = None,
     current_user: Optional[User] = Depends(get_optional_user)
 ):
-    """List available models by provider."""
+    """List available models by provider (returns model IDs only for backward compatibility)."""
     models = {}
 
     if not provider or provider == ModelProvider.OLLAMA:
@@ -619,27 +619,72 @@ async def list_models(
             models["ollama"] = []
 
     if not provider or provider == ModelProvider.OPENAI:
-        models["openai"] = [
-            "gpt-4-turbo-preview",
-            "gpt-4",
-            "gpt-3.5-turbo",
-            "gpt-3.5-turbo-16k"
-        ]
+        models["openai"] = settings.openai_models_list
 
     if not provider or provider == ModelProvider.ANTHROPIC:
-        models["anthropic"] = [
-            "claude-3-opus-20240229",
-            "claude-3-sonnet-20240229",
-            "claude-3-haiku-20240307"
-        ]
+        models["anthropic"] = settings.anthropic_models_list
 
     if not provider or provider == ModelProvider.GOOGLE:
-        models["google"] = [
-            "gemini-pro",
-            "gemini-pro-vision"
-        ]
+        models["google"] = settings.google_models_list
 
     return models
+
+
+@app.get("/providers")
+@limiter.limit("20/minute")
+async def list_providers(
+    request: Request,
+    current_user: Optional[User] = Depends(get_optional_user)
+):
+    """
+    List all providers with their models (includes display titles).
+    This endpoint is designed for frontend consumption.
+    """
+    config = settings.models_config
+    providers_config = config.get("providers", {})
+
+    # Build response with Ollama models fetched dynamically
+    result = {}
+
+    for provider_key, provider_data in providers_config.items():
+        provider_info = {
+            "name": provider_data.get("name", provider_key.title()),
+            "requires_api_key": provider_data.get("requires_api_key", True),
+            "models": []
+        }
+
+        if provider_key == "ollama":
+            # Fetch Ollama models dynamically
+            try:
+                response = requests.get(f"{settings.ollama.base_url}/api/tags", timeout=10)
+                response.raise_for_status()
+                ollama_models = response.json()["models"]
+                provider_info["models"] = [
+                    {
+                        "title": model["name"],
+                        "model": model["name"],
+                        "provider": "ollama"
+                    }
+                    for model in ollama_models
+                ]
+            except Exception as e:
+                logger.error(f"Error fetching Ollama models: {e}")
+                provider_info["models"] = []
+                provider_info["error"] = "Could not fetch Ollama models"
+        else:
+            # Use configured models with provider field added
+            provider_info["models"] = [
+                {
+                    "title": m.get("title", m["model"]),
+                    "model": m["model"],
+                    "provider": provider_key
+                }
+                for m in provider_data.get("models", [])
+            ]
+
+        result[provider_key] = provider_info
+
+    return result
 
 
 @app.get("/toolkits")
@@ -680,7 +725,8 @@ async def root():
         "endpoints": {
             "chat": "POST /chat - Chat with auto-configuration on first request",
             "chat-upload": "POST /chat-upload - Chat with file upload support",
-            "models": "GET /models - List available models",
+            "models": "GET /models - List available model IDs by provider",
+            "providers": "GET /providers - List providers with full model details (for frontend)",
             "toolkits": "GET /toolkits - List available tool toolkits",
             "thread_status": "GET /threads/{thread_id}/status - Get thread status",
             "delete_thread": "DELETE /threads/{thread_id} - Delete a thread",

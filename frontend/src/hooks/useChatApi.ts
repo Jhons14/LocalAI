@@ -81,6 +81,10 @@ export function useChatApi() {
     return getRequest('/models?provider=ollama');
   }, [getRequest]);
 
+  const getProviders = useCallback(async () => {
+    return getRequest('/providers');
+  }, [getRequest]);
+
   const cancelCurrentRequest = useCallback(() => {
     abortPreviousRequest();
   }, [abortPreviousRequest]);
@@ -88,6 +92,7 @@ export function useChatApi() {
   return {
     sendChatMessage,
     getOllamaModels,
+    getProviders,
     cancelCurrentRequest,
   };
 }

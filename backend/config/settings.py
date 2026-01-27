@@ -5,10 +5,12 @@ Provides environment-specific configurations and validation.
 
 import os
 import re
-from typing import List, Optional, Dict
+import json
+from typing import List, Optional, Dict, Any
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 from pathlib import Path
+from functools import lru_cache
 
 
 class DatabaseSettings(BaseSettings):
@@ -301,6 +303,12 @@ class AppSettings(BaseSettings):
         default=30,
         description="Default timeout for API calls in seconds"
     )
+
+    # Models configuration file path
+    models_config_file: Path = Field(
+        default=Path("config/models_config.json"),
+        description="Path to the models configuration JSON file"
+    )
     
     # Logging settings
     log_level: str = Field(
@@ -347,6 +355,37 @@ class AppSettings(BaseSettings):
         if isinstance(self.default_toolkits, str):
             return [toolkit.strip() for toolkit in self.default_toolkits.split(",") if toolkit.strip()]
         return self.default_toolkits
+
+    @property
+    def models_config(self) -> Dict[str, Any]:
+        """Load and return the models configuration from JSON file."""
+        return _load_models_config(self.models_config_file)
+
+    def get_provider_models(self, provider: str) -> List[Dict[str, str]]:
+        """Get models for a specific provider with title and model ID."""
+        config = self.models_config
+        provider_config = config.get("providers", {}).get(provider, {})
+        return provider_config.get("models", [])
+
+    def get_provider_model_ids(self, provider: str) -> List[str]:
+        """Get just the model IDs for a specific provider."""
+        models = self.get_provider_models(provider)
+        return [m["model"] for m in models]
+
+    @property
+    def openai_models_list(self) -> List[str]:
+        """Get OpenAI model IDs as a list."""
+        return self.get_provider_model_ids("openai")
+
+    @property
+    def anthropic_models_list(self) -> List[str]:
+        """Get Anthropic model IDs as a list."""
+        return self.get_provider_model_ids("anthropic")
+
+    @property
+    def google_models_list(self) -> List[str]:
+        """Get Google model IDs as a list."""
+        return self.get_provider_model_ids("google")
     
     @field_validator('environment')
     @classmethod
@@ -459,7 +498,21 @@ class AppSettings(BaseSettings):
     }
 
 
-# Global settings instance  
+@lru_cache(maxsize=1)
+def _load_models_config(config_path: Path) -> Dict[str, Any]:
+    """Load models configuration from JSON file with caching."""
+    try:
+        with open(config_path, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        # Return default empty config if file doesn't exist
+        return {"providers": {}}
+    except json.JSONDecodeError:
+        # Return default empty config if JSON is invalid
+        return {"providers": {}}
+
+
+# Global settings instance
 def get_settings() -> AppSettings:
     """Get application settings instance."""
     return AppSettings()

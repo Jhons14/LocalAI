@@ -29,45 +29,13 @@ export const SIDEBAR_STYLES = {
   MODEL_COUNT: 'text-xs text-gray-400 px-2 py-1',
 } as const;
 
-// Default provider configurations
+// Default provider configurations (fallback when API is unavailable)
+// These are populated dynamically from the backend /providers endpoint
 export const DEFAULT_PROVIDERS: Record<Provider, ModelConfig[]> = {
-  ollama: [], // Will be populated dynamically
-  openai: [
-    {
-      title: 'GPT-5 Nano',
-      model: 'gpt-5-nano',
-      provider: 'openai',
-    },
-    {
-      title: 'GPT-4.1 Nano',
-      model: 'gpt-4.1-nano',
-      provider: 'openai',
-    },
-  ],
-  anthropic: [
-    {
-      title: 'Claude 3 Opus',
-      model: 'claude-3-opus-20240229',
-      provider: 'anthropic',
-    },
-    {
-      title: 'Claude 3 Sonnet',
-      model: 'claude-3-sonnet-20240229',
-      provider: 'anthropic',
-    },
-  ],
-  google: [
-    {
-      title: 'Gemini Pro',
-      model: 'gemini-pro',
-      provider: 'google',
-    },
-    {
-      title: 'Gemini Pro Vision',
-      model: 'gemini-pro-vision',
-      provider: 'google',
-    },
-  ],
+  ollama: [],
+  openai: [],
+  anthropic: [],
+  google: [],
 } as const;
 
 // Error messages
