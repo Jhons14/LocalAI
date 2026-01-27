@@ -97,6 +97,18 @@ backend/user_preferences.json
 backend/inspect_db.py
 backend/view_data.py
 *.tmp
+
+# Test files (root directory)
+test-document.txt
+test_upload.docx
+test-*.txt
+test_*.docx
+
+# Personal files (should never be committed)
+CV_*.docx
+
+# Frontend test files
+frontend/test-*.html
 temp/
 tmp/
 

@@ -1,5 +1,0 @@
-This is a test document for uploading to the chat interface.
-
-It contains multiple lines of text to verify that the document upload feature works correctly.
-
-The document processor should read this content and include it in the prompt sent to the LLM.
